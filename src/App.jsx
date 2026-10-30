@@ -3,12 +3,11 @@ import {
   LayoutDashboard, Wallet, TrendingUp, Bot, FileText, Plus, Trash2, 
   Send, ShieldCheck, AlertCircle, User, LogOut, Sliders, Target, Compass, CreditCard, PiggyBank,
   RefreshCw, Globe, ArrowUpRight, ArrowDownRight, CheckCircle2, Loader2, AlertTriangle, Bell,
-  Download, ShieldAlert, Newspaper, Filter, Search, Zap, ExternalLink, Activity, Edit2, Save,
-  X, ChevronRight, DollarSign, Settings
+  Download, ShieldAlert, Newspaper, Filter, Search, Zap, ExternalLink, Activity, Edit2, Save
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  AreaChart, Area, PieChart, Pie, Cell, LineChart, Line
+  AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
 
 // --- FIREBASE INTEGRATION ---
@@ -140,11 +139,6 @@ const CATEGORY_COLORS = {
   'Rent': '#f59e0b',
   'Transport': '#3b82f6',
   'Salary': '#10b981',
-  'Capital Gain': '#059669',
-  'Dividend': '#34d399',
-  'Freelance': '#a7f3d0',
-  'Interest': '#6ee7b7',
-  'Gift': '#fbbf24',
   'Investment': '#00f2fe',
   'Utilities': '#6366f1',
   'Other': '#64748b'
@@ -235,14 +229,6 @@ export default function App() {
   const [authActionLoading, setAuthActionLoading] = useState(false);
   const [loginQuote, setLoginQuote] = useState('');
 
-  // Search and Alerts State
-  const [globalSearch, setGlobalSearch] = useState('');
-  const [showAlerts, setShowAlerts] = useState(false);
-  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
-
-  // Budget & Limit Management State
-  const [showBudgetModal, setShowBudgetModal] = useState(false);
-
   // Curated Inspiring & Engaging Investor Quotes
   const inspirationalQuotes = useMemo(() => [
     "“Rule No. 1: Never lose money. Rule No. 2: Never forget rule no. 1.” — Warren Buffett",
@@ -278,20 +264,13 @@ export default function App() {
     targetAmount: '',
     monthlyIncome: '30000',
     weeklyMaxSpend: '3500',
-    weeklyMinSavings: '1200',
-    budgetProfile: 'Standard',
-    profilePic: '',
-    gender: 'Female',
-    phone: '',
-    birthday: '',
-    homeAddress: ''
+    weeklyMinSavings: '1200'
   });
 
   // Data States
   const [activeTab, setActiveTab] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [portfolio, setPortfolio] = useState([]);
-  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Live Market API Sync Controls
   const [isSyncingMarket, setIsSyncingMarket] = useState(false);
@@ -374,7 +353,7 @@ export default function App() {
 
   // Modal Controls
   const [showAddTxModal, setShowAddTxModal] = useState(false);
-  const [newTx, setNewTx] = useState({ description: '', amount: '', category: 'Dining', type: 'expense', date: new Date().toISOString().split('T')[0], account: 'Bank Account' });
+  const [newTx, setNewTx] = useState({ description: '', amount: '', category: 'Dining', type: 'expense', date: new Date().toISOString().split('T')[0] });
 
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [newStock, setNewStock] = useState({ symbol: '', name: '', shares: '', buyPrice: '', currentPrice: '', currency: 'HKD', category: 'HK Equity' });
@@ -533,57 +512,7 @@ export default function App() {
     fetchLiveNews();
   };
 
-  // Filtered Data based on Search
-  const filteredTransactions = useMemo(() => {
-    if (!globalSearch) return transactions;
-    return transactions.filter(tx => 
-      tx.description.toLowerCase().includes(globalSearch.toLowerCase()) ||
-      tx.category.toLowerCase().includes(globalSearch.toLowerCase()) ||
-      (tx.account && tx.account.toLowerCase().includes(globalSearch.toLowerCase()))
-    );
-  }, [transactions, globalSearch]);
-
-  const filteredPortfolio = useMemo(() => {
-    if (!globalSearch) return portfolio;
-    return portfolio.filter(p => 
-      p.symbol.toLowerCase().includes(globalSearch.toLowerCase()) ||
-      p.name.toLowerCase().includes(globalSearch.toLowerCase())
-    );
-  }, [portfolio, globalSearch]);
-
-  // LIVE SEARCH DROPDOWN MATCHES
-  const searchNavMatches = useMemo(() => {
-    if (!globalSearch.trim()) return [];
-    const q = globalSearch.toLowerCase();
-    const tabs = [
-      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, keywords: 'home overview balance cash flow' },
-      { id: 'ledger', label: 'Transactions Ledger', icon: Wallet, keywords: 'expense income transactions record history' },
-      { id: 'report', label: 'Analytics & Audit', icon: ShieldAlert, keywords: 'report budget warning alert anomaly analytics' },
-      { id: 'portfolio', label: 'Investments & Stocks', icon: TrendingUp, keywords: 'stock equity portfolio shares crypto asset' },
-      { id: 'simulator', label: 'Strategic Modeler', icon: Sliders, keywords: 'wealth simulation compounding plan scenario' },
-      { id: 'debt', label: 'Debt Health', icon: CreditCard, keywords: 'credit card debt loan repayment interest' },
-      { id: 'mpf', label: 'MPF & Tax', icon: PiggyBank, keywords: 'tax mpf tvc deduction savings salary' },
-      { id: 'advisor', label: 'A.F.A. AI Chat', icon: Bot, keywords: 'ai advisor assistant prompt chat help' }
-    ];
-    return tabs.filter(t => t.label.toLowerCase().includes(q) || t.keywords.includes(q));
-  }, [globalSearch]);
-
-  const searchTransactionMatches = useMemo(() => {
-    if (!globalSearch.trim()) return [];
-    return transactions.filter(tx => 
-      tx.description.toLowerCase().includes(globalSearch.toLowerCase()) ||
-      tx.category.toLowerCase().includes(globalSearch.toLowerCase())
-    ).slice(0, 5);
-  }, [transactions, globalSearch]);
-
-  const searchPortfolioMatches = useMemo(() => {
-    if (!globalSearch.trim()) return [];
-    return portfolio.filter(p => 
-      p.symbol.toLowerCase().includes(globalSearch.toLowerCase()) ||
-      p.name.toLowerCase().includes(globalSearch.toLowerCase())
-    ).slice(0, 5);
-  }, [portfolio, globalSearch]);
-
+  // Filtered News Memo
   const filteredNews = useMemo(() => {
     return newsFeed.filter(item => {
       const matchesCategory = newsCategory === 'All' || item.category === newsCategory;
@@ -633,7 +562,7 @@ export default function App() {
         monthlyIncome: userProfile.monthlyIncome,
         weeklyMaxSpend: userProfile.weeklyMaxSpend,
         weeklyMinSavings: userProfile.weeklyMinSavings
-      }, { merge: true });
+      });
     } catch (err) {
       setAuthError(err.message || 'Registration failed. Please try again.');
       setOnboardingStep(2); 
@@ -644,35 +573,6 @@ export default function App() {
   const handleSignOut = () => signOut(auth);
 
   // --- HANDLERS: FIRESTORE MUTATIONS ---
-  const handleSaveBudgetLimits = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-    try {
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
-      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-      await setDoc(profileRef, {
-        weeklyMaxSpend: String(userProfile.weeklyMaxSpend || '3500'),
-        weeklyMinSavings: String(userProfile.weeklyMinSavings || '1200'),
-        monthlyIncome: String(userProfile.monthlyIncome || '30000'),
-        budgetProfile: userProfile.budgetProfile || 'Standard'
-      }, { merge: true });
-    } catch (error) {
-      console.error("Error saving budget limits:", error);
-      alert("Failed to update budget settings.");
-    } finally {
-      setShowBudgetModal(false);
-    }
-  };
-
-  const handleApplyPresetBudget = (presetName, spendLimit, savingsTarget) => {
-    setUserProfile(prev => ({
-      ...prev,
-      budgetProfile: presetName,
-      weeklyMaxSpend: String(spendLimit),
-      weeklyMinSavings: String(savingsTarget)
-    }));
-  };
-
   const handleAddTransaction = async (e) => {
     e.preventDefault();
     if (!newTx.description || !newTx.amount || !user) return;
@@ -682,12 +582,10 @@ export default function App() {
         ...newTx, 
         amount: parseFloat(newTx.amount) 
       });
+      setNewTx({ description: '', amount: '', category: 'Dining', type: 'expense', date: new Date().toISOString().split('T')[0] });
+      setShowAddTxModal(false);
     } catch (error) {
       console.error("Error adding transaction:", error);
-      alert("Failed to add transaction. Check permissions.");
-    } finally {
-      setNewTx({ description: '', amount: '', category: 'Dining', type: 'expense', date: new Date().toISOString().split('T')[0], account: 'Bank Account' });
-      setShowAddTxModal(false);
     }
   };
 
@@ -716,12 +614,10 @@ export default function App() {
         currency: newStock.currency || (isHK ? 'HKD' : 'USD'),
         category: newStock.category || (isHK ? 'HK Equity' : 'US Tech'),
       });
-    } catch (error) {
-      console.error("Error adding stock:", error);
-      alert("Failed to add asset. Check permissions.");
-    } finally {
       setShowAddStockModal(false);
       setNewStock({ symbol: '', name: '', shares: '', buyPrice: '', currentPrice: '', currency: 'HKD', category: 'HK Equity' });
+    } catch (error) {
+      console.error("Error adding stock:", error);
     }
   };
 
@@ -740,7 +636,7 @@ export default function App() {
     if (user) {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
       const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-      await setDoc(profileRef, { weeklyMaxSpend: newMaxSpend, weeklyMinSavings: newMinSavings }, { merge: true });
+      await updateDoc(profileRef, { weeklyMaxSpend: newMaxSpend, weeklyMinSavings: newMinSavings });
     }
   };
 
@@ -748,7 +644,7 @@ export default function App() {
     if (user && tempTarget) {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
       const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-      await setDoc(profileRef, { targetAmount: tempTarget }, { merge: true });
+      await updateDoc(profileRef, { targetAmount: tempTarget });
       setUserProfile(prev => ({ ...prev, targetAmount: tempTarget }));
     }
     setIsEditingTarget(false);
@@ -760,34 +656,11 @@ export default function App() {
     try {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
       const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-      await setDoc(profileRef, { debtAmount, debtRate, debtMinPay }, { merge: true });
+      await updateDoc(profileRef, { debtAmount, debtRate, debtMinPay });
     } catch (error) {
       console.error("Error saving debt plan", error);
-      alert("Failed to save debt plan.");
     } finally {
       setIsSavingDebt(false);
-    }
-  };
-
-  const handleSaveProfileInfo = async (e) => {
-    e.preventDefault();
-    if (!user) return;
-    try {
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
-      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-      await setDoc(profileRef, {
-        name: userProfile.name || '',
-        profilePic: userProfile.profilePic || '',
-        gender: userProfile.gender || 'Female',
-        phone: userProfile.phone || '',
-        birthday: userProfile.birthday || '',
-        homeAddress: userProfile.homeAddress || ''
-      }, { merge: true });
-    } catch (error) {
-      console.error("Error saving profile:", error);
-      alert("Failed to update profile.");
-    } finally {
-      setShowProfileModal(false);
     }
   };
 
@@ -796,66 +669,6 @@ export default function App() {
   const totalExpense = useMemo(() => transactions.filter(t => t.type === 'expense' && t.category !== 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const totalInvestmentDeposits = useMemo(() => transactions.filter(t => t.category === 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const netSavings = totalIncome - totalExpense - totalInvestmentDeposits;
-
-  // New Data Aggregations based on `account` field
-  const accountBalances = useMemo(() => {
-    const balances = {
-      'Bank Account': 0,
-      'Cash': 0,
-      'Octopus': 0,
-      'Credit Card': 0,
-      'Crypto': 0
-    };
-    transactions.forEach(t => {
-      const acc = t.account || 'Bank Account';
-      if (balances[acc] === undefined) balances[acc] = 0;
-      if (t.type === 'income') balances[acc] += Number(t.amount);
-      else balances[acc] -= Number(t.amount);
-    });
-    return Object.entries(balances)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a,b) => b.value - a.value);
-  }, [transactions]);
-
-  const paymentMethodsData = useMemo(() => {
-    const data = {};
-    transactions.filter(t => t.type === 'expense').forEach(t => {
-      const acc = t.account || 'Bank Account';
-      data[acc] = (data[acc] || 0) + Number(t.amount);
-    });
-    return Object.entries(data).map(([name, amount]) => ({ name, amount })).sort((a,b) => b.amount - a.amount);
-  }, [transactions]);
-
-  const receivingMethodsData = useMemo(() => {
-    const data = {};
-    transactions.filter(t => t.type === 'income').forEach(t => {
-      const acc = t.account || 'Bank Account';
-      data[acc] = (data[acc] || 0) + Number(t.amount);
-    });
-    return Object.entries(data).map(([name, amount]) => ({ name, amount })).sort((a,b) => b.amount - a.amount);
-  }, [transactions]);
-
-  const incomeCategoryData = useMemo(() => {
-    const data = {};
-    transactions.filter(t => t.type === 'income').forEach(t => {
-      data[t.category] = (data[t.category] || 0) + Number(t.amount);
-    });
-    return Object.entries(data).map(([name, value]) => ({ name, value })).sort((a,b) => b.value - a.value);
-  }, [transactions]);
-
-  const balanceOverTime = useMemo(() => {
-    let runningBalance = 0;
-    const data = [];
-    const sorted = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
-    sorted.forEach(t => {
-      runningBalance += (t.type === 'income' ? Number(t.amount) : -Number(t.amount));
-      data.push({
-        date: t.date,
-        balance: runningBalance
-      });
-    });
-    return data;
-  }, [transactions]);
 
   // --- COMPREHENSIVE ANOMALY & FREQUENCY ANALYZER ---
   const anomalyAnalysis = useMemo(() => {
@@ -1093,34 +906,6 @@ export default function App() {
   const portfolioUnrealizedGain = portfolioTotalValue - portfolioTotalCost;
   const portfolioGainPercent = portfolioTotalCost > 0 ? ((portfolioUnrealizedGain / portfolioTotalCost) * 100).toFixed(2) : '0.00';
 
-  // New Portfolio Dash Data
-  const portfolioDiversity = useMemo(() => {
-    const data = {};
-    portfolio.forEach(item => {
-      const rate = item.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1;
-      const val = item.shares * item.currentPrice * rate;
-      data[item.category] = (data[item.category] || 0) + val;
-    });
-    return Object.entries(data).map(([name, value]) => ({ name, value, fill: CATEGORY_COLORS[name] || '#00f2fe' }));
-  }, [portfolio]);
-
-  const portfolioGrowth = useMemo(() => {
-    const data = [];
-    let baseValue = portfolioTotalValue * 0.9; 
-    const dailyIncrement = (portfolioTotalValue - baseValue) / 30;
-    for (let i = 30; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const randomFluctuation = baseValue * (Math.random() * 0.02 - 0.01); 
-      baseValue += dailyIncrement + randomFluctuation;
-      data.push({
-        date: d.toLocaleDateString('default', { month: 'short', day: 'numeric' }),
-        value: i === 0 ? portfolioTotalValue : Math.max(0, baseValue)
-      });
-    }
-    return data;
-  }, [portfolioTotalValue]);
-
   const simulationTrajectory = useMemo(() => {
     const data = [];
     let currentBalance = simInitial;
@@ -1305,7 +1090,7 @@ export default function App() {
           <div className="relative flex items-center justify-center mb-10">
             <AppIcon className="w-28 h-28 drop-shadow-[0_0_35px_rgba(0,242,254,0.4)]" animateStroke={true} />
           </div>
-          <div translate="no" className="notranslate flex text-4xl sm:text-5xl font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400">
+          <div className="flex text-4xl sm:text-5xl font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400">
              <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards', opacity: 0 }}>A.</span>
              <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards', opacity: 0 }}>F.</span>
              <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards', opacity: 0 }}>A.</span>
@@ -1344,11 +1129,11 @@ export default function App() {
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div>
                       <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Email</label>
-                      <input type="email" required value={userProfile.email || ''} onChange={e => setUserProfile({...userProfile, email: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" placeholder="Enter your email" />
+                      <input type="email" required value={userProfile.email} onChange={e => setUserProfile({...userProfile, email: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" placeholder="Enter your email" />
                     </div>
                     <div>
                       <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Password</label>
-                      <input type="password" required value={userProfile.password || ''} onChange={e => setUserProfile({...userProfile, password: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" placeholder="••••••••" />
+                      <input type="password" required value={userProfile.password} onChange={e => setUserProfile({...userProfile, password: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" placeholder="••••••••" />
                     </div>
                     <button type="submit" disabled={authActionLoading} className="w-full py-4 mt-2 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] hover:from-cyan-400 hover:to-blue-500 text-[#0a0a0a] rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(0,242,254,0.3)] disabled:opacity-50">
                       {authActionLoading ? 'Syncing...' : 'Initiate Sequence'}
@@ -1371,7 +1156,7 @@ export default function App() {
                     <div className="space-y-5 anim-slide-in">
                       <div>
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Full Name</label>
-                        <input type="text" placeholder="e.g. Chloe Chan" value={userProfile.name || ''} onChange={e => setUserProfile({...userProfile, name: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
+                        <input type="text" placeholder="e.g. Chloe Chan" value={userProfile.name} onChange={e => setUserProfile({...userProfile, name: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <button disabled={!userProfile.name} onClick={() => setOnboardingStep(2)} className="w-full py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase tracking-widest">Next Phase</button>
                     </div>
@@ -1381,13 +1166,13 @@ export default function App() {
                     <div className="space-y-4 anim-slide-in">
                       <div>
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Email Address</label>
-                        <input type="email" placeholder="chloe@hktech.io" value={userProfile.email || ''} onChange={e => setUserProfile({...userProfile, email: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white mb-4" />
+                        <input type="email" placeholder="chloe@hktech.io" value={userProfile.email} onChange={e => setUserProfile({...userProfile, email: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white mb-4" />
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Password Key</label>
-                        <input type="password" placeholder="Min 6 characters" value={userProfile.password || ''} onChange={e => setUserProfile({...userProfile, password: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
+                        <input type="password" placeholder="Min 6 characters" value={userProfile.password} onChange={e => setUserProfile({...userProfile, password: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(1)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
-                        <button disabled={!userProfile.email || (userProfile.password || '').length < 6} onClick={() => setOnboardingStep(3)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next Phase</button>
+                        <button disabled={!userProfile.email || userProfile.password.length < 6} onClick={() => setOnboardingStep(3)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next Phase</button>
                       </div>
                     </div>
                   )}
@@ -1396,7 +1181,7 @@ export default function App() {
                     <div className="space-y-4 anim-slide-in">
                       <div>
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Wealth Target</label>
-                        <select value={userProfile.goal || ''} onChange={e => setUserProfile({...userProfile, goal: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white [&>option]:bg-slate-900">
+                        <select value={userProfile.goal} onChange={e => setUserProfile({...userProfile, goal: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white [&>option]:bg-slate-900">
                           <option value="">-- Select Objective --</option>
                           <option value="HK Property Down Payment">HK Property Down Payment</option>
                           <option value="Early Retirement (FIRE)">Early Retirement (FIRE)</option>
@@ -1415,7 +1200,7 @@ export default function App() {
                     <div className="space-y-4 anim-slide-in">
                       <div>
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Capital Target (HKD)</label>
-                        <input type="number" placeholder="e.g. 500000" value={userProfile.targetAmount || ''} onChange={e => setUserProfile({...userProfile, targetAmount: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
+                        <input type="number" placeholder="e.g. 500000" value={userProfile.targetAmount} onChange={e => setUserProfile({...userProfile, targetAmount: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(3)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
@@ -1455,21 +1240,17 @@ export default function App() {
           <div className="p-5 flex flex-col gap-1 border-b border-slate-800/50">
              <div className="flex items-center gap-3">
                 <AppIcon className="w-7 h-7" />
-                <h1 translate="no" className="notranslate text-lg font-bold tracking-wider text-white leading-none">A.F.A.</h1>
+                <h1 className="text-lg font-bold tracking-wider text-white leading-none">A.F.A.</h1>
              </div>
              <p className="text-[8px] text-slate-500 font-mono tracking-widest uppercase pl-[38px]">Automated Financial Assistant</p>
           </div>
 
-          <div onClick={() => setShowProfileModal(true)} className="p-3 flex items-center gap-2.5 mx-3 mt-4 bg-[#0d1117] rounded-xl border border-slate-800/80 cursor-pointer hover:border-[#00f2fe]/40 transition-all group">
-             {userProfile.profilePic ? (
-               <img src={userProfile.profilePic} alt="Avatar" className="w-8 h-8 rounded-full object-cover border border-slate-700" />
-             ) : (
-               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#00f2fe] to-blue-600 flex items-center justify-center text-[#0d1117] font-bold text-xs">
-                  {(userProfile.name || user.email).charAt(0).toUpperCase()}
-               </div>
-             )}
-             <div className="overflow-hidden flex-1">
-                <p className="text-xs font-bold text-white truncate group-hover:text-[#00f2fe] transition-colors">{userProfile.name || 'User'}</p>
+          <div className="p-3 flex items-center gap-2.5 mx-3 mt-4 bg-[#0d1117] rounded-xl border border-slate-800/80">
+             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#00f2fe] to-blue-600 flex items-center justify-center text-[#0d1117] font-bold text-xs">
+                {(userProfile.name || user.email).charAt(0).toUpperCase()}
+             </div>
+             <div className="overflow-hidden">
+                <p className="text-xs font-bold text-white truncate">{userProfile.name || 'Lily Rose'}</p>
                 <p className="text-[9px] text-slate-500 truncate">{user.email}</p>
              </div>
           </div>
@@ -1506,7 +1287,7 @@ export default function App() {
             <div className="space-y-1">
               <p className="px-3 text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-2">Planning & Tools</p>
               {[
-                { id: 'simulator', label: 'Strategic Modeler', icon: Sliders },
+                { id: 'simulator', label: 'Wealth Simulator', icon: Sliders },
                 { id: 'debt', label: 'Debt Health', icon: CreditCard },
                 { id: 'mpf', label: 'MPF & Tax', icon: PiggyBank },
                 { id: 'advisor', label: 'A.F.A. AI Chat', icon: Bot },
@@ -1547,7 +1328,7 @@ export default function App() {
                    activeTab === 'ledger' ? 'Transactions' : 
                    activeTab === 'report' ? 'Analytics' : 
                    activeTab === 'portfolio' ? 'Investments' : 
-                   activeTab === 'simulator' ? 'Strategic Wealth Modeler' : 
+                   activeTab === 'simulator' ? 'Wealth Simulator' : 
                    activeTab === 'debt' ? 'Debt Health' : 
                    activeTab === 'mpf' ? 'MPF & Tax' : 
                    activeTab === 'advisor' ? 'A.F.A AI Chat' : 'Diagnostic'}
@@ -1555,210 +1336,79 @@ export default function App() {
              </div>
              
              <div className="flex items-center gap-4">
-                {/* LIVE SEARCH BAR WITH POP-OVER RESULT PANEL */}
                 <div className="hidden sm:flex relative">
                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                   <input 
-                     type="text" 
-                     value={globalSearch || ''}
-                     onChange={(e) => {
-                       setGlobalSearch(e.target.value);
-                       setShowSearchDropdown(true);
-                     }}
-                     onFocus={() => setShowSearchDropdown(true)}
-                     placeholder="Search features, transactions, assets..." 
-                     className="bg-[#0d1117] border border-slate-800 rounded-full pl-9 pr-8 py-1.5 text-xs text-white focus:outline-none focus:border-[#00f2fe] w-72 font-mono transition-all" 
-                   />
-                   {globalSearch && (
-                     <button 
-                       onClick={() => { setGlobalSearch(''); setShowSearchDropdown(false); }}
-                       className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
-                     >
-                       <X className="w-3.5 h-3.5" />
-                     </button>
-                   )}
-
-                   {/* Live Search Results Dropdown */}
-                   {showSearchDropdown && globalSearch.trim() !== '' && (
-                     <div className="absolute top-full left-0 mt-2 w-80 sm:w-96 bg-[#161b22] border border-slate-700 shadow-2xl rounded-2xl z-50 p-3 max-h-96 overflow-y-auto no-scrollbar">
-                        <div className="flex justify-between items-center px-2 pb-2 mb-2 border-b border-slate-800">
-                           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Search Results</span>
-                           <button onClick={() => setShowSearchDropdown(false)} className="text-[10px] text-slate-500 hover:text-white">Close</button>
-                        </div>
-
-                        {/* Matching Modules/Pages */}
-                        {searchNavMatches.length > 0 && (
-                          <div className="mb-3">
-                             <div className="text-[9px] font-mono text-[#00f2fe] uppercase px-2 mb-1">Modules & Pages</div>
-                             {searchNavMatches.map(t => {
-                               const Icon = t.icon;
-                               return (
-                                 <div 
-                                   key={t.id}
-                                   onClick={() => {
-                                     setActiveTab(t.id);
-                                     setShowSearchDropdown(false);
-                                     setGlobalSearch('');
-                                   }}
-                                   className="flex items-center justify-between p-2 hover:bg-slate-800/60 rounded-xl cursor-pointer group transition-colors"
-                                 >
-                                   <div className="flex items-center gap-2">
-                                     <Icon className="w-3.5 h-3.5 text-[#00f2fe]" />
-                                     <span className="text-xs font-bold text-white group-hover:text-[#00f2fe]">{t.label}</span>
-                                   </div>
-                                   <ChevronRight className="w-3 h-3 text-slate-500 group-hover:text-white" />
-                                 </div>
-                               );
-                             })}
-                          </div>
-                        )}
-
-                        {/* Matching Portfolio Assets */}
-                        {searchPortfolioMatches.length > 0 && (
-                          <div className="mb-3">
-                             <div className="text-[9px] font-mono text-emerald-400 uppercase px-2 mb-1">Portfolio Assets</div>
-                             {searchPortfolioMatches.map(p => (
-                               <div 
-                                 key={p.id}
-                                 onClick={() => {
-                                   setActiveTab('portfolio');
-                                   setShowSearchDropdown(false);
-                                 }}
-                                 className="flex items-center justify-between p-2 hover:bg-slate-800/60 rounded-xl cursor-pointer group transition-colors"
-                               >
-                                 <div>
-                                   <span className="text-xs font-bold text-white group-hover:text-emerald-400">{p.symbol}</span>
-                                   <span className="text-[10px] text-slate-400 block">{p.name}</span>
-                                 </div>
-                                 <span className="text-xs font-mono font-bold text-emerald-400">${(p.shares * p.currentPrice).toLocaleString()}</span>
-                               </div>
-                             ))}
-                          </div>
-                        )}
-
-                        {/* Matching Ledger Transactions */}
-                        {searchTransactionMatches.length > 0 && (
-                          <div>
-                             <div className="text-[9px] font-mono text-cyan-300 uppercase px-2 mb-1">Transactions</div>
-                             {searchTransactionMatches.map(tx => (
-                               <div 
-                                 key={tx.id}
-                                 onClick={() => {
-                                   setActiveTab('ledger');
-                                   setShowSearchDropdown(false);
-                                 }}
-                                 className="flex items-center justify-between p-2 hover:bg-slate-800/60 rounded-xl cursor-pointer group transition-colors"
-                               >
-                                 <div>
-                                   <span className="text-xs font-bold text-white group-hover:text-[#00f2fe]">{tx.description}</span>
-                                   <span className="text-[10px] text-slate-500 block font-mono">{tx.date} • {tx.category}</span>
-                                 </div>
-                                 <span className={`text-xs font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-300'}`}>
-                                   {tx.type === 'income' ? '+' : '-'}${Number(tx.amount).toLocaleString()}
-                                 </span>
-                               </div>
-                             ))}
-                          </div>
-                        )}
-
-                        {searchNavMatches.length === 0 && searchPortfolioMatches.length === 0 && searchTransactionMatches.length === 0 && (
-                          <div className="p-4 text-center text-xs text-slate-500 font-mono">
-                            No matching records or modules found for "{globalSearch}".
-                          </div>
-                        )}
-                     </div>
-                   )}
+                   <input type="text" placeholder="Search or type a command" className="bg-[#0d1117] border border-slate-800 rounded-full pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-slate-600 w-56 font-mono" />
                 </div>
-                
-                <div className="relative">
-                  <button onClick={() => setShowAlerts(!showAlerts)} className="relative text-slate-400 hover:text-white transition-colors cursor-pointer p-1">
-                     <Bell className="w-4 h-4" />
-                     {systemAlerts.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full"></span>}
-                  </button>
-
-                  {showAlerts && (
-                    <div className="absolute right-0 mt-3 w-80 bg-[#161b22] border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-                      <div className="p-3 border-b border-slate-800 bg-[#0d1117] flex justify-between items-center">
-                        <span className="text-xs font-bold text-white">System Alerts</span>
-                        <button onClick={() => setShowBudgetModal(true)} className="text-[10px] font-mono text-[#00f2fe] hover:underline flex items-center gap-1">
-                          <Sliders className="w-3 h-3" /> Adjust Limit
-                        </button>
-                      </div>
-                      <div className="max-h-64 overflow-y-auto">
-                        {systemAlerts.length === 0 ? (
-                          <div className="p-4 text-center text-xs text-slate-500">No active alerts.</div>
-                        ) : (
-                          systemAlerts.map((a, i) => (
-                            <div key={i} className="p-3 border-b border-slate-800/50 hover:bg-slate-800/30">
-                               <div className="text-[10px] font-bold mb-1 flex items-center justify-between">
-                                 <div className="flex items-center gap-1">
-                                   {a.type === 'danger' ? <AlertTriangle className="w-3 h-3 text-rose-500"/> : (a.type === 'warning' ? <AlertTriangle className="w-3 h-3 text-amber-500" /> : <CheckCircle2 className="w-3 h-3 text-emerald-500"/>)}
-                                   <span className={a.type === 'danger' ? 'text-rose-400' : (a.type === 'warning' ? 'text-amber-400' : 'text-emerald-400')}>{a.title}</span>
-                                 </div>
-                               </div>
-                               <div className="text-[10px] text-slate-400 leading-relaxed">{a.message}</div>
-                               <button onClick={() => { setShowAlerts(false); setShowBudgetModal(true); }} className="mt-2 text-[9px] font-mono text-[#00f2fe] hover:underline">
-                                 Modify limit settings →
-                               </button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div onClick={() => setShowProfileModal(true)} className="flex items-center gap-2 cursor-pointer bg-[#0d1117] px-3 py-1.5 rounded-xl border border-slate-800 hover:border-[#00f2fe]/40 transition-colors">
-                   {userProfile.profilePic ? (
-                     <img src={userProfile.profilePic} alt="Avatar" className="w-6 h-6 rounded-full object-cover" />
-                   ) : (
-                     <div className="w-6 h-6 rounded-full bg-[#00f2fe] text-[#0d1117] font-bold text-[10px] flex items-center justify-center">
-                       {(userProfile.name || user.email).charAt(0).toUpperCase()}
-                     </div>
-                   )}
-                   <span className="text-xs font-bold text-slate-200 hidden sm:inline">{userProfile.name || 'User'}</span>
-                </div>
+                <button className="relative text-slate-400 hover:text-white transition-colors cursor-pointer">
+                   <Bell className="w-4 h-4" />
+                   {systemAlerts.length > 0 && <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full"></span>}
+                </button>
              </div>
           </header>
 
           <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
             
-            {/* DASHBOARD TAB */}
+            {/* DASHBOARD TAB (Compact, sleek reference layout) */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6 anim-slide-in">
                 
+                {systemAlerts.length > 0 && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-3 text-xs text-rose-300">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span><strong>Spending Alert:</strong> {systemAlerts[0].message}</span>
+                    <button onClick={() => setActiveTab('report')} className="ml-auto text-[#00f2fe] font-bold hover:underline cursor-pointer">See details →</button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-2">
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#00f2fe]"/> Total Balance</span>
+                       <span className="text-slate-600 cursor-pointer text-xs">•••</span>
                     </div>
                     <div className="text-2xl font-black text-white mt-1 mb-2">
                        ${(portfolioTotalValue + (netSavings > 0 ? netSavings : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                       <span className="text-slate-500">Positive growth</span>
+                       <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-bold border border-emerald-500/20">+12.4%</span>
                     </div>
                   </div>
 
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-2">
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-blue-400"/> Total Income</span>
+                       <span className="text-slate-600 cursor-pointer text-xs">•••</span>
                     </div>
                     <div className="text-2xl font-black text-white mt-1 mb-2">
                        ${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                       <span className="text-slate-500">Monthly increase</span>
+                       <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-bold border border-emerald-500/20">+8.6%</span>
                     </div>
                   </div>
 
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-2">
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><ArrowDownRight className="w-3.5 h-3.5 text-rose-400"/> Total Expenses</span>
+                       <span className="text-slate-600 cursor-pointer text-xs">•••</span>
                     </div>
                     <div className="text-2xl font-black text-white mt-1 mb-2">
                        ${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                       <span className="text-slate-500">Lower spending</span>
+                       <span className="px-2 py-0.5 bg-rose-500/10 text-rose-400 rounded font-bold border border-rose-500/20">-5.1%</span>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                  
                   {/* CASH FLOW OVERVIEW CHART */}
-                  <div className="lg:col-span-2 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col">
+                  <div className="xl:col-span-2 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col">
                      <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xs font-bold text-white uppercase tracking-wider">Cash Flow Overview</h3>
                         <div className="flex bg-[#0d1117] rounded-lg border border-slate-800 p-0.5 text-[10px]">
@@ -1801,123 +1451,51 @@ export default function App() {
                      </div>
                   </div>
 
-                  {/* Financial Health Index replacement */}
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col justify-center items-center">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2 self-start w-full">Financial Health Index</h3>
-                    <p className="text-[10px] text-slate-400 mb-6 text-left w-full">50/30/20 & Rent Burden Evaluation</p>
-                    
-                    <div className="relative w-48 h-28 flex flex-col items-center justify-end">
-                      <svg viewBox="-10 -15 220 115" className="w-full h-full drop-shadow-lg overflow-visible">
-                        {/* Red Zone 0-30 */}
-                        <path d="M 20 90 A 70 70 0 0 1 54 27" fill="none" stroke="#f43f5e" strokeWidth="25" strokeLinecap="butt" />
-                        {/* Yellow Zone 30-70 */}
-                        <path d="M 54 27 A 70 70 0 0 1 146 27" fill="none" stroke="#facc15" strokeWidth="25" strokeLinecap="butt" />
-                        {/* Green Zone 70-100 */}
-                        <path d="M 146 27 A 70 70 0 0 1 180 90" fill="none" stroke="#10b981" strokeWidth="25" strokeLinecap="butt" />
-                        
-                        {/* Gauge Needle Calculation */}
-                        <g style={{ transform: `rotate(${(healthScore * 1.8) - 90}deg)`, transformOrigin: '100px 90px', transition: 'transform 1s ease-out' }}>
-                          <polygon points="96,90 104,90 100,20" fill="#334155" />
-                          <circle cx="100" cy="90" r="8" fill="#1e293b" />
-                        </g>
-                      </svg>
-                      <div className="absolute bottom-2 text-xl font-black text-white">{healthScore.toFixed(0)} / 100</div>
-                    </div>
-                    <div className="mt-4 w-full space-y-2">
-                       <div className="flex justify-between text-[10px] font-mono">
-                         <span className="text-slate-400">Savings Rate:</span>
-                         <span className={savingsRatio >= 20 ? 'text-emerald-400' : 'text-rose-400'}>{savingsRatio.toFixed(1)}%</span>
-                       </div>
-                       <div className="flex justify-between text-[10px] font-mono">
-                         <span className="text-slate-400">Rent Burden:</span>
-                         <span className={rentBurdenRatio <= 35 ? 'text-emerald-400' : 'text-rose-400'}>{rentBurdenRatio.toFixed(1)}%</span>
-                       </div>
-                    </div>
-                  </div>
-                </div>
+                  {/* CARDS SECTION */}
+                  <div className="space-y-6">
+                     <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
+                        <div className="flex justify-between items-center mb-4">
+                           <h3 className="text-xs font-bold text-white uppercase tracking-wider">My Cards</h3>
+                           <button onClick={() => setShowAddTxModal(true)} className="text-[10px] text-[#00f2fe] font-mono px-2.5 py-1 bg-[#00f2fe]/10 rounded border border-[#00f2fe]/20 hover:bg-[#00f2fe]/20 cursor-pointer">+ Add Card</button>
+                        </div>
+                        {/* Visual Card */}
+                        <div className="h-38 rounded-xl bg-gradient-to-br from-[#1f242d] via-[#161b22] to-[#00f2fe]/15 border border-slate-700/60 p-4 flex flex-col justify-between relative overflow-hidden shadow-xl">
+                           <div className="absolute top-0 right-0 w-28 h-28 bg-[#00f2fe]/10 rounded-full blur-[35px]"></div>
+                           <div className="flex justify-between items-center relative z-10">
+                              <ShieldCheck className="w-5 h-5 text-slate-300" />
+                              <span className="font-black text-slate-200 italic text-xs tracking-wider">VISA</span>
+                           </div>
+                           <div className="font-mono text-base tracking-widest text-white relative z-10 opacity-90">
+                              3110 2322 **** 1123
+                           </div>
+                           <div className="flex justify-between text-[10px] font-mono text-slate-400 relative z-10 uppercase">
+                              <div>
+                                 <span className="block text-[7px] opacity-50 mb-0.5">Card Holder</span>
+                                 <span className="text-white">{userProfile.name || 'Lily Rose'}</span>
+                              </div>
+                              <div>
+                                 <span className="block text-[7px] opacity-50 mb-0.5">Expires</span>
+                                 <span className="text-white">11/30</span>
+                              </div>
+                           </div>
+                        </div>
 
-                {/* NEW DASHBOARD CHARTS */}
-                <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md mb-6">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Account Balance Over Time</h3>
-                  <div className="h-64 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={balanceOverTime}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
-                        <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                        <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                        <Line type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={3} dot={false} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Payment Methods</h3>
-                    <div className="h-48 w-full">
-                      {paymentMethodsData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No payment data</div> : 
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={paymentMethodsData}>
-                          <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                          <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                          <Bar dataKey="amount" fill="#93c5fd" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>}
-                    </div>
+                        <div className="mt-5">
+                           <div className="flex justify-between items-end mb-1.5">
+                              <div>
+                                <span className="text-[9px] text-slate-500 uppercase font-mono block">Card Spending</span>
+                                <span className="text-lg font-bold text-white">${weeklySpentTotal.toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+                              </div>
+                              <span className="text-[10px] text-emerald-400 font-bold">+0.8% vs last month</span>
+                           </div>
+                           <div className="w-full bg-[#0d1117] h-2 rounded-full overflow-hidden mb-1.5 border border-slate-800">
+                              <div className="h-full bg-gradient-to-r from-[#00f2fe] to-blue-500 rounded-full" style={{width: `${Math.min(100, (weeklySpentTotal / (Number(userProfile.weeklyMaxSpend) || 4000)) * 100)}%`}}></div>
+                           </div>
+                           <span className="text-[9px] text-slate-500 font-mono">Monthly Limit: ${Number(userProfile.weeklyMaxSpend || 4000).toLocaleString()}</span>
+                        </div>
+                     </div>
                   </div>
 
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Receiving Methods</h3>
-                    <div className="h-48 w-full">
-                      {receivingMethodsData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No receiving data</div> : 
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={receivingMethodsData}>
-                          <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                          <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                          <Bar dataKey="amount" fill="#6ee7b7" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                      </ResponsiveContainer>}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Expenses per Category</h3>
-                    <div className="h-64 w-full">
-                      {categoryBreakdown.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No expense data</div> : 
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={categoryBreakdown} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{fontSize: '9px', fill: '#fff'}}>
-                            {categoryBreakdown.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill || '#00f2fe'} stroke="rgba(0,0,0,0.2)" />
-                            ))}
-                          </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                        </PieChart>
-                      </ResponsiveContainer>}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Income per Category</h3>
-                    <div className="h-64 w-full">
-                      {incomeCategoryData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No income data</div> : 
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={incomeCategoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{fontSize: '9px', fill: '#fff'}}>
-                            {incomeCategoryData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'][index % 5]} stroke="rgba(0,0,0,0.2)" />
-                            ))}
-                          </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                        </PieChart>
-                      </ResponsiveContainer>}
-                    </div>
-                  </div>
                 </div>
 
                 {/* TRANSACTION HISTORY SECTION */}
@@ -1934,26 +1512,27 @@ export default function App() {
                      <table className="w-full text-left text-xs text-slate-300">
                         <thead className="bg-[#0d1117] text-slate-500 uppercase font-mono text-[9px] border-b border-slate-800">
                            <tr>
+                              <th className="py-3 px-5 font-medium">Transaction ID</th>
                               <th className="py-3 px-5 font-medium">Description</th>
-                              <th className="py-3 px-5 font-medium">Account</th>
                               <th className="py-3 px-5 font-medium">Category</th>
                               <th className="py-3 px-5 font-medium">Date</th>
                               <th className="py-3 px-5 font-medium text-right">Amount</th>
+                              <th className="py-3 px-5 font-medium text-center">Status</th>
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/50">
-                           {filteredTransactions.length === 0 && (
-                             <tr><td colSpan="5" className="py-8 text-center text-slate-600">No matching transactions.</td></tr>
+                           {transactions.length === 0 && (
+                             <tr><td colSpan="6" className="py-8 text-center text-slate-600">No transactions recorded.</td></tr>
                            )}
-                           {filteredTransactions.slice(0, 5).map((tx, idx) => (
+                           {transactions.slice(0, 5).map((tx, idx) => (
                               <tr key={tx.id || idx} className="hover:bg-slate-800/20 transition-colors group">
+                                 <td className="py-3 px-5 font-mono text-slate-500 text-[10px]">TXN-2026-00{idx+1}</td>
                                  <td className="py-3 px-5 font-medium text-white flex items-center gap-2">
                                     <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center shrink-0 text-[10px]" style={{color: CATEGORY_COLORS[tx.category] || '#fff'}}>
                                        {tx.category.charAt(0)}
                                     </div>
                                     {tx.description}
                                  </td>
-                                 <td className="py-3 px-5 font-mono text-slate-400">{tx.account || 'Bank Account'}</td>
                                  <td className="py-3 px-5">
                                     <span className="flex items-center gap-1.5 font-mono text-[11px]">
                                        <span className="w-1.5 h-1.5 rounded-full" style={{backgroundColor: CATEGORY_COLORS[tx.category] || '#94a3b8'}}></span>
@@ -1964,12 +1543,15 @@ export default function App() {
                                  <td className={`py-3 px-5 text-right font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-white'}`}>
                                     {tx.type === 'income' ? '+' : '-'}${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
                                  </td>
+                                 <td className="py-3 px-5 text-center">
+                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded font-mono text-[9px] uppercase tracking-wider">Success</span>
+                                 </td>
                               </tr>
                            ))}
                         </tbody>
                      </table>
                   </div>
-                  {filteredTransactions.length > 5 && (
+                  {transactions.length > 5 && (
                      <div className="p-3 border-t border-slate-800 bg-[#0d1117] text-center">
                         <button onClick={() => setActiveTab('ledger')} className="text-[10px] text-slate-400 hover:text-white uppercase font-mono tracking-widest cursor-pointer">View All Data →</button>
                      </div>
@@ -1991,6 +1573,12 @@ export default function App() {
                   </div>
                   
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={handlePrintPdfReport}
+                      className="bg-[#21262d] hover:bg-[#30363d] text-white border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Export
+                    </button>
                     <button 
                       onClick={() => setShowAddTxModal(true)}
                       className="bg-[#00f2fe] text-[#0d1117] px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md hover:bg-cyan-400 transition-colors"
@@ -2000,10 +1588,67 @@ export default function App() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Category Breakdown Pie Chart */}
+                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col items-center justify-center">
+                    <h3 className="text-xs font-mono uppercase text-slate-400 self-start mb-2">Category Distribution</h3>
+                    <div className="h-48 w-full relative">
+                      {categoryBreakdown.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-xs text-slate-600 font-mono">No expense data</div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={categoryBreakdown}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={45}
+                              outerRadius={65}
+                              paddingAngle={4}
+                              dataKey="value"
+                            >
+                              {categoryBreakdown.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.fill} stroke="rgba(0,0,0,0.2)" />
+                              ))}
+                            </Pie>
+                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`$${val.toLocaleString()}`, 'Amount']} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Category Progress Bars */}
+                  <div className="lg:col-span-2 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col justify-center">
+                    <h3 className="text-xs font-mono uppercase text-slate-400 mb-3">Expense Ranking & Shares</h3>
+                    {categoryBreakdown.length === 0 ? (
+                      <div className="text-xs text-slate-600 font-mono py-8 text-center">Add transactions to visualize category metrics.</div>
+                    ) : (
+                      <div className="space-y-2.5 max-h-44 overflow-y-auto pr-2 no-scrollbar">
+                        {categoryBreakdown.map(cat => (
+                          <div key={cat.name} className="space-y-1">
+                            <div className="flex justify-between text-xs font-mono">
+                              <span className="text-white font-medium flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.fill }}></span>
+                                {cat.name}
+                              </span>
+                              <span className="text-slate-400">${cat.value.toLocaleString()} ({cat.percentage}%)</span>
+                            </div>
+                            <div className="w-full bg-[#0d1117] h-1.5 rounded-full overflow-hidden border border-slate-800">
+                              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${cat.percentage}%`, backgroundColor: cat.fill }}></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Ledger Table */}
                 <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
                   <div className="px-5 py-3 bg-[#0d1117] border-b border-slate-800 flex justify-between items-center">
                     <span className="text-xs font-mono uppercase text-[#00f2fe]">Transaction History Log</span>
-                    <span className="text-[10px] text-slate-500 font-mono">{filteredTransactions.length} Records</span>
+                    <span className="text-[10px] text-slate-500 font-mono">{transactions.length} Records</span>
                   </div>
 
                   <table className="w-full text-left text-sm text-slate-300">
@@ -2011,23 +1656,21 @@ export default function App() {
                       <tr>
                         <th className="py-3 px-5">Date</th>
                         <th className="py-3 px-5">Description</th>
-                        <th className="py-3 px-5">Account</th>
                         <th className="py-3 px-5">Category</th>
                         <th className="py-3 px-5 text-right">Amount</th>
                         <th className="py-3 px-5 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {filteredTransactions.length === 0 && (
+                      {transactions.length === 0 && (
                         <tr>
-                          <td colSpan="6" className="py-8 text-center text-xs text-slate-600">No transactions recorded yet. Click "Add Record" to start logging cash flows.</td>
+                          <td colSpan="5" className="py-8 text-center text-xs text-slate-600">No transactions recorded yet. Click "Add Record" to start logging cash flows.</td>
                         </tr>
                       )}
-                      {filteredTransactions.map(tx => (
+                      {transactions.map(tx => (
                         <tr key={tx.id} className="hover:bg-slate-800/20 transition-colors">
                           <td className="py-3 px-5 text-xs font-mono text-slate-500">{tx.date}</td>
                           <td className="py-3 px-5 font-semibold text-white">{tx.description}</td>
-                          <td className="py-3 px-5 text-xs text-slate-400">{tx.account || 'Bank Account'}</td>
                           <td className="py-3 px-5">
                             <span 
                               className="px-2 py-0.5 rounded text-[10px] font-mono font-medium border border-slate-700/60"
@@ -2060,129 +1703,37 @@ export default function App() {
                       <h2 className="text-base font-bold text-white flex items-center gap-2">
                         <ShieldAlert className="w-4 h-4 text-[#00f2fe]" /> Analytics & Target Audit
                       </h2>
-                      <p className="text-xs text-slate-400 mt-0.5">Deep dive into anomalies, budget limits, and threshold alerts.</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Deep dive into anomalies and threshold alerts.</p>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setShowBudgetModal(true)}
-                        className="bg-[#00f2fe]/10 hover:bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/30 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all"
-                      >
-                        <Sliders className="w-4 h-4" /> Adjust Budget & Limits
-                      </button>
-
-                      <button
-                        onClick={handlePrintPdfReport}
-                        className="bg-[#21262d] hover:bg-[#30363d] text-white border border-slate-700 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all"
-                      >
-                        <Download className="w-4 h-4" /> Download Report (PDF)
-                      </button>
-                    </div>
+                    <button
+                      onClick={handlePrintPdfReport}
+                      className="bg-[#21262d] hover:bg-[#30363d] text-white border border-slate-700 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all"
+                    >
+                      <Download className="w-4 h-4" /> Download Report (PDF)
+                    </button>
                   </div>
 
                   {systemAlerts.length > 0 ? (
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-xs font-mono uppercase text-[#00f2fe]">System Detected Warnings & Alerts</h3>
-                        <button onClick={() => setShowBudgetModal(true)} className="text-[10px] font-mono text-[#00f2fe] hover:underline flex items-center gap-1">
-                          <Edit2 className="w-3 h-3" /> Change weekly limit (Current: HK$ {Number(userProfile.weeklyMaxSpend || 3500).toLocaleString()})
-                        </button>
-                      </div>
+                      <h3 className="text-xs font-mono uppercase text-[#00f2fe]">System Detected Warnings & Alerts</h3>
                       <div className="grid grid-cols-1 gap-3">
                         {systemAlerts.map((alert, idx) => (
-                          <div key={idx} className={`p-4 rounded-2xl border flex items-start justify-between gap-3 ${alert.type === 'danger' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'}`}>
-                            <div className="flex items-start gap-3">
-                              <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
-                              <div>
-                                <h4 className="font-bold text-sm">{alert.title}</h4>
-                                <p className="text-xs mt-0.5 opacity-90">{alert.message}</p>
-                              </div>
+                          <div key={idx} className={`p-4 rounded-2xl border flex items-start gap-3 ${alert.type === 'danger' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'}`}>
+                            <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
+                            <div>
+                              <h4 className="font-bold text-sm">{alert.title}</h4>
+                              <p className="text-xs mt-0.5 opacity-90">{alert.message}</p>
                             </div>
-                            <button onClick={() => setShowBudgetModal(true)} className="px-3 py-1.5 bg-black/40 hover:bg-black/60 rounded-xl text-[10px] font-mono text-white shrink-0 border border-white/10">
-                              Edit Limit
-                            </button>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" /> All spending is within normal target parameters!
-                      </div>
-                      <button onClick={() => setShowBudgetModal(true)} className="text-[10px] font-mono text-[#00f2fe] hover:underline">
-                        Adjust limits →
-                      </button>
+                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" /> All spending is within normal target parameters! No active anomalies detected.
                     </div>
                   )}
-
-                  {/* Analytics Breakdown */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                    {/* Weekend Spending */}
-                    <div className="bg-[#0d1117] p-5 rounded-2xl border border-slate-800">
-                       <h3 className="text-sm font-bold text-white mb-4">Weekend vs Weekday Ratio</h3>
-                       <div className="flex items-center gap-6">
-                          <div className="relative w-24 h-24 shrink-0">
-                             <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                                <path className="text-slate-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                                <path className="text-[#00f2fe]" strokeDasharray={`${anomalyAnalysis.weekendRatio}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                             </svg>
-                             <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{anomalyAnalysis.weekendRatio}%</div>
-                          </div>
-                          <div>
-                             <p className="text-xs text-slate-400 mb-1">Weekend Spending Total</p>
-                             <p className="text-xl font-bold text-[#00f2fe]">${anomalyAnalysis.weekendTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
-                             <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">High weekend ratios often indicate impulsive leisure and entertainment spending.</p>
-                          </div>
-                       </div>
-                    </div>
-
-                    {/* Frequent Categories */}
-                    <div className="bg-[#0d1117] p-5 rounded-2xl border border-slate-800">
-                       <h3 className="text-sm font-bold text-white mb-4">High-Frequency Habits</h3>
-                       {anomalyAnalysis.frequencyHabits.length > 0 ? (
-                          <div className="space-y-3">
-                             {anomalyAnalysis.frequencyHabits.map((habit, idx) => (
-                                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/30">
-                                   <span className="text-xs font-medium text-slate-300 flex items-center gap-2">
-                                      <span className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: CATEGORY_COLORS[habit.category] || '#fff'}}></span>
-                                      {habit.category}
-                                   </span>
-                                   <span className="text-xs font-mono text-slate-400 bg-slate-800 px-2 py-1 rounded">{habit.count} txns</span>
-                                </div>
-                             ))}
-                          </div>
-                       ) : (
-                          <div className="text-xs text-slate-500 h-full flex items-center justify-center">No high-frequency spending habits detected.</div>
-                       )}
-                    </div>
-                  </div>
-
-                  {/* Anomalies List */}
-                  <div className="bg-[#0d1117] p-5 rounded-2xl border border-slate-800 mt-6">
-                     <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-rose-400" />
-                        Anomalous High-Value Outflows
-                     </h3>
-                     <div className="space-y-3">
-                        {anomalyAnalysis.anomalies.length > 0 ? (
-                           anomalyAnalysis.anomalies.map(tx => (
-                              <div key={tx.id} className="flex justify-between items-center p-3 bg-rose-500/5 rounded-xl border border-rose-500/20">
-                                 <div>
-                                    <p className="text-xs font-bold text-white">{tx.description}</p>
-                                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">{tx.date} • {tx.category}</p>
-                                 </div>
-                                 <div className="text-sm font-bold text-rose-400 font-mono">
-                                    -${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                 </div>
-                              </div>
-                           ))
-                        ) : (
-                           <div className="text-xs text-slate-500 py-4 text-center border border-dashed border-slate-800 rounded-xl">No spending outliers detected above the statistical baseline.</div>
-                        )}
-                     </div>
-                  </div>
-
                 </div>
               </div>
             )}
@@ -2231,7 +1782,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden mb-6">
+                <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
                   <table className="w-full text-left text-sm text-slate-300">
                     <thead className="bg-[#0d1117] border-b border-slate-800 text-slate-500 uppercase text-[10px] font-mono">
                       <tr>
@@ -2244,12 +1795,12 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {filteredPortfolio.length === 0 && (
+                      {portfolio.length === 0 && (
                         <tr>
-                          <td colSpan="6" className="py-8 text-center text-xs text-slate-600">No assets in portfolio matching search.</td>
+                          <td colSpan="6" className="py-8 text-center text-xs text-slate-600">No assets in portfolio. Click "Add Asset" to track TSLA, AAPL, NVDA, 2800.HK, or 0700.HK.</td>
                         </tr>
                       )}
-                      {filteredPortfolio.map(item => {
+                      {portfolio.map(item => {
                         const currency = item.currency || (item.symbol.endsWith('.HK') ? 'HKD' : 'USD');
                         const rate = currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1;
                         const valueInHkd = item.shares * item.currentPrice * rate;
@@ -2289,56 +1840,6 @@ export default function App() {
                       })}
                     </tbody>
                   </table>
-                </div>
-
-                {/* NEW: Portfolio Dashboard Enhancements */}
-                <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md mb-6">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Portfolio Growth</h3>
-                  <div className="h-64 w-full">
-                    {portfolio.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">Add assets to see growth.</div> :
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={portfolioGrowth}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
-                        <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                        <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                        <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Portfolio Diversity</h3>
-                    <div className="h-56 w-full">
-                      {portfolio.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No portfolio data</div> :
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={portfolioDiversity} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{fontSize:'10px', fill:'#fff'}}>
-                            {portfolioDiversity.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill || ['#00f2fe', '#3b82f6', '#8b5cf6', '#ec4899'][index % 4]} stroke="rgba(0,0,0,0.2)"/>
-                            ))}
-                          </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`$${val.toLocaleString(undefined, {maximumFractionDigits:0})}`, 'Value']} />
-                        </PieChart>
-                      </ResponsiveContainer>}
-                    </div>
-                  </div>
-                  
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Account Activity</h3>
-                    <div className="space-y-4 max-h-56 overflow-y-auto pr-2">
-                      {accountBalances.map(acc => (
-                        <div key={acc.name} className="flex justify-between items-center border-b border-slate-800/50 pb-3 last:border-0 last:pb-0">
-                          <div>
-                            <div className="text-lg font-bold text-white">${acc.value.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
-                            <div className="text-[10px] font-mono text-slate-500 uppercase">{acc.name}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
 
                 {/* LIVE MARKET NEWS */}
@@ -2413,18 +1914,19 @@ export default function App() {
               </div>
             )}
 
-            {/* STRATEGIC WEALTH MODELER TAB */}
+            {/* WEALTH SIMULATOR TAB (Expanded Gamified Scenarios) */}
             {activeTab === 'simulator' && (
               <div className="space-y-6 anim-slide-in">
                 <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
                   <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Strategic Wealth Modeler
+                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Gamified Wealth Simulator
                   </h2>
                   <p className="text-xs text-slate-400 mb-6">Test live financial life events and compound wealth towards your target.</p>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-5 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
                       
+                      {/* Expanded Gamification Scenarios */}
                       <div className="pb-4 border-b border-slate-800">
                          <h3 className="text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-3">Interactive Life Scenarios</h3>
                          <div className="grid grid-cols-2 gap-2">
@@ -2511,15 +2013,15 @@ export default function App() {
                     <div className="space-y-4 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Total Unsecured Debt (HKD)</label>
-                        <input type="number" value={debtAmount || ''} onChange={e => setDebtAmount(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
+                        <input type="number" value={debtAmount} onChange={e => setDebtAmount(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">APR Interest Rate (%)</label>
-                        <input type="number" step="0.5" value={debtRate || ''} onChange={e => setDebtRate(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
+                        <input type="number" step="0.5" value={debtRate} onChange={e => setDebtRate(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Monthly Repayment Allocation (HKD)</label>
-                        <input type="number" value={debtMinPay || ''} onChange={e => setDebtMinPay(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
+                        <input type="number" value={debtMinPay} onChange={e => setDebtMinPay(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Payoff Strategy</label>
@@ -2580,11 +2082,11 @@ export default function App() {
                     <div className="space-y-4 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Monthly Employment Income (HKD)</label>
-                        <input type="number" value={mpfIncome || ''} onChange={e => setMpfIncome(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
+                        <input type="number" value={mpfIncome} onChange={e => setMpfIncome(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Monthly TVC Voluntary Contribution (HKD)</label>
-                        <input type="number" value={tvcMonthly || ''} onChange={e => setTvcMonthly(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
+                        <input type="number" value={tvcMonthly} onChange={e => setTvcMonthly(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                     </div>
 
@@ -2640,7 +2142,7 @@ export default function App() {
                 </div>
 
                 <form onSubmit={handleSendMessage} className="p-3 bg-[#0d1117] border-t border-slate-800 flex gap-2">
-                  <input type="text" value={userInput || ''} onChange={(e) => setUserInput(e.target.value)} placeholder="Ask about HK tax deductions, market news, or spending..." className="flex-1 px-4 py-2 rounded-xl bg-[#161b22] border border-slate-800 text-xs text-white focus:outline-none focus:border-[#00f2fe]" />
+                  <input type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="Ask about HK tax deductions, market news, or spending..." className="flex-1 px-4 py-2 rounded-xl bg-[#161b22] border border-slate-800 text-xs text-white focus:outline-none focus:border-[#00f2fe]" />
                   <button type="submit" className="bg-[#00f2fe] hover:bg-cyan-400 text-[#0d1117] px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
                     <Send className="w-3.5 h-3.5" /> Send
                   </button>
@@ -2684,147 +2186,26 @@ export default function App() {
       )}
 
       {/* MODALS */}
-      {/* BUDGET & LIMITS ADJUSTMENT MODAL */}
-      {showBudgetModal && (
-        <div className="fixed inset-0 z-50 bg-[#0d1117]/85 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
-          <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-lg w-full relative border border-slate-700/50 max-h-[90vh] overflow-y-auto no-scrollbar">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-lg font-black tracking-wider uppercase text-white flex items-center gap-2">
-                  <Sliders className="w-5 h-5 text-[#00f2fe]" /> Adjust Spending Limits & Budget
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">Configure flexible budgets for different months and situations.</p>
-              </div>
-              <button onClick={() => setShowBudgetModal(false)} className="text-slate-400 hover:text-white text-xs font-mono">✕ Close</button>
-            </div>
-
-            {/* Quick Presets */}
-            <div className="mb-6 bg-[#0d1117] p-4 rounded-2xl border border-slate-800">
-               <label className="block text-[10px] font-mono uppercase text-[#00f2fe] tracking-widest mb-3">Situational Budget Presets</label>
-               <div className="grid grid-cols-2 gap-2">
-                 {[
-                   { name: 'Standard Month', spend: 3500, save: 1200, desc: 'Regular baseline spending' },
-                   { name: 'Holiday & Festival', spend: 8000, save: 800, desc: 'Higher social/shopping' },
-                   { name: 'Travel & Special', spend: 15000, save: 500, desc: 'Vacation or event mode' },
-                   { name: 'Aggressive Savings', spend: 2000, save: 3000, desc: 'Maximized capital accumulation' },
-                 ].map((preset) => (
-                   <button
-                     key={preset.name}
-                     type="button"
-                     onClick={() => handleApplyPresetBudget(preset.name, preset.spend, preset.save)}
-                     className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                       userProfile.budgetProfile === preset.name 
-                         ? 'bg-[#00f2fe]/20 border-[#00f2fe] text-white' 
-                         : 'bg-slate-800/30 border-slate-800 text-slate-300 hover:border-slate-700'
-                     }`}
-                   >
-                     <div className="text-xs font-bold text-white flex justify-between">
-                       <span>{preset.name}</span>
-                       {userProfile.budgetProfile === preset.name && <CheckCircle2 className="w-3.5 h-3.5 text-[#00f2fe]" />}
-                     </div>
-                     <div className="text-[10px] font-mono text-slate-400 mt-1">HK$ {preset.spend.toLocaleString()} / week</div>
-                   </button>
-                 ))}
-               </div>
-            </div>
-
-            <form onSubmit={handleSaveBudgetLimits} className="space-y-4">
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">
-                  Weekly Max Spending Limit (HKD)
-                </label>
-                <input 
-                  type="number" 
-                  required 
-                  value={userProfile.weeklyMaxSpend || ''} 
-                  onChange={e => setUserProfile({...userProfile, weeklyMaxSpend: e.target.value, budgetProfile: 'Custom'})} 
-                  className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white font-mono" 
-                  placeholder="e.g. 3500" 
-                />
-                <p className="text-[10px] text-slate-500 mt-1">Triggers a system warning if weekly spending exceeds this amount.</p>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">
-                  Weekly Min Savings Target (HKD)
-                </label>
-                <input 
-                  type="number" 
-                  required 
-                  value={userProfile.weeklyMinSavings || ''} 
-                  onChange={e => setUserProfile({...userProfile, weeklyMinSavings: e.target.value, budgetProfile: 'Custom'})} 
-                  className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white font-mono" 
-                  placeholder="e.g. 1200" 
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">
-                  Monthly Baseline Income (HKD)
-                </label>
-                <input 
-                  type="number" 
-                  value={userProfile.monthlyIncome || ''} 
-                  onChange={e => setUserProfile({...userProfile, monthlyIncome: e.target.value})} 
-                  className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white font-mono" 
-                  placeholder="e.g. 30000" 
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button type="button" onClick={() => setShowBudgetModal(false)} className="px-5 py-2.5 text-xs text-slate-400 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 text-xs font-black uppercase bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 rounded-xl shadow-md cursor-pointer">Save Budget Settings</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {showAddTxModal && (
         <div className="fixed inset-0 z-50 bg-[#0d1117]/80 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
           <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-md w-full relative border border-slate-700/50">
             <h3 className="text-base font-bold tracking-wider uppercase text-white mb-5">Log Transaction</h3>
             <form onSubmit={handleAddTransaction} className="space-y-4">
-              <input type="text" required placeholder="Description" value={newTx.description || ''} onChange={e => setNewTx({ ...newTx, description: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-              <input type="number" required placeholder="Amount" value={newTx.amount || ''} onChange={e => setNewTx({ ...newTx, amount: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-              <input type="date" required value={newTx.date || ''} onChange={e => setNewTx({ ...newTx, date: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
-              <select value={newTx.account || ''} onChange={e => setNewTx({ ...newTx, account: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
-                <option value="Bank Account">Bank Account</option>
-                <option value="Cash">Cash</option>
-                <option value="Octopus">Octopus</option>
-                <option value="Credit Card">Credit Card</option>
-                <option value="Crypto">Crypto Wallet</option>
+              <input type="text" required placeholder="Description" value={newTx.description} onChange={e => setNewTx({ ...newTx, description: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+              <input type="number" required placeholder="Amount" value={newTx.amount} onChange={e => setNewTx({ ...newTx, amount: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+              <input type="date" required value={newTx.date} onChange={e => setNewTx({ ...newTx, date: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
+              <select value={newTx.category} onChange={e => setNewTx({ ...newTx, category: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
+                <option value="Salary">Salary</option>
+                <option value="Dining">Dining</option>
+                <option value="Shopping">Shopping</option>
+                <option value="Entertainment">Entertainment</option>
+                <option value="Rent">Rent</option>
+                <option value="Transport">Transport</option>
+                <option value="Investment">Investment Deposit</option>
               </select>
-              <select value={newTx.type} onChange={e => {
-                  const newType = e.target.value;
-                  setNewTx({ ...newTx, type: newType, category: newType === 'income' ? 'Salary' : 'Dining' });
-                }} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
+              <select value={newTx.type} onChange={e => setNewTx({ ...newTx, type: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
                 <option value="expense">Expense / Outflow</option>
                 <option value="income">Income / Inflow</option>
-              </select>
-              <select value={newTx.category} onChange={e => setNewTx({ ...newTx, category: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
-                {newTx.type === 'expense' ? (
-                  <>
-                    <option value="Dining">Dining</option>
-                    <option value="Shopping">Shopping</option>
-                    <option value="Entertainment">Entertainment</option>
-                    <option value="Rent">Rent</option>
-                    <option value="Transport">Transport</option>
-                    <option value="Utilities">Utilities</option>
-                    <option value="Investment">Investment Deposit</option>
-                    <option value="Other">Other</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="Salary">Salary</option>
-                    <option value="Capital Gain">Capital Gain</option>
-                    <option value="Dividend">Dividend</option>
-                    <option value="Freelance">Freelance</option>
-                    <option value="Interest">Interest</option>
-                    <option value="Gift">Gift</option>
-                    <option value="Other">Other</option>
-                  </>
-                )}
               </select>
               <div className="flex justify-end gap-2 pt-3">
                 <button type="button" onClick={() => setShowAddTxModal(false)} className="px-4 py-2 text-xs text-slate-400 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">Cancel</button>
@@ -2849,7 +2230,7 @@ export default function App() {
                     type="text" 
                     required 
                     placeholder="e.g., TSLA or 2800.HK" 
-                    value={newStock.symbol || ''} 
+                    value={newStock.symbol} 
                     onChange={e => setNewStock({ ...newStock, symbol: e.target.value })} 
                     className="flex-1 px-4 py-2.5 glass-input rounded-xl text-xs text-white uppercase font-mono" 
                   />
@@ -2867,17 +2248,17 @@ export default function App() {
 
               <div>
                 <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Asset Name</label>
-                <input type="text" placeholder="Auto-filled Asset Name" value={newStock.name || ''} readOnly className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white opacity-60 cursor-not-allowed" />
+                <input type="text" placeholder="Auto-filled Asset Name" value={newStock.name} readOnly className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white opacity-60 cursor-not-allowed" />
               </div>
 
               <div className="flex gap-3">
                 <div className="w-1/2">
                   <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Shares</label>
-                  <input type="number" step="any" required placeholder="Shares" value={newStock.shares || ''} onChange={e => setNewStock({ ...newStock, shares: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
+                  <input type="number" step="any" required placeholder="Shares" value={newStock.shares} onChange={e => setNewStock({ ...newStock, shares: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
                 </div>
                 <div className="w-1/2">
                   <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Currency</label>
-                  <select value={newStock.currency || 'HKD'} onChange={e => setNewStock({ ...newStock, currency: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono [&>option]:bg-[#161b22]">
+                  <select value={newStock.currency} onChange={e => setNewStock({ ...newStock, currency: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono [&>option]:bg-[#161b22]">
                     <option value="HKD">HKD ($)</option>
                     <option value="USD">USD ($)</option>
                   </select>
@@ -2887,85 +2268,17 @@ export default function App() {
               <div className="flex gap-3">
                 <div className="w-1/2">
                   <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Buy Price</label>
-                  <input type="number" step="0.01" required placeholder="Buy Price" value={newStock.buyPrice || ''} onChange={e => setNewStock({ ...newStock, buyPrice: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
+                  <input type="number" step="0.01" required placeholder="Buy Price" value={newStock.buyPrice} onChange={e => setNewStock({ ...newStock, buyPrice: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
                 </div>
                 <div className="w-1/2">
                   <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Live Price</label>
-                  <input type="number" step="0.01" placeholder="Auto-filled" value={newStock.currentPrice || ''} readOnly className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono opacity-60 cursor-not-allowed" />
+                  <input type="number" step="0.01" placeholder="Auto-filled" value={newStock.currentPrice} readOnly className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono opacity-60 cursor-not-allowed" />
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-3">
                 <button type="button" onClick={() => setShowAddStockModal(false)} className="px-4 py-2 text-xs text-slate-400 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-xs font-black uppercase bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 rounded-xl shadow-md cursor-pointer">Save Asset</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* PERSONAL INFO PROFILE MODAL */}
-      {showProfileModal && (
-        <div className="fixed inset-0 z-50 bg-[#0d1117]/85 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
-          <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-lg w-full relative border border-slate-700/50 max-h-[90vh] overflow-y-auto no-scrollbar">
-            <div className="flex justify-between items-center mb-6">
-               <h3 className="text-lg font-black tracking-wider uppercase text-white">Personal info</h3>
-               <button onClick={() => setShowProfileModal(false)} className="text-slate-400 hover:text-white text-xs font-mono">✕ Close</button>
-            </div>
-
-            <form onSubmit={handleSaveProfileInfo} className="space-y-4">
-              <div className="flex items-center justify-between p-3.5 bg-[#0d1117] rounded-2xl border border-slate-800">
-                <div>
-                  <span className="text-xs font-bold text-white block">Profile picture URL</span>
-                  <span className="text-[10px] text-slate-500">Paste direct image link</span>
-                </div>
-                {userProfile.profilePic ? (
-                  <img src={userProfile.profilePic} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-[#00f2fe]" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-[#00f2fe]">
-                    {(userProfile.name || 'U').charAt(0)}
-                  </div>
-                )}
-              </div>
-              <input type="text" placeholder="https://images.unsplash.com/photo-..." value={userProfile.profilePic || ''} onChange={e => setUserProfile({...userProfile, profilePic: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Name</label>
-                <input type="text" placeholder="Alex Mercer" required value={userProfile.name || ''} onChange={e => setUserProfile({...userProfile, name: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Gender</label>
-                <select value={userProfile.gender || 'Female'} onChange={e => setUserProfile({...userProfile, gender: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
-                  <option value="Female">Female</option>
-                  <option value="Male">Male</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Email</label>
-                <input type="email" disabled value={userProfile.email || ''} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-slate-500 cursor-not-allowed" />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Phone</label>
-                <input type="text" placeholder="+852 9123 4567" value={userProfile.phone || ''} onChange={e => setUserProfile({...userProfile, phone: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Birthday</label>
-                <input type="date" value={userProfile.birthday || ''} onChange={e => setUserProfile({...userProfile, birthday: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Home address</label>
-                <input type="text" placeholder="Harbour City, Tsim Sha Tsui, Hong Kong" value={userProfile.homeAddress || ''} onChange={e => setUserProfile({...userProfile, homeAddress: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setShowProfileModal(false)} className="px-5 py-2.5 text-xs text-slate-400 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 text-xs font-black uppercase bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 rounded-xl shadow-md cursor-pointer">Save Changes</button>
               </div>
             </form>
           </div>
