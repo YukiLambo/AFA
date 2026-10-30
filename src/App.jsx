@@ -1240,9 +1240,9 @@ export default function App() {
           <div className="p-5 flex flex-col gap-1 border-b border-slate-800/50">
              <div className="flex items-center gap-3">
                 <AppIcon className="w-7 h-7" />
-                <h1 className="text-lg font-bold tracking-wider text-white leading-none">A.F.A.</h1>
+                <h1 className="text-lg font-bold tracking-wider text-white leading-none">Fintrack</h1>
              </div>
-             <p className="text-[8px] text-slate-500 font-mono tracking-widest uppercase pl-[38px]">Automated Financial Assistant</p>
+             <p className="text-[9px] text-slate-500 font-mono tracking-widest uppercase pl-[38px]">Automated Advisor</p>
           </div>
 
           <div className="p-3 flex items-center gap-2.5 mx-3 mt-4 bg-[#0d1117] rounded-xl border border-slate-800/80">
