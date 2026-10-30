@@ -246,6 +246,7 @@ export default function App() {
     "“Formal education will make you a living; self-education will make you a fortune.” — Jim Rohn"
   ], []);
 
+  // Pick a random quote whenever login view mounts or refreshes
   useEffect(() => {
     if (authMode === 'login') {
       const randomIndex = Math.floor(Math.random() * inspirationalQuotes.length);
@@ -394,12 +395,14 @@ export default function App() {
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
     
+    // Sync Profile
     const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
     const unsubProfile = onSnapshot(profileRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         setUserProfile(prev => ({ ...prev, ...data }));
         
+        // Auto-load Debt parameters on first fetch
         if (!isDebtLoaded && data.email) {
           if (data.debtAmount !== undefined) setDebtAmount(Number(data.debtAmount));
           if (data.debtRate !== undefined) setDebtRate(Number(data.debtRate));
@@ -409,6 +412,7 @@ export default function App() {
       }
     }, (err) => console.error("Profile sync error:", err));
 
+    // Sync Transactions
     const txRef = getCollectionPath(user.uid, 'transactions');
     const unsubTx = onSnapshot(txRef, (snapshot) => {
       const txs = [];
@@ -417,6 +421,7 @@ export default function App() {
       setTransactions(txs);
     }, (err) => console.error("TX sync error:", err));
 
+    // Sync Portfolio
     const portRef = getCollectionPath(user.uid, 'portfolio');
     const unsubPort = onSnapshot(portRef, (snapshot) => {
       const ports = [];
@@ -431,11 +436,13 @@ export default function App() {
     };
   }, [user, isDebtLoaded]);
 
+  // Splash Screen Delay
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2800);
     return () => clearTimeout(timer);
   }, []);
 
+  // --- LIVE MARKET PRICES REFRESH FUNCTION ---
   const handleSyncMarketPrices = async () => {
     if (portfolio.length === 0 || isSyncingMarket) return;
     setIsSyncingMarket(true);
@@ -511,6 +518,7 @@ export default function App() {
     fetchLiveNews();
   };
 
+  // Filtered News Memo
   const filteredNews = useMemo(() => {
     return newsFeed.filter(item => {
       const matchesCategory = newsCategory === 'All' || item.category === newsCategory;
@@ -529,6 +537,7 @@ export default function App() {
     });
   }, [newsFeed, newsCategory, newsSearch, filterByHoldingsOnly, portfolio]);
 
+  // --- HANDLERS: AUTHENTICATION ---
   const handleLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -569,6 +578,7 @@ export default function App() {
 
   const handleSignOut = () => signOut(auth);
 
+  // --- HANDLERS: FIRESTORE MUTATIONS ---
   const handleAddTransaction = async (e) => {
     e.preventDefault();
     if (!newTx.description || !newTx.amount || !user) return;
@@ -627,6 +637,25 @@ export default function App() {
     }
   };
 
+  const handleUpdateTargets = async (newMaxSpend, newMinSavings) => {
+    setUserProfile(prev => ({ ...prev, weeklyMaxSpend: newMaxSpend, weeklyMinSavings: newMinSavings }));
+    if (user) {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+      await updateDoc(profileRef, { weeklyMaxSpend: newMaxSpend, weeklyMinSavings: newMinSavings });
+    }
+  };
+
+  const handleSaveTargetAmount = async () => {
+    if (user && tempTarget) {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+      await updateDoc(profileRef, { targetAmount: tempTarget });
+      setUserProfile(prev => ({ ...prev, targetAmount: tempTarget }));
+    }
+    setIsEditingTarget(false);
+  };
+
   const handleSaveDebtPlan = async () => {
     if (!user) return;
     setIsSavingDebt(true);
@@ -661,12 +690,13 @@ export default function App() {
     }
   };
 
+  // --- FINANCIAL THEORY CALCULATIONS ---
   const totalIncome = useMemo(() => transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const totalExpense = useMemo(() => transactions.filter(t => t.type === 'expense' && t.category !== 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const totalInvestmentDeposits = useMemo(() => transactions.filter(t => t.category === 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const netSavings = totalIncome - totalExpense - totalInvestmentDeposits;
 
-  // --- FINANCIAL HEALTH ANALYSIS WIDGET (Enhanced Gauge & Benchmarks) ---
+  // --- FINANCIAL HEALTH ANALYSIS FUNCTION (Added to Main Page) ---
   const financialHealthAnalysis = useMemo(() => {
     const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
     const rentExp = transactions.filter(t => t.category === 'Rent').reduce((sum, t) => sum + Number(t.amount), 0);
@@ -674,17 +704,14 @@ export default function App() {
     
     let status = 'Optimal';
     let recommendations = [];
-    let score = 75;
 
     if (savingsRate < 20) {
       status = 'Needs Attention';
-      score -= 15;
-      recommendations.push('Increase your savings rate closer to the 20% benchmark (Warren & Tyagi, 2005)[cite: 1].');
+      recommendations.push('Increase your savings rate closer to the 20% benchmark (Warren & Tyagi, 2005).');
     }
     if (rentBurden > 35) {
       status = 'High Risk';
-      score -= 25;
-      recommendations.push('Housing rent burden exceeds the 35% affordability threshold (Quigley & Raphael, 2004)[cite: 1].');
+      recommendations.push('Housing rent burden exceeds the 35% affordability threshold (Quigley & Raphael, 2004).');
     }
     if (recommendations.length === 0) {
       recommendations.push('All core financial health indicators (Savings, Rent Burden, Cash Flow) are within optimal targets.');
@@ -694,11 +721,11 @@ export default function App() {
       savingsRate: savingsRate.toFixed(1),
       rentBurden: rentBurden.toFixed(1),
       status,
-      score: Math.max(20, score),
       recommendations
     };
   }, [totalIncome, netSavings, transactions]);
 
+  // --- COMPREHENSIVE ANOMALY & FREQUENCY ANALYZER ---
   const anomalyAnalysis = useMemo(() => {
     const expenses = transactions.filter(t => t.type === 'expense');
     const totalSpent = expenses.reduce((sum, t) => sum + Number(t.amount), 0);
@@ -740,6 +767,7 @@ export default function App() {
     };
   }, [transactions]);
 
+  // Current Week Spend Total
   const currentWeekExpenses = useMemo(() => {
     const now = new Date();
     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -748,6 +776,7 @@ export default function App() {
 
   const weeklySpentTotal = useMemo(() => currentWeekExpenses.reduce((sum, t) => sum + Number(t.amount), 0), [currentWeekExpenses]);
 
+  // Automated Warning & Milestone System
   const systemAlerts = useMemo(() => {
     const alerts = [];
     const maxSpendLimit = Number(userProfile.weeklyMaxSpend) || 3500;
@@ -769,6 +798,14 @@ export default function App() {
       });
     }
 
+    if (anomalyAnalysis.weekendRatio > 50 && anomalyAnalysis.weekendTotal > 1000) {
+      alerts.push({
+        type: 'warning',
+        title: '⚠️ Weekend Impulse Spikes Alert',
+        message: `${anomalyAnalysis.weekendRatio}% of total expenses occurred on Saturday/Sunday (HK$ ${anomalyAnalysis.weekendTotal.toLocaleString()}).`
+      });
+    }
+
     if (netSavings >= minSavingsTarget) {
       alerts.push({
         type: 'success',
@@ -780,6 +817,7 @@ export default function App() {
     return alerts;
   }, [weeklySpentTotal, anomalyAnalysis, netSavings, userProfile.weeklyMaxSpend, userProfile.weeklyMinSavings]);
 
+  // Category Breakdown Calculation
   const categoryBreakdown = useMemo(() => {
     const expenses = transactions.filter(t => t.type === 'expense');
     const totalSpent = expenses.reduce((sum, t) => sum + Number(t.amount), 0);
@@ -797,6 +835,7 @@ export default function App() {
     })).sort((a, b) => b.value - a.value);
   }, [transactions]);
 
+  // Enhanced PDF Report Generator
   const handlePrintPdfReport = () => {
     const printWindow = window.open('', '_blank');
     const reportDate = new Date().toLocaleDateString();
@@ -874,6 +913,12 @@ export default function App() {
             </tbody>
           </table>
 
+          <div class="section-title">3. Spending Velocity & Pattern Breakdown</div>
+          <p style="font-size: 12px; color: #334155;">
+            • <strong>Weekend Allocation:</strong> Total of <strong>HK$ ${anomalyAnalysis.weekendTotal.toLocaleString()}</strong> spent on weekends (${anomalyAnalysis.weekendRatio}% of overall cash outflow).<br>
+            • <strong>High-Frequency Habits:</strong> ${anomalyAnalysis.frequencyHabits.length > 0 ? anomalyAnalysis.frequencyHabits.map(h => `${h.category} (${h.count} transactions)`).join(', ') : 'No high-frequency spending spikes detected.'}
+          </p>
+
           <div class="footer">
             A.F.A. Automated Financial Advisor • Educational Audit Document • Generated in Hong Kong S.A.R.
           </div>
@@ -892,6 +937,16 @@ export default function App() {
   const savingsRatio = useMemo(() => totalIncome > 0 ? ((netSavings / totalIncome) * 100) : 0, [totalIncome, netSavings]);
   const rentExpense = useMemo(() => transactions.find(t => t.category === 'Rent')?.amount || 0, [transactions]);
   const rentBurdenRatio = useMemo(() => totalIncome > 0 ? ((rentExpense / totalIncome) * 100) : 0, [totalIncome, rentExpense]);
+  const investmentRatio = useMemo(() => totalIncome > 0 ? ((totalInvestmentDeposits / totalIncome) * 100) : 0, [totalIncome, totalInvestmentDeposits]);
+
+  const healthScore = useMemo(() => {
+    let score = 50;
+    if (savingsRatio >= 20) score += 20;
+    else if (savingsRatio >= 10) score += 10;
+    if (rentBurdenRatio <= 35 && rentBurdenRatio > 0) score += 20;
+    if (investmentRatio >= 15) score += 10;
+    return Math.min(100, Math.max(0, score));
+  }, [savingsRatio, rentBurdenRatio, investmentRatio]);
 
   const portfolioTotalValue = useMemo(() => portfolio.reduce((sum, item) => {
     const rate = item.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1;
@@ -977,7 +1032,9 @@ export default function App() {
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
       
       const systemPrompt = `You are A.F.A, personalized financial advisor for ${userProfile.name}.
-      Weekly Max Spend Limit: HK$ ${userProfile.weeklyMaxSpend}, Min Savings Target: HK$ ${userProfile.weeklyMinSavings}.`;
+      Weekly Max Spend Limit: HK$ ${userProfile.weeklyMaxSpend}, Min Savings Target: HK$ ${userProfile.weeklyMinSavings}.
+      Detected ${anomalyAnalysis.anomalies.length} high-value expense outliers.
+      Weekend Spend Ratio: ${anomalyAnalysis.weekendRatio}%.`;
 
       const res = await fetch(apiUrl, {
         method: 'POST',
@@ -1016,6 +1073,7 @@ export default function App() {
         { name: 'W4', income: 11000, expense: 6200 },
       ];
     }
+    // Monthly
     if (transactions.length < 3) {
        return [
          { name: 'Jan', income: 4000, expense: 2400 },
@@ -1257,6 +1315,7 @@ export default function App() {
           </div>
 
           <div className="flex-1 px-3 py-4 space-y-6 overflow-y-auto no-scrollbar text-xs font-medium">
+            
             <div className="space-y-1">
               <p className="px-3 text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-2">Main Menu</p>
               {[
@@ -1272,7 +1331,9 @@ export default function App() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center space-x-3 py-2.5 px-3 rounded-xl transition-all cursor-pointer ${
-                      isActive ? 'bg-[#00f2fe]/10 text-[#00f2fe] font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                      isActive 
+                        ? 'bg-[#00f2fe]/10 text-[#00f2fe] font-bold' 
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                     }`}
                   >
                     <Icon className={`w-4 h-4 ${isActive ? 'text-[#00f2fe]' : 'text-slate-500'}`} />
@@ -1298,7 +1359,9 @@ export default function App() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center space-x-3 py-2.5 px-3 rounded-xl transition-all cursor-pointer ${
-                      isActive ? 'bg-[#00f2fe]/10 text-[#00f2fe] font-bold' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                      isActive 
+                        ? 'bg-[#00f2fe]/10 text-[#00f2fe] font-bold' 
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                     }`}
                   >
                     <Icon className={`w-4 h-4 ${isActive ? 'text-[#00f2fe]' : 'text-slate-500'}`} />
@@ -1307,6 +1370,7 @@ export default function App() {
                 );
               })}
             </div>
+
           </div>
         </aside>
       )}
@@ -1315,6 +1379,7 @@ export default function App() {
       {user && !showSplash && (
         <div className="flex-1 flex flex-col relative h-full overflow-y-auto overflow-x-hidden dashboard-enter bg-[#0d1117]">
           
+          {/* HEADER (Main Content Area) */}
           <header className="sticky top-0 z-30 bg-[#161b22]/90 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-3.5 shadow-sm">
              <div className="flex items-center gap-4">
                 <h2 className="text-base font-bold text-white tracking-wide">
@@ -1330,6 +1395,10 @@ export default function App() {
              </div>
              
              <div className="flex items-center gap-4">
+                <div className="hidden sm:flex relative">
+                   <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                   <input type="text" placeholder="Search or type a command" className="bg-[#0d1117] border border-slate-800 rounded-full pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-slate-600 w-56 font-mono" />
+                </div>
                 <button className="relative text-slate-400 hover:text-white transition-colors cursor-pointer">
                    <Bell className="w-4 h-4" />
                    {systemAlerts.length > 0 && <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full"></span>}
@@ -1350,7 +1419,7 @@ export default function App() {
 
           <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
             
-            {/* DASHBOARD TAB */}
+            {/* DASHBOARD TAB (Compact, sleek reference layout) */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6 anim-slide-in">
                 
@@ -1362,130 +1431,32 @@ export default function App() {
                   </div>
                 )}
 
-                {/* --- FINANCIAL HEALTH ANALYSIS WIDGET (Enhanced Gauge & Benchmarks) --- */}
+                {/* --- FINANCIAL HEALTH ANALYSIS WIDGET ON MAIN PAGE --- */}
                 <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-[#00f2fe]" /> Financial Health Index (Core: 50/30/20 & Rent Burden)
-                      </h3>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        Evaluates cash flow thresholds based on Warren & Tyagi (2005) & Quigley & Raphael (2004) metrics[cite: 1].
-                      </p>
-                    </div>
-                    <span className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase font-bold ${
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-[#00f2fe]" /> Financial Health Analysis & Benchmarks
+                    </h3>
+                    <span className={`px-2.5 py-0.5 rounded text-[10px] font-mono uppercase font-bold ${
                       financialHealthAnalysis.status === 'Optimal' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                      financialHealthAnalysis.status === 'Good' ? 'bg-cyan-500/10 text-[#00f2fe] border border-[#00f2fe]/20' :
                       'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                     }`}>
-                      {financialHealthAnalysis.status} (Score: {financialHealthAnalysis.score}/100)
+                      {financialHealthAnalysis.status}
                     </span>
                   </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                    
-                    {/* LEFT: Semi-Circular Gauge Chart Representation */}
-                    <div className="lg:col-span-5 flex flex-col items-center justify-center bg-[#0d1117] p-4 rounded-xl border border-slate-800 relative">
-                      <div className="text-xs font-mono text-slate-400 mb-2 uppercase tracking-wide">Overall Health Index</div>
-                      
-                      {/* SVG Semi-Circle Gauge */}
-                      <div className="relative w-44 h-24 flex items-end justify-center overflow-hidden">
-                        <svg viewBox="0 0 100 50" className="w-full h-full overflow-visible">
-                          <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#21262d" strokeWidth="10" strokeLinecap="round" />
-                          <path 
-                            d="M 10 50 A 40 40 0 0 1 90 50" 
-                            fill="none" 
-                            stroke="url(#healthGradient)" 
-                            strokeWidth="10" 
-                            strokeLinecap="round"
-                            strokeDasharray="125.6"
-                            strokeDashoffset={125.6 * (1 - financialHealthAnalysis.score / 100)}
-                            className="transition-all duration-1000 ease-out"
-                          />
-                          <defs>
-                            <linearGradient id="healthGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#f59e0b" />
-                              <stop offset="50%" stopColor="#3b82f6" />
-                              <stop offset="100%" stopColor="#00f2fe" />
-                            </linearGradient>
-                          </defs>
-                        </svg>
-                        <div className="absolute bottom-0 text-center">
-                          <span className="text-2xl font-black text-white font-mono">{financialHealthAnalysis.score}</span>
-                          <span className="text-xs text-slate-500 font-mono">/100</span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between w-full text-[9px] font-mono text-slate-500 px-2 mt-1">
-                        <span>0 (At Risk)</span>
-                        <span>50 (Moderate)</span>
-                        <span>100 (Optimal)</span>
-                      </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+                    <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400">Savings Rate (50/30/20 Rule)</span>
+                      <div className="text-xl font-bold text-[#00f2fe] mt-1">{financialHealthAnalysis.savingsRate}%</div>
                     </div>
-
-                    {/* RIGHT: 50/30/20 Breakdown & Rent Burden Metrics */}
-                    <div className="lg:col-span-7 space-y-3">
-                      
-                      {/* 50/30/20 Progress Bars */}
-                      <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800 space-y-2">
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="font-mono text-slate-300">50/30/20 Allocation Compliance</span>
-                          <span className="text-[#00f2fe] font-mono font-bold">{financialHealthAnalysis.savingsRate}% Savings Rate</span>
-                        </div>
-                        
-                        <div className="space-y-1.5">
-                          <div>
-                            <div className="flex justify-between text-[10px] text-slate-400 font-mono mb-0.5">
-                              <span>Needs (Target: ≤ 50%)</span>
-                              <span className="text-white">45%</span>
-                            </div>
-                            <div className="w-full bg-[#161b22] h-1.5 rounded-full overflow-hidden">
-                              <div className="bg-blue-500 h-full rounded-full" style={{ width: '45%' }}></div>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="flex justify-between text-[10px] text-slate-400 font-mono mb-0.5">
-                              <span>Wants (Target: ≤ 30%)</span>
-                              <span className="text-white">25%</span>
-                            </div>
-                            <div className="w-full bg-[#161b22] h-1.5 rounded-full overflow-hidden">
-                              <div className="bg-purple-500 h-full rounded-full" style={{ width: '25%' }}></div>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="flex justify-between text-[10px] text-slate-400 font-mono mb-0.5">
-                              <span>Savings / Debt (Target: ≥ 20%)</span>
-                              <span className="text-emerald-400 font-bold">{financialHealthAnalysis.savingsRate}%</span>
-                            </div>
-                            <div className="w-full bg-[#161b22] h-1.5 rounded-full overflow-hidden">
-                              <div className="bg-emerald-400 h-full rounded-full" style={{ width: `${Math.min(100, Number(financialHealthAnalysis.savingsRate) * 3)}%` }}></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Rent Burden Metric */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-2.5 bg-[#0d1117] rounded-xl border border-slate-800 flex flex-col justify-center">
-                          <span className="text-[9px] font-mono text-slate-400">Rent Burden Ratio</span>
-                          <div className="flex items-baseline gap-2 mt-0.5">
-                            <span className="text-base font-bold text-amber-400 font-mono">{financialHealthAnalysis.rentBurden}%</span>
-                            <span className="text-[9px] text-slate-500 font-mono">(Norm: &lt;30%)</span>
-                          </div>
-                        </div>
-                        <div className="p-2.5 bg-[#0d1117] rounded-xl border border-slate-800 flex flex-col justify-center">
-                          <span className="text-[9px] font-mono text-slate-400">Self-Efficacy Impact</span>
-                          <span className="text-xs font-bold text-emerald-400 mt-0.5">Positive (Lukas et al., 2024)[cite: 1]</span>
-                        </div>
-                      </div>
-
+                    <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
+                      <span className="text-[10px] font-mono text-slate-400">Rent Burden Ratio</span>
+                      <div className="text-xl font-bold text-amber-400 mt-1">{financialHealthAnalysis.rentBurden}%</div>
                     </div>
                   </div>
-
-                  {/* Recommendation Footer */}
-                  <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-xs text-slate-300">
-                    💡 <strong className="text-white font-mono text-[11px]">Actionable Insight:</strong> 
-                    <span className="text-slate-400 italic">{financialHealthAnalysis.recommendations[0]}</span>
-                  </div>
+                  <p className="text-xs text-slate-400 italic">
+                    💡 <strong>Recommendation:</strong> {financialHealthAnalysis.recommendations[0]}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1533,6 +1504,8 @@ export default function App() {
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                  
+                  {/* CASH FLOW OVERVIEW CHART */}
                   <div className="xl:col-span-2 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col">
                      <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xs font-bold text-white uppercase tracking-wider">Cash Flow Overview</h3>
@@ -1576,12 +1549,14 @@ export default function App() {
                      </div>
                   </div>
 
+                  {/* CARDS SECTION */}
                   <div className="space-y-6">
                      <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                         <div className="flex justify-between items-center mb-4">
                            <h3 className="text-xs font-bold text-white uppercase tracking-wider">My Cards</h3>
                            <button onClick={() => setShowAddTxModal(true)} className="text-[10px] text-[#00f2fe] font-mono px-2.5 py-1 bg-[#00f2fe]/10 rounded border border-[#00f2fe]/20 hover:bg-[#00f2fe]/20 cursor-pointer">+ Add Card</button>
                         </div>
+                        {/* Visual Card */}
                         <div className="h-38 rounded-xl bg-gradient-to-br from-[#1f242d] via-[#161b22] to-[#00f2fe]/15 border border-slate-700/60 p-4 flex flex-col justify-between relative overflow-hidden shadow-xl">
                            <div className="absolute top-0 right-0 w-28 h-28 bg-[#00f2fe]/10 rounded-full blur-[35px]"></div>
                            <div className="flex justify-between items-center relative z-10">
@@ -1618,8 +1593,10 @@ export default function App() {
                         </div>
                      </div>
                   </div>
+
                 </div>
 
+                {/* TRANSACTION HISTORY SECTION */}
                 <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
                   <div className="p-4 px-5 border-b border-slate-800 flex justify-between items-center bg-[#161b22]">
                      <h3 className="text-xs font-bold text-white uppercase tracking-wider">Transaction History</h3>
@@ -1646,7 +1623,7 @@ export default function App() {
                              <tr><td colSpan="6" className="py-8 text-center text-slate-600">No transactions recorded.</td></tr>
                            )}
                            {transactions.slice(0, 5).map((tx, idx) => (
-                              <tr key={tx.id || idx} className="hover:bg-slate-800/25 transition-colors group">
+                              <tr key={tx.id || idx} className="hover:bg-slate-800/20 transition-colors group">
                                  <td className="py-3 px-5 font-mono text-slate-500 text-[10px]">TXN-2026-00{idx+1}</td>
                                  <td className="py-3 px-5 font-medium text-white flex items-center gap-2">
                                     <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center shrink-0 text-[10px]" style={{color: CATEGORY_COLORS[tx.category] || '#fff'}}>
@@ -1710,6 +1687,7 @@ export default function App() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Category Breakdown Pie Chart */}
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col items-center justify-center">
                     <h3 className="text-xs font-mono uppercase text-slate-400 self-start mb-2">Category Distribution</h3>
                     <div className="h-48 w-full relative">
@@ -1738,6 +1716,7 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Category Progress Bars */}
                   <div className="lg:col-span-2 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col justify-center">
                     <h3 className="text-xs font-mono uppercase text-slate-400 mb-3">Expense Ranking & Shares</h3>
                     {categoryBreakdown.length === 0 ? (
@@ -1763,6 +1742,7 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Ledger Table */}
                 <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
                   <div className="px-5 py-3 bg-[#0d1117] border-b border-slate-800 flex justify-between items-center">
                     <span className="text-xs font-mono uppercase text-[#00f2fe]">Transaction History Log</span>
@@ -1960,7 +1940,9 @@ export default function App() {
                   </table>
                 </div>
 
+                {/* LIVE MARKET NEWS */}
                 <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800/80 shadow-md space-y-6">
+                  
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
                     <div>
                       <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -2024,12 +2006,13 @@ export default function App() {
                       ))
                     )}
                   </div>
+
                 </div>
 
               </div>
             )}
 
-            {/* WEALTH SIMULATOR TAB */}
+            {/* WEALTH SIMULATOR TAB (Expanded Gamified Scenarios) */}
             {activeTab === 'simulator' && (
               <div className="space-y-6 anim-slide-in">
                 <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
@@ -2040,6 +2023,8 @@ export default function App() {
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-5 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
+                      
+                      {/*  Scenarios */}
                       <div className="pb-4 border-b border-slate-800">
                          <h3 className="text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-3">Interactive Life Scenarios</h3>
                          <div className="grid grid-cols-2 gap-2">
@@ -2062,6 +2047,7 @@ export default function App() {
                           <span>Monthly Deposit</span>
                           <span className="text-white font-bold">${simMonthly.toLocaleString()}</span>
                         </label>
+                        {/* Expanded max to 500,000 */}
                         <input type="range" min="1000" max="500000" step="1000" value={simMonthly} onChange={e => setSimMonthly(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
                       </div>
                       <div>
@@ -2396,7 +2382,7 @@ export default function App() {
           </div>
         </div>
       )}
-
+      {/* PERSONAL INFO PROFILE MODAL */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 bg-[#0d1117]/85 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
           <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-lg w-full relative border border-slate-700/50 max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -2405,7 +2391,17 @@ export default function App() {
                <button onClick={() => setShowProfileModal(false)} className="text-slate-400 hover:text-white text-xs font-mono">✕ Close</button>
             </div>
 
-            <form onSubmit={handleSaveProfileInfo} className="space-y-4">
+            {/* Updated form onSubmit to close the modal upon save */}
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                // Call your save logic (e.g., API call or state update)
+                await handleSaveProfileInfo(e); 
+                // Close the modal after saving is complete
+                setShowProfileModal(false);
+              }} 
+              className="space-y-4"
+            >
               <div className="flex items-center justify-between p-3.5 bg-[#0d1117] rounded-2xl border border-slate-800">
                 <div>
                   <span className="text-xs font-bold text-white block">Profile picture URL</span>
@@ -2455,12 +2451,13 @@ export default function App() {
                 <input type="text" placeholder="Harbour City, Tsim Sha Tsui, Hong Kong" value={userProfile.homeAddress || ''} onChange={e => setUserProfile({...userProfile, homeAddress: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
               </div>
 
+              {/* --- LOGOUT BUTTON IN PROFILE MODAL --- */}
               <div className="pt-2">
                 <button 
                   type="button" 
                   onClick={() => { 
                     setShowProfileModal(false); 
-                    handleSignOut(); 
+                    handleSignOut(); // Triggers your sign-out logic (clears auth tokens/state)
                   }} 
                   className="w-full py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
