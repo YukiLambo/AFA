@@ -696,35 +696,6 @@ export default function App() {
   const totalInvestmentDeposits = useMemo(() => transactions.filter(t => t.category === 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const netSavings = totalIncome - totalExpense - totalInvestmentDeposits;
 
-  // --- FINANCIAL HEALTH ANALYSIS FUNCTION (Added to Main Page) ---
-  const financialHealthAnalysis = useMemo(() => {
-    const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
-    const rentExp = transactions.filter(t => t.category === 'Rent').reduce((sum, t) => sum + Number(t.amount), 0);
-    const rentBurden = totalIncome > 0 ? (rentExp / totalIncome) * 100 : 0;
-    
-    let status = 'Optimal';
-    let recommendations = [];
-
-    if (savingsRate < 20) {
-      status = 'Needs Attention';
-      recommendations.push('Increase your savings rate closer to the 20% benchmark (Warren & Tyagi, 2005).');
-    }
-    if (rentBurden > 35) {
-      status = 'High Risk';
-      recommendations.push('Housing rent burden exceeds the 35% affordability threshold (Quigley & Raphael, 2004).');
-    }
-    if (recommendations.length === 0) {
-      recommendations.push('All core financial health indicators (Savings, Rent Burden, Cash Flow) are within optimal targets.');
-    }
-
-    return {
-      savingsRate: savingsRate.toFixed(1),
-      rentBurden: rentBurden.toFixed(1),
-      status,
-      recommendations
-    };
-  }, [totalIncome, netSavings, transactions]);
-
   // --- COMPREHENSIVE ANOMALY & FREQUENCY ANALYZER ---
   const anomalyAnalysis = useMemo(() => {
     const expenses = transactions.filter(t => t.type === 'expense');
@@ -1430,34 +1401,6 @@ export default function App() {
                     <button onClick={() => setActiveTab('report')} className="ml-auto text-[#00f2fe] font-bold hover:underline cursor-pointer">See details →</button>
                   </div>
                 )}
-
-                {/* --- FINANCIAL HEALTH ANALYSIS WIDGET ON MAIN PAGE --- */}
-                <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-[#00f2fe]" /> Financial Health Analysis & Benchmarks
-                    </h3>
-                    <span className={`px-2.5 py-0.5 rounded text-[10px] font-mono uppercase font-bold ${
-                      financialHealthAnalysis.status === 'Optimal' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                      'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    }`}>
-                      {financialHealthAnalysis.status}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-                    <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
-                      <span className="text-[10px] font-mono text-slate-400">Savings Rate (50/30/20 Rule)</span>
-                      <div className="text-xl font-bold text-[#00f2fe] mt-1">{financialHealthAnalysis.savingsRate}%</div>
-                    </div>
-                    <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
-                      <span className="text-[10px] font-mono text-slate-400">Rent Burden Ratio</span>
-                      <div className="text-xl font-bold text-amber-400 mt-1">{financialHealthAnalysis.rentBurden}%</div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-400 italic">
-                    💡 <strong>Recommendation:</strong> {financialHealthAnalysis.recommendations[0]}
-                  </p>
-                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
@@ -2440,18 +2383,6 @@ export default function App() {
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Home address</label>
                 <input type="text" placeholder="Harbour City, Tsim Sha Tsui, Hong Kong" value={userProfile.homeAddress || ''} onChange={e => setUserProfile({...userProfile, homeAddress: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-              </div>
-
-              {/* --- LOGOUT BUTTON IN PROFILE MODAL --- */}
-              <div className="pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => { setShowProfileModal(false); handleSignOut(); }} 
-                  className="w-full py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Log Out Session</span>
-                </button>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
