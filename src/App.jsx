@@ -1482,12 +1482,14 @@ export default function App() {
       {/* SIDEBAR NAVIGATION (Desktop) */}
       {user && !showSplash && (
         <aside className="w-60 bg-[#161b22] border-r border-slate-800/80 flex-col z-40 hidden md:flex shrink-0 shadow-xl">
-          <div className="p-5 flex flex-col gap-1 border-b border-slate-800/50">
+          <div className="p-4 px-5 border-b border-slate-800/50">
              <div className="flex items-center gap-3">
-                <AppIcon className="w-7 h-7" />
-                <h1 translate="no" className="notranslate text-lg font-bold tracking-wider text-white leading-none">A.F.A.</h1>
+                <AppIcon className="w-8 h-8 shrink-0" />
+                <div className="flex flex-col min-w-0">
+                   <h1 translate="no" className="notranslate text-lg font-black tracking-wider text-white leading-none">A.F.A.</h1>
+                   <p className="text-[8.5px] text-cyan-400/80 font-mono tracking-normal uppercase mt-1.5 whitespace-nowrap leading-none">Automated Financial Assistant</p>
+                </div>
              </div>
-             <p className="text-[8px] text-slate-500 font-mono tracking-widest uppercase pl-[38px]">Automated Financial Assistant</p>
           </div>
 
           <div onClick={() => setShowProfileModal(true)} className="p-3 flex items-center gap-2.5 mx-3 mt-4 bg-[#0d1117] rounded-xl border border-slate-800/80 cursor-pointer hover:border-[#00f2fe]/40 transition-all group">
