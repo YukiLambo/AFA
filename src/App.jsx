@@ -2017,14 +2017,14 @@ export default function App() {
               <div className="space-y-6 anim-slide-in">
                 <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
                   <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Gamified Wealth Simulator
+                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Wealth Simulator
                   </h2>
                   <p className="text-xs text-slate-400 mb-6">Test live financial life events and compound wealth towards your target.</p>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-5 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
                       
-                      {/* Expanded Gamification Scenarios */}
+                      {/*  Scenarios */}
                       <div className="pb-4 border-b border-slate-800">
                          <h3 className="text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-3">Interactive Life Scenarios</h3>
                          <div className="grid grid-cols-2 gap-2">
@@ -2382,7 +2382,6 @@ export default function App() {
           </div>
         </div>
       )}
-
       {/* PERSONAL INFO PROFILE MODAL */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 bg-[#0d1117]/85 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
@@ -2392,7 +2391,17 @@ export default function App() {
                <button onClick={() => setShowProfileModal(false)} className="text-slate-400 hover:text-white text-xs font-mono">✕ Close</button>
             </div>
 
-            <form onSubmit={handleSaveProfileInfo} className="space-y-4">
+            {/* Updated form onSubmit to close the modal upon save */}
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                // Call your save logic (e.g., API call or state update)
+                await handleSaveProfileInfo(e); 
+                // Close the modal after saving is complete
+                setShowProfileModal(false);
+              }} 
+              className="space-y-4"
+            >
               <div className="flex items-center justify-between p-3.5 bg-[#0d1117] rounded-2xl border border-slate-800">
                 <div>
                   <span className="text-xs font-bold text-white block">Profile picture URL</span>
@@ -2446,7 +2455,10 @@ export default function App() {
               <div className="pt-2">
                 <button 
                   type="button" 
-                  onClick={() => { setShowProfileModal(false); handleSignOut(); }} 
+                  onClick={() => { 
+                    setShowProfileModal(false); 
+                    handleSignOut(); // Triggers your sign-out logic (clears auth tokens/state)
+                  }} 
                   className="w-full py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   <LogOut className="w-4 h-4" />
