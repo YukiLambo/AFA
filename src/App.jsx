@@ -2017,7 +2017,7 @@ export default function App() {
               <div className="space-y-6 anim-slide-in">
                 <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
                   <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Wealth Simulator
+                    <Sliders className="w-4 h-4 text-[#00f2fe]" />  Wealth Simulator
                   </h2>
                   <p className="text-xs text-slate-400 mb-6">Test live financial life events and compound wealth towards your target.</p>
 
@@ -2382,7 +2382,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {/* PERSONAL INFO PROFILE MODAL */}
+{/* PERSONAL INFO PROFILE MODAL */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 bg-[#0d1117]/85 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
           <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-lg w-full relative border border-slate-700/50 max-h-[90vh] overflow-y-auto no-scrollbar">
