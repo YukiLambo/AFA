@@ -27,5 +27,11 @@
     "postcss": "^8.5.32",
     "tailwindcss": "^3.4.19",
     "vite": "^5.0.0"
+  },
+  "allowScripts": {
+    "@firebase/util@1.15.3": true,
+    "esbuild@0.21.5": true,
+    "fsevents@2.3.3": true,
+    "protobufjs@7.6.6": true
   }
 }

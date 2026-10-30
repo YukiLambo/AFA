@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Wallet, TrendingUp, Bot, FileText, Plus, Trash2, 
   Send, ShieldCheck, AlertCircle, User, LogOut, Sliders, Target, Compass, CreditCard, PiggyBank,
   RefreshCw, Globe, ArrowUpRight, ArrowDownRight, CheckCircle2, Loader2, AlertTriangle, Bell,
-  Download, ShieldAlert, Newspaper, Filter, Search, Zap, ExternalLink, Activity
+  Download, ShieldAlert, Newspaper, Filter, Search, Zap, ExternalLink, Activity, Edit2, Save
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -162,9 +162,10 @@ const AppIcon = ({ className = "w-9 h-9", animateStroke = false }) => (
         0% { stroke-dashoffset: 30; opacity: 0; }
         100% { stroke-dashoffset: 0; opacity: 1; }
       }
-      @keyframes pulseNode {
-        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(0,242,254,0.8)); }
-        50% { transform: scale(1.25); filter: drop-shadow(0 0 16px rgba(0,242,254,1)); }
+      @keyframes snapInNode {
+        0% { transform: scale(0); opacity: 0; filter: drop-shadow(0 0 0 rgba(0,242,254,0)); }
+        60% { transform: scale(1.4); opacity: 1; filter: drop-shadow(0 0 12px rgba(0,242,254,1)); }
+        100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 8px rgba(0,242,254,0.8)); }
       }
       .left-leg {
         stroke-dasharray: 65;
@@ -181,7 +182,8 @@ const AppIcon = ({ className = "w-9 h-9", animateStroke = false }) => (
         opacity: ${animateStroke ? '0' : '1'};
       }
       .cyber-node {
-        animation: pulseNode 2.5s infinite ease-in-out;
+        opacity: ${animateStroke ? '0' : '1'};
+        animation: ${animateStroke ? 'snapInNode 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards' : 'none'};
       }
     `}</style>
     <defs>
@@ -208,9 +210,9 @@ const AppIcon = ({ className = "w-9 h-9", animateStroke = false }) => (
     <path className="right-leg" d="M 50 25 L 72 72" stroke="url(#iconGrad)" strokeWidth="7.5" strokeLinecap="round" filter="url(#glow)" />
     <path className="crossbar" d="M 38 52 L 62 52" stroke="url(#iconGrad)" strokeWidth="6.5" strokeLinecap="round" filter="url(#glow)" />
     
-    <circle className="cyber-node" cx="50" cy="25" r="5.5" fill="#ffffff" />
-    <circle className="cyber-node" cx="28" cy="72" r="4.5" fill="#00f2fe" style={{ animationDelay: '0.4s' }} />
-    <circle className="cyber-node" cx="72" cy="72" r="4.5" fill="#00f2fe" style={{ animationDelay: '0.8s' }} />
+    <circle className="cyber-node" cx="50" cy="25" r="5.5" fill="#ffffff" style={{ animationDelay: '0.8s', transformOrigin: '50px 25px' }} />
+    <circle className="cyber-node" cx="28" cy="72" r="4.5" fill="#00f2fe" style={{ animationDelay: '1.0s', transformOrigin: '28px 72px' }} />
+    <circle className="cyber-node" cx="72" cy="72" r="4.5" fill="#00f2fe" style={{ animationDelay: '1.2s', transformOrigin: '72px 72px' }} />
   </svg>
 );
 
@@ -249,6 +251,10 @@ export default function App() {
   const [lastMarketSyncTime, setLastMarketSyncTime] = useState(null);
   const [isSearchingTicker, setIsSearchingTicker] = useState(false);
 
+  // Editable Target State
+  const [isEditingTarget, setIsEditingTarget] = useState(false);
+  const [tempTarget, setTempTarget] = useState('');
+
   // Live Financial News State
   const [newsCategory, setNewsCategory] = useState('All');
   const [newsSearch, setNewsSearch] = useState('');
@@ -256,55 +262,50 @@ export default function App() {
   const [isSyncingNews, setIsSyncingNews] = useState(false);
   const [lastNewsSyncTime, setLastNewsSyncTime] = useState('Just Now');
 
-  // Sample Financial News Feed
-  const initialNewsFeed = [
-    {
-      id: 1,
-      title: "Federal Reserve Signals Data-Dependent Interest Rate Trajectory Amid Cooling Inflation",
-      summary: "Central bank policymakers reiterated their commitment to calibrated rate decisions, balancing labor market stability with inflation benchmarks.",
-      category: "Central Bank & Rates",
-      source: "Bloomberg Financial",
-      time: "25m ago",
-      symbols: ["USD", "HKD"],
-      impact: "Market Alert",
-      url: "https://www.bloomberg.com"
-    },
-    {
-      id: 2,
-      title: "NVIDIA Capex Demand Accelerates As Hyperscalers Double Down on Next-Gen Infrastructure",
-      summary: "Surging Enterprise AI deployments continue to support valuation fundamentals across global semiconductor supply chains.",
-      category: "Tech & AI",
-      source: "Reuters Technology",
-      time: "1h ago",
-      symbols: ["NVDA", "TSLA"],
-      impact: "Bullish",
-      url: "https://www.reuters.com"
-    },
-    {
-      id: 3,
-      title: "Hong Kong Tracker Fund (2800.HK) Experiences Inflow Growth Following Fiscal Measures",
-      summary: "Institutional capital flows into Southbound Stock Connect remain robust, aiding liquidity in blue-chip equities.",
-      category: "Macro Economy",
-      source: "SCMP Business",
-      time: "3h ago",
-      symbols: ["2800.HK", "0700.HK", "9988.HK"],
-      impact: "High Impact",
-      url: "https://www.scmp.com"
-    },
-    {
-      id: 4,
-      title: "OPEC+ Crude Production Strategy Adjustments Impact Global Energy Sector Margins",
-      summary: "Oil benchmark fluctuations provide macro headwinds for transport and manufacturing overhead costs worldwide.",
-      category: "Energy & Commodities",
-      source: "Financial Times",
-      time: "5h ago",
-      symbols: ["XOM", "CVX"],
-      impact: "Neutral",
-      url: "https://www.ft.com"
-    }
-  ];
+  const [newsFeed, setNewsFeed] = useState([]);
 
-  const [newsFeed, setNewsFeed] = useState(initialNewsFeed);
+  const fetchLiveNews = async () => {
+    setIsSyncingNews(true);
+    try {
+      const targetUrl = encodeURIComponent('https://api.rss2json.com/v1/api.json?rss_url=https://finance.yahoo.com/news/rssindex');
+      const res = await fetch(`https://api.allorigins.win/raw?url=${targetUrl}`);
+      if (!res.ok) throw new Error('Network response was not ok');
+      const data = await res.json();
+      
+      if (data && data.items && data.items.length > 0) {
+        const liveNews = data.items.map((item, index) => ({
+          id: index,
+          title: item.title,
+          summary: (item.description || '').replace(/<[^>]+>/g, '').substring(0, 120) + '...',
+          category: 'Market Alert',
+          source: 'Yahoo Finance',
+          time: new Date(item.pubDate).toLocaleTimeString(),
+          symbols: [],
+          impact: index % 3 === 0 ? 'High Impact' : 'Neutral',
+          url: item.link
+        }));
+        setNewsFeed(liveNews);
+        setLastNewsSyncTime(new Date().toLocaleTimeString());
+      } else {
+        throw new Error('Empty news data');
+      }
+    } catch (err) {
+      console.warn("Failed to fetch live news, using fallback.", err);
+      const fallbackNews = [
+        { id: 1, title: "Federal Reserve Signals Data-Dependent Interest Rate Trajectory", summary: "Central bank policymakers reiterated their commitment to calibrated rate decisions.", category: "Market Alert", source: "Bloomberg", time: "25m ago", symbols: ["USD", "HKD"], impact: "Neutral", url: "https://www.bloomberg.com" },
+        { id: 2, title: "NVIDIA Capex Demand Accelerates As Hyperscalers Double Down", summary: "Surging Enterprise AI deployments continue to support valuation fundamentals.", category: "Market Alert", source: "Reuters", time: "1h ago", symbols: ["NVDA", "TSLA"], impact: "High Impact", url: "https://www.reuters.com" },
+        { id: 3, title: "Hong Kong Tracker Fund (2800.HK) Experiences Inflow Growth", summary: "Institutional capital flows into Southbound Stock Connect remain robust.", category: "Market Alert", source: "SCMP Business", time: "3h ago", symbols: ["2800.HK", "0700.HK"], impact: "High Impact", url: "https://www.scmp.com" }
+      ];
+      setNewsFeed(fallbackNews);
+      setLastNewsSyncTime(new Date().toLocaleTimeString() + ' (Cached)');
+    } finally {
+      setIsSyncingNews(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLiveNews();
+  }, []);
 
   // Wealth Simulator Control States
   const [simInitial, setSimInitial] = useState(50000);
@@ -313,6 +314,8 @@ export default function App() {
   const [simYears, setSimYears] = useState(10);
 
   // Debt Strategy State
+  const [isDebtLoaded, setIsDebtLoaded] = useState(false);
+  const [isSavingDebt, setIsSavingDebt] = useState(false);
   const [debtAmount, setDebtAmount] = useState(45000);
   const [debtRate, setDebtRate] = useState(24.5);
   const [debtMinPay, setDebtMinPay] = useState(2500);
@@ -328,6 +331,9 @@ export default function App() {
 
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [newStock, setNewStock] = useState({ symbol: '', name: '', shares: '', buyPrice: '', currentPrice: '', currency: 'HKD', category: 'HK Equity' });
+
+  // Cash Flow View Mode State
+  const [cashFlowView, setCashFlowView] = useState('Monthly');
 
   // AI Chat Assistant State
   const [chatMessages, setChatMessages] = useState([
@@ -351,6 +357,7 @@ export default function App() {
       setTransactions([]);
       setPortfolio([]);
       setUserProfile({ name: '', email: '', password: '', goal: '', riskTolerance: '', targetAmount: '', monthlyIncome: '30000', weeklyMaxSpend: '3500', weeklyMinSavings: '1200' });
+      setIsDebtLoaded(false);
       return;
     }
 
@@ -360,7 +367,16 @@ export default function App() {
     const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
     const unsubProfile = onSnapshot(profileRef, (docSnap) => {
       if (docSnap.exists()) {
-        setUserProfile(prev => ({ ...prev, ...docSnap.data() }));
+        const data = docSnap.data();
+        setUserProfile(prev => ({ ...prev, ...data }));
+        
+        // Auto-load Debt parameters on first fetch
+        if (!isDebtLoaded && data.email) {
+          if (data.debtAmount !== undefined) setDebtAmount(Number(data.debtAmount));
+          if (data.debtRate !== undefined) setDebtRate(Number(data.debtRate));
+          if (data.debtMinPay !== undefined) setDebtMinPay(Number(data.debtMinPay));
+          setIsDebtLoaded(true);
+        }
       }
     }, (err) => console.error("Profile sync error:", err));
 
@@ -386,7 +402,7 @@ export default function App() {
       unsubTx();
       unsubPort();
     };
-  }, [user]);
+  }, [user, isDebtLoaded]);
 
   // Splash Screen Delay
   useEffect(() => {
@@ -432,40 +448,42 @@ export default function App() {
     if (!querySymbol) return;
 
     setIsSearchingTicker(true);
-    const quote = await fetchLiveStockQuote(querySymbol);
-    setIsSearchingTicker(false);
+    try {
+      const quote = await fetchLiveStockQuote(querySymbol);
+      setIsSearchingTicker(false);
 
-    if (quote && quote.price) {
-      const isHK = quote.currency === 'HKD' || querySymbol.toUpperCase().endsWith('.HK');
-      const formattedSymbol = querySymbol.toUpperCase();
-      
-      const defaultNames = {
-        'TSLA': 'Tesla, Inc.',
-        'AAPL': 'Apple Inc.',
-        'NVDA': 'NVIDIA Corporation',
-        '2800.HK': 'Tracker Fund of Hong Kong',
-        '0700.HK': 'Tencent Holdings Ltd.',
-        '9988.HK': 'Alibaba Group Holding'
-      };
+      if (quote && quote.price) {
+        const isHK = quote.currency === 'HKD' || querySymbol.toUpperCase().endsWith('.HK');
+        const formattedSymbol = querySymbol.toUpperCase();
+        
+        const defaultNames = {
+          'TSLA': 'Tesla, Inc.',
+          'AAPL': 'Apple Inc.',
+          'NVDA': 'NVIDIA Corporation',
+          '2800.HK': 'Tracker Fund of Hong Kong',
+          '0700.HK': 'Tencent Holdings Ltd.',
+          '9988.HK': 'Alibaba Group Holding'
+        };
 
-      setNewStock(prev => ({
-        ...prev,
-        symbol: formattedSymbol,
-        name: prev.name || defaultNames[formattedSymbol] || `${formattedSymbol} Asset`,
-        currentPrice: quote.price.toFixed(2),
-        currency: quote.currency,
-        category: isHK ? 'HK Equity' : 'US Tech & Growth',
-        buyPrice: prev.buyPrice || quote.price.toFixed(2)
-      }));
+        setNewStock(prev => ({
+          ...prev,
+          symbol: formattedSymbol,
+          name: prev.name || defaultNames[formattedSymbol] || `${formattedSymbol} Asset`,
+          currentPrice: quote.price.toFixed(2),
+          currency: quote.currency,
+          category: isHK ? 'HK Equity' : 'US Tech & Growth',
+          buyPrice: prev.buyPrice || quote.price.toFixed(2)
+        }));
+      } else {
+         setNewStock(prev => ({ ...prev, name: 'Ticker not found', currentPrice: '' }));
+      }
+    } catch (err) {
+      setIsSearchingTicker(false);
     }
   };
 
   const handleRefreshNews = () => {
-    setIsSyncingNews(true);
-    setTimeout(() => {
-      setIsSyncingNews(false);
-      setLastNewsSyncTime(new Date().toLocaleTimeString());
-    }, 800);
+    fetchLiveNews();
   };
 
   // Filtered News Memo
@@ -538,7 +556,7 @@ export default function App() {
         ...newTx, 
         amount: parseFloat(newTx.amount) 
       });
-      setShowAddTxModal(false);
+      setShowAddTxModal(false); // Disappear immediately after saving
       setNewTx({ description: '', amount: '', category: 'Dining', type: 'expense', date: new Date().toISOString().split('T')[0] });
     } catch (error) {
       console.error("Error adding transaction:", error);
@@ -593,6 +611,30 @@ export default function App() {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
       const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
       await updateDoc(profileRef, { weeklyMaxSpend: newMaxSpend, weeklyMinSavings: newMinSavings });
+    }
+  };
+
+  const handleSaveTargetAmount = async () => {
+    if (user && tempTarget) {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+      await updateDoc(profileRef, { targetAmount: tempTarget });
+      setUserProfile(prev => ({ ...prev, targetAmount: tempTarget }));
+    }
+    setIsEditingTarget(false);
+  };
+
+  const handleSaveDebtPlan = async () => {
+    if (!user) return;
+    setIsSavingDebt(true);
+    try {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+      await updateDoc(profileRef, { debtAmount, debtRate, debtMinPay });
+    } catch (error) {
+      console.error("Error saving debt plan", error);
+    } finally {
+      setIsSavingDebt(false);
     }
   };
 
@@ -930,8 +972,49 @@ export default function App() {
     }
   };
 
+  const cashFlowData = useMemo(() => {
+    if (cashFlowView === 'Daily') {
+      return [
+        { name: 'Mon', income: 1200, expense: 400 },
+        { name: 'Tue', income: 800, expense: 900 },
+        { name: 'Wed', income: 1500, expense: 300 },
+        { name: 'Thu', income: 2000, expense: 600 },
+        { name: 'Fri', income: 3200, expense: 1200 },
+        { name: 'Sat', income: 500, expense: 1800 },
+        { name: 'Sun', income: 400, expense: 1100 },
+      ];
+    }
+    if (cashFlowView === 'Weekly') {
+      return [
+        { name: 'W1', income: 8500, expense: 4200 },
+        { name: 'W2', income: 9200, expense: 5100 },
+        { name: 'W3', income: 7800, expense: 3900 },
+        { name: 'W4', income: 11000, expense: 6200 },
+      ];
+    }
+    // Monthly
+    if (transactions.length < 3) {
+       return [
+         { name: 'Jan', income: 4000, expense: 2400 },
+         { name: 'Feb', income: 4500, expense: 2100 },
+         { name: 'Mar', income: 4200, expense: 2900 },
+         { name: 'Apr', income: 5000, expense: 2000 },
+         { name: 'May', income: 5500, expense: 2800 },
+         { name: 'Jun', income: Math.max(5600, totalIncome), expense: Math.max(3000, totalExpense) },
+       ];
+    }
+    const grouped = {};
+    transactions.forEach(t => {
+       const month = new Date(t.date).toLocaleString('default', { month: 'short' });
+       if (!grouped[month]) grouped[month] = { name: month, income: 0, expense: 0 };
+       if (t.type === 'income') grouped[month].income += Number(t.amount);
+       else grouped[month].expense += Number(t.amount);
+    });
+    return Object.values(grouped).reverse();
+  }, [transactions, totalIncome, totalExpense, cashFlowView]);
+
   return (
-    <div className="min-h-screen bg-[#05080f] text-slate-100 font-sans flex flex-col selection:bg-[#00f2fe]/30 selection:text-cyan-300 relative overflow-x-hidden">
+    <div className="flex h-screen bg-[#0d1117] text-slate-100 font-sans selection:bg-[#00f2fe]/30 selection:text-cyan-300 overflow-hidden">
       
       <style>{`
         @keyframes fadeUpStagger {
@@ -950,35 +1033,34 @@ export default function App() {
         .dashboard-enter { animation: dashboardEnter 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         
         .glass-panel {
-          background: rgba(10, 15, 25, 0.25);
+          background: rgba(22, 27, 34, 0.85);
           backdrop-filter: blur(40px);
           -webkit-backdrop-filter: blur(40px);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          box-shadow: 0 24px 48px 0 rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 242, 254, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.07);
+          box-shadow: 0 16px 32px 0 rgba(0, 0, 0, 0.6);
         }
         
         .glass-input {
-          background: rgba(0, 0, 0, 0.25);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          background: rgba(13, 17, 23, 0.8);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           transition: all 0.3s ease;
         }
         .glass-input:focus {
           border-color: #00f2fe;
-          background: rgba(0, 0, 0, 0.45);
-          box-shadow: 0 0 15px rgba(0, 242, 254, 0.2);
+          background: rgba(13, 17, 23, 1);
+          box-shadow: 0 0 12px rgba(0, 242, 254, 0.2);
           outline: none;
         }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       {/* Ambient Lights */}
-      <div className="fixed top-0 left-1/4 w-96 h-96 bg-[#00f2fe]/10 rounded-full blur-[120px] pointer-events-none -z-10 animate-pulse"></div>
-      <div className="fixed bottom-1/3 right-1/4 w-[30rem] h-[30rem] bg-[#4facfe]/10 rounded-full blur-[120px] pointer-events-none -z-10 animate-pulse"></div>
+      <div className="fixed top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-[#00f2fe]/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
 
       {/* SPLASH SCREEN */}
       {showSplash && (
-        <div className="fixed inset-0 z-50 bg-[#05080f] flex flex-col items-center justify-center p-6 transition-opacity duration-1000">
+        <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex flex-col items-center justify-center p-6 transition-opacity duration-1000">
           <div className="relative flex items-center justify-center mb-10">
             <AppIcon className="w-28 h-28 drop-shadow-[0_0_35px_rgba(0,242,254,0.4)]" animateStroke={true} />
           </div>
@@ -987,8 +1069,8 @@ export default function App() {
              <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards', opacity: 0 }}>F.</span>
              <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards', opacity: 0 }}>A.</span>
           </div>
-          <p style={{ animation: 'fadeUpStagger 1s ease-out 1.3s forwards', opacity: 0 }} className="text-xs text-cyan-400/70 font-mono tracking-widest mt-5 uppercase">
-            Automated Financial Advisor
+          <p style={{ animation: 'fadeUpStagger 1s ease-out 1.3s forwards', opacity: 0 }} className="text-xs text-cyan-400/70 font-mono tracking-widest mt-5 uppercase text-center leading-relaxed">
+            Automated Financial Assistant
           </p>
         </div>
       )}
@@ -998,7 +1080,7 @@ export default function App() {
         <div className="fixed inset-0 z-40 bg-transparent flex flex-col items-center justify-center p-4">
           <div className="w-full max-w-md relative anim-slide-in flex flex-col items-center">
             <div className="mb-8 z-10">
-              <AppIcon className="w-24 h-24 drop-shadow-[0_0_30px_rgba(0,242,254,0.6)]" animateStroke={true} />
+              <AppIcon className="w-24 h-24 drop-shadow-[0_0_30px_rgba(0,242,254,0.4)]" animateStroke={true} />
             </div>
             
             <div className="glass-panel rounded-3xl p-6 sm:p-8 w-full relative overflow-hidden">
@@ -1025,7 +1107,7 @@ export default function App() {
                       <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Password</label>
                       <input type="password" required value={userProfile.password} onChange={e => setUserProfile({...userProfile, password: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" placeholder="••••••••" />
                     </div>
-                    <button type="submit" disabled={authActionLoading} className="w-full py-4 mt-2 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] hover:from-cyan-400 hover:to-blue-500 text-slate-950 rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(0,242,254,0.4)] disabled:opacity-50">
+                    <button type="submit" disabled={authActionLoading} className="w-full py-4 mt-2 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] hover:from-cyan-400 hover:to-blue-500 text-[#0a0a0a] rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(0,242,254,0.3)] disabled:opacity-50">
                       {authActionLoading ? 'Syncing...' : 'Initiate Sequence'}
                     </button>
                   </form>
@@ -1048,7 +1130,7 @@ export default function App() {
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Full Name</label>
                         <input type="text" placeholder="e.g. Chloe Chan" value={userProfile.name} onChange={e => setUserProfile({...userProfile, name: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
                       </div>
-                      <button disabled={!userProfile.name} onClick={() => setOnboardingStep(2)} className="w-full py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-slate-950 rounded-xl text-xs font-black uppercase tracking-widest">Next Phase</button>
+                      <button disabled={!userProfile.name} onClick={() => setOnboardingStep(2)} className="w-full py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase tracking-widest">Next Phase</button>
                     </div>
                   )}
 
@@ -1062,7 +1144,7 @@ export default function App() {
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(1)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
-                        <button disabled={!userProfile.email || userProfile.password.length < 6} onClick={() => setOnboardingStep(3)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-slate-950 rounded-xl text-xs font-black uppercase">Next Phase</button>
+                        <button disabled={!userProfile.email || userProfile.password.length < 6} onClick={() => setOnboardingStep(3)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next Phase</button>
                       </div>
                     </div>
                   )}
@@ -1081,7 +1163,7 @@ export default function App() {
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(2)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
-                        <button disabled={!userProfile.goal} onClick={() => setOnboardingStep(4)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-slate-950 rounded-xl text-xs font-black uppercase">Next Phase</button>
+                        <button disabled={!userProfile.goal} onClick={() => setOnboardingStep(4)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next Phase</button>
                       </div>
                     </div>
                   )}
@@ -1094,7 +1176,7 @@ export default function App() {
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(3)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
-                        <button disabled={!userProfile.targetAmount} onClick={() => setOnboardingStep(5)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-slate-950 rounded-xl text-xs font-black uppercase">Next Phase</button>
+                        <button disabled={!userProfile.targetAmount} onClick={() => setOnboardingStep(5)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next Phase</button>
                       </div>
                     </div>
                   )}
@@ -1111,7 +1193,7 @@ export default function App() {
                       </div>
                       <div className="flex gap-3 pt-4">
                         <button onClick={() => setOnboardingStep(4)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
-                        <button disabled={!userProfile.riskTolerance || authActionLoading} onClick={handleRegister} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-slate-950 rounded-xl text-xs font-black uppercase">
+                        <button disabled={!userProfile.riskTolerance || authActionLoading} onClick={handleRegister} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">
                           {authActionLoading ? 'Initializing...' : 'Launch A.F.A.'}
                         </button>
                       </div>
@@ -1124,45 +1206,59 @@ export default function App() {
         </div>
       )}
 
-      {/* MAIN APPLICATION */}
+      {/* SIDEBAR NAVIGATION (Desktop) */}
       {user && !showSplash && (
-        <div className="dashboard-enter flex flex-col w-full min-h-screen">
-          {/* HEADER */}
-          <header className="sticky top-0 z-30 bg-[#05080f]/80 backdrop-blur-xl border-b border-slate-800/80">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <AppIcon className="w-10 h-10" />
-                <div>
-                  <h1 className="text-xl font-extrabold tracking-wider text-white">A.F.A.</h1>
-                  <p className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">Educational Financial Guidance</p>
-                </div>
-              </div>
+        <aside className="w-60 bg-[#161b22] border-r border-slate-800/80 flex-col z-40 hidden md:flex shrink-0 shadow-xl">
+          <div className="p-5 flex flex-col gap-1 border-b border-slate-800/50">
+             <div className="flex items-center gap-3">
+                <AppIcon className="w-7 h-7" />
+                <h1 className="text-lg font-bold tracking-wider text-white leading-none">Fintrack</h1>
+             </div>
+             <p className="text-[9px] text-slate-500 font-mono tracking-widest uppercase pl-[38px]">Automated Advisor</p>
+          </div>
 
-              <div className="flex items-center space-x-3">
-                <span className="hidden sm:flex px-3 py-1 rounded-full text-xs font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20 items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
-                  SFC Compliant Mode
-                </span>
-                <button 
-                  onClick={handleSignOut}
-                  className="flex items-center space-x-2 bg-slate-900 hover:bg-slate-800 border border-slate-700/60 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
-                >
-                  <User className="w-3.5 h-3.5 text-blue-400" />
-                  <span className="hidden sm:inline">{userProfile.name || user.email}</span>
-                  <LogOut className="w-3.5 h-3.5 ml-1 text-slate-500" />
-                </button>
-              </div>
-            </div>
-          </header>
+          <div className="p-3 flex items-center gap-2.5 mx-3 mt-4 bg-[#0d1117] rounded-xl border border-slate-800/80">
+             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#00f2fe] to-blue-600 flex items-center justify-center text-[#0d1117] font-bold text-xs">
+                {(userProfile.name || user.email).charAt(0).toUpperCase()}
+             </div>
+             <div className="overflow-hidden">
+                <p className="text-xs font-bold text-white truncate">{userProfile.name || 'Lily Rose'}</p>
+                <p className="text-[9px] text-slate-500 truncate">{user.email}</p>
+             </div>
+          </div>
 
-          {/* NAVIGATION */}
-          <nav className="bg-[#090d16]/70 border-b border-slate-800/60 sticky top-[68px] z-20 backdrop-blur-xl">
-            <div className="max-w-7xl mx-auto px-4 flex space-x-1 sm:space-x-4 overflow-x-auto no-scrollbar">
+          <div className="flex-1 px-3 py-4 space-y-6 overflow-y-auto no-scrollbar text-xs font-medium">
+            
+            <div className="space-y-1">
+              <p className="px-3 text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-2">Main Menu</p>
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                { id: 'ledger', label: 'Dual Ledger', icon: Wallet },
-                { id: 'report', label: 'Spending & Warnings', icon: Bell },
-                { id: 'portfolio', label: 'Stock & Equity', icon: TrendingUp },
+                { id: 'report', label: 'Analytics', icon: ShieldAlert },
+                { id: 'ledger', label: 'Transactions', icon: Wallet },
+                { id: 'portfolio', label: 'Investments', icon: TrendingUp },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full flex items-center space-x-3 py-2.5 px-3 rounded-xl transition-all cursor-pointer ${
+                      isActive 
+                        ? 'bg-[#00f2fe]/10 text-[#00f2fe] font-bold' 
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-[#00f2fe]' : 'text-slate-500'}`} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="space-y-1">
+              <p className="px-3 text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-2">Planning & Tools</p>
+              {[
                 { id: 'simulator', label: 'Wealth Simulator', icon: Sliders },
                 { id: 'debt', label: 'Debt Health', icon: CreditCard },
                 { id: 'mpf', label: 'MPF & Tax', icon: PiggyBank },
@@ -1175,10 +1271,10 @@ export default function App() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center space-x-2 py-3.5 px-4 border-b-2 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all cursor-pointer ${
+                    className={`w-full flex items-center space-x-3 py-2.5 px-3 rounded-xl transition-all cursor-pointer ${
                       isActive 
-                        ? 'border-[#00f2fe] text-[#00f2fe] bg-[#00f2fe]/10' 
-                        : 'border-transparent text-slate-500 hover:text-slate-300'
+                        ? 'bg-[#00f2fe]/10 text-[#00f2fe] font-bold' 
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
                     }`}
                   >
                     <Icon className={`w-4 h-4 ${isActive ? 'text-[#00f2fe]' : 'text-slate-500'}`} />
@@ -1187,183 +1283,290 @@ export default function App() {
                 );
               })}
             </div>
-          </nav>
 
-          {/* MAIN CONTENT */}
-          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          </div>
+        </aside>
+      )}
+
+      {/* MAIN CONTENT WRAPPER */}
+      {user && !showSplash && (
+        <div className="flex-1 flex flex-col relative h-full overflow-y-auto overflow-x-hidden dashboard-enter bg-[#0d1117]">
+          
+          {/* HEADER (Main Content Area) */}
+          <header className="sticky top-0 z-30 bg-[#161b22]/90 backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-3.5 shadow-sm">
+             <div className="flex items-center gap-4">
+                <h2 className="text-base font-bold text-white tracking-wide">
+                  {activeTab === 'dashboard' ? 'Dashboard' : 
+                   activeTab === 'ledger' ? 'Transactions' : 
+                   activeTab === 'report' ? 'Analytics' : 
+                   activeTab === 'portfolio' ? 'Investments' : 
+                   activeTab === 'simulator' ? 'Wealth Simulator' : 
+                   activeTab === 'debt' ? 'Debt Health' : 
+                   activeTab === 'mpf' ? 'MPF & Tax' : 
+                   activeTab === 'advisor' ? 'A.F.A AI Chat' : 'Diagnostic'}
+                </h2>
+             </div>
+             
+             <div className="flex items-center gap-4">
+                <div className="hidden sm:flex relative">
+                   <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                   <input type="text" placeholder="Search or type a command" className="bg-[#0d1117] border border-slate-800 rounded-full pl-9 pr-4 py-1.5 text-xs text-white focus:outline-none focus:border-slate-600 w-56 font-mono" />
+                </div>
+                <button className="relative text-slate-400 hover:text-white transition-colors cursor-pointer">
+                   <Bell className="w-4 h-4" />
+                   {systemAlerts.length > 0 && <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full"></span>}
+                </button>
+             </div>
+          </header>
+
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
             
-            {/* DASHBOARD TAB */}
+            {/* DASHBOARD TAB (Compact, sleek reference layout) */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6 anim-slide-in">
                 
-                {/* ACTIVE WARNINGS BANNER */}
                 {systemAlerts.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Bell className="w-4 h-4 text-cyan-400 animate-bounce" />
-                      <h3 className="text-xs font-mono uppercase text-cyan-400 tracking-wider">Automated Warning System & Targets</h3>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3">
-                      {systemAlerts.map((alert, idx) => (
-                        <div key={idx} className={`p-4 rounded-2xl border flex items-start gap-3 backdrop-blur-md ${alert.type === 'danger' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'}`}>
-                          <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
-                          <div>
-                            <h4 className="font-bold text-sm">{alert.title}</h4>
-                            <p className="text-xs mt-0.5 opacity-90">{alert.message}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-3 text-xs text-rose-300">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span><strong>Spending Alert:</strong> {systemAlerts[0].message}</span>
+                    <button onClick={() => setActiveTab('report')} className="ml-auto text-[#00f2fe] font-bold hover:underline cursor-pointer">See details →</button>
                   </div>
                 )}
 
-                {/* TRI-RING FINANCIAL HEALTH & MATRIX INDEX GAUGE */}
-                <div className="bg-gradient-to-br from-slate-900/90 via-[#0b0f19] to-slate-950 p-6 rounded-3xl border border-slate-800/80 shadow-2xl relative overflow-hidden">
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-                    
-                    <div className="space-y-3 max-w-md">
-                      <div className="flex items-center gap-2 text-xs font-mono text-blue-400 tracking-wider uppercase">
-                        <Target className="w-4 h-4" /> Goal: {userProfile.goal || 'General Growth'}
-                      </div>
-                      <h2 className="text-2xl sm:text-3xl font-black text-white">
-                        Wealth Index: <span className="text-[#00f2fe]">{healthScore}</span><span className="text-slate-500 text-lg">/100</span>
-                      </h2>
-                      <p className="text-xs text-slate-400 leading-relaxed">
-                        Evaluated against the <span className="text-slate-200 font-semibold">50/30/20 Rule</span> and Hong Kong housing burden thresholds. Target: <span className="text-cyan-400 font-bold">HK$ {Number(userProfile.targetAmount || 0).toLocaleString()}</span>.
-                      </p>
-                      
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono">
-                          Savings: {savingsRatio.toFixed(1)}% (Target: 20%)
-                        </span>
-                        <span className="px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-mono">
-                          Investment Velocity: {investmentRatio.toFixed(1)}%
-                        </span>
-                        <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-mono">
-                          Rent Shield: {rentBurdenRatio.toFixed(1)}% (Max: 35%)
-                        </span>
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
+                    <div className="flex justify-between items-start mb-2">
+                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#00f2fe]"/> Total Balance</span>
+                       <span className="text-slate-600 cursor-pointer text-xs">•••</span>
                     </div>
-
-                    <div className="relative flex items-center justify-center w-48 h-48">
-                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 120 120">
-                        <circle cx="60" cy="60" r="50" stroke="#1e293b" strokeWidth="6" fill="transparent" />
-                        <circle cx="60" cy="60" r="50" stroke="#10b981" strokeWidth="6" strokeDasharray={314} strokeDashoffset={314 - (314 * Math.min(savingsRatio, 100)) / 100} strokeLinecap="round" fill="transparent" />
-                        
-                        <circle cx="60" cy="60" r="40" stroke="#1e293b" strokeWidth="6" fill="transparent" />
-                        <circle cx="60" cy="60" r="40" stroke="#00f2fe" strokeWidth="6" strokeDasharray={251} strokeDashoffset={251 - (251 * Math.min(investmentRatio * 2, 100)) / 100} strokeLinecap="round" fill="transparent" />
-                        
-                        <circle cx="60" cy="60" r="30" stroke="#1e293b" strokeWidth="6" fill="transparent" />
-                        <circle cx="60" cy="60" r="30" stroke="#f59e0b" strokeWidth="6" strokeDasharray={188} strokeDashoffset={188 - (188 * Math.min(rentBurdenRatio * 2, 100)) / 100} strokeLinecap="round" fill="transparent" />
-                      </svg>
-                      <div className="absolute flex flex-col items-center justify-center text-center">
-                        <span className="text-2xl font-black text-white">{healthScore}</span>
-                        <span className="text-[9px] font-mono uppercase text-slate-400">Score</span>
-                      </div>
+                    <div className="text-2xl font-black text-white mt-1 mb-2">
+                       ${(portfolioTotalValue + (netSavings > 0 ? netSavings : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                       <span className="text-slate-500">Positive growth</span>
+                       <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-bold border border-emerald-500/20">+12.4%</span>
+                    </div>
+                  </div>
 
+                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
+                    <div className="flex justify-between items-start mb-2">
+                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-blue-400"/> Total Income</span>
+                       <span className="text-slate-600 cursor-pointer text-xs">•••</span>
+                    </div>
+                    <div className="text-2xl font-black text-white mt-1 mb-2">
+                       ${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                       <span className="text-slate-500">Monthly increase</span>
+                       <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-bold border border-emerald-500/20">+8.6%</span>
+                    </div>
                   </div>
-                </div>
 
-                {/* TOP METRICS SUMMARY */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
-                    <span className="text-xs font-mono uppercase text-slate-400">Weekly Spent</span>
-                    <div className="text-2xl font-black text-white mt-1">HK$ {weeklySpentTotal.toLocaleString()}</div>
-                    <span className="text-[10px] text-cyan-400 mt-1 block">Max Target: HK$ {Number(userProfile.weeklyMaxSpend).toLocaleString()}</span>
-                  </div>
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
-                    <span className="text-xs font-mono uppercase text-slate-400">Flagged Outliers</span>
-                    <div className="text-2xl font-black text-rose-400 mt-1">{anomalyAnalysis.anomalies.length} Transactions</div>
-                    <span className="text-[10px] text-slate-400 mt-1 block">Exceeding baseline std. dev.</span>
-                  </div>
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
-                    <span className="text-xs font-mono uppercase text-slate-400">Live Equity Assets</span>
-                    <div className="text-2xl font-black text-blue-400 mt-1">HK$ {portfolioTotalValue.toLocaleString()}</div>
-                  </div>
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
-                    <span className="text-xs font-mono uppercase text-slate-400">Net Surplus</span>
-                    <div className={`text-2xl font-black mt-1 ${netSavings >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      HK$ {netSavings.toLocaleString()}
+                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
+                    <div className="flex justify-between items-start mb-2">
+                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><ArrowDownRight className="w-3.5 h-3.5 text-rose-400"/> Total Expenses</span>
+                       <span className="text-slate-600 cursor-pointer text-xs">•••</span>
+                    </div>
+                    <div className="text-2xl font-black text-white mt-1 mb-2">
+                       ${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                       <span className="text-slate-500">Lower spending</span>
+                       <span className="px-2 py-0.5 bg-rose-500/10 text-rose-400 rounded font-bold border border-rose-500/20">-5.1%</span>
                     </div>
                   </div>
                 </div>
 
-                {/* CASH FLOW BAR CHART */}
-                <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Cash Allocation Matrix</h3>
-                  <div className="h-64 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={[
-                        { name: 'Income', amount: totalIncome, fill: '#10b981' },
-                        { name: 'Expenses', amount: totalExpense, fill: '#f43f5e' },
-                        { name: 'Investments', amount: totalInvestmentDeposits, fill: '#00f2fe' },
-                        { name: 'Surplus', amount: Math.max(0, netSavings), fill: '#3b82f6' },
-                      ]}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                        <XAxis dataKey="name" stroke="#64748b" tickLine={false} />
-                        <YAxis stroke="#64748b" tickLine={false} />
-                        <Tooltip cursor={{fill: '#1e293b', opacity: 0.4}} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }} formatter={(val) => [`HK$ ${val.toLocaleString()}`, 'Amount']} />
-                        <Bar dataKey="amount" radius={[6, 6, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                  
+                  {/* CASH FLOW OVERVIEW CHART */}
+                  <div className="xl:col-span-2 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col">
+                     <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xs font-bold text-white uppercase tracking-wider">Cash Flow Overview</h3>
+                        <div className="flex bg-[#0d1117] rounded-lg border border-slate-800 p-0.5 text-[10px]">
+                           {['Daily', 'Weekly', 'Monthly'].map((view) => (
+                              <button 
+                                key={view} 
+                                onClick={() => setCashFlowView(view)}
+                                className={`px-3 py-1 rounded-md transition-all cursor-pointer font-mono ${cashFlowView === view ? 'bg-[#21262d] text-white shadow font-bold' : 'text-slate-400 hover:text-white'}`}
+                              >
+                                {view}
+                              </button>
+                           ))}
+                        </div>
+                     </div>
+                     
+                     <div className="flex-1 min-h-[220px] w-full relative">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={cashFlowData}>
+                            <defs>
+                              <linearGradient id="incomeColor" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#00f2fe" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#00f2fe" stopOpacity={0}/>
+                              </linearGradient>
+                              <linearGradient id="expenseColor" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
+                            <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${v/1000}k`} />
+                            <Tooltip 
+                               contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '12px' }} 
+                               itemStyle={{ color: '#fff' }}
+                            />
+                            <Area type="monotone" dataKey="income" stroke="#00f2fe" strokeWidth={2.5} fillOpacity={1} fill="url(#incomeColor)" name="Income" />
+                            <Area type="monotone" dataKey="expense" stroke="#f59e0b" strokeWidth={2.5} fillOpacity={1} fill="url(#expenseColor)" name="Expenses" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                     </div>
                   </div>
+
+                  {/* CARDS SECTION */}
+                  <div className="space-y-6">
+                     <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
+                        <div className="flex justify-between items-center mb-4">
+                           <h3 className="text-xs font-bold text-white uppercase tracking-wider">My Cards</h3>
+                           <button onClick={() => setShowAddTxModal(true)} className="text-[10px] text-[#00f2fe] font-mono px-2.5 py-1 bg-[#00f2fe]/10 rounded border border-[#00f2fe]/20 hover:bg-[#00f2fe]/20 cursor-pointer">+ Add Card</button>
+                        </div>
+                        {/* Visual Card */}
+                        <div className="h-38 rounded-xl bg-gradient-to-br from-[#1f242d] via-[#161b22] to-[#00f2fe]/15 border border-slate-700/60 p-4 flex flex-col justify-between relative overflow-hidden shadow-xl">
+                           <div className="absolute top-0 right-0 w-28 h-28 bg-[#00f2fe]/10 rounded-full blur-[35px]"></div>
+                           <div className="flex justify-between items-center relative z-10">
+                              <ShieldCheck className="w-5 h-5 text-slate-300" />
+                              <span className="font-black text-slate-200 italic text-xs tracking-wider">VISA</span>
+                           </div>
+                           <div className="font-mono text-base tracking-widest text-white relative z-10 opacity-90">
+                              3110 2322 **** 1123
+                           </div>
+                           <div className="flex justify-between text-[10px] font-mono text-slate-400 relative z-10 uppercase">
+                              <div>
+                                 <span className="block text-[7px] opacity-50 mb-0.5">Card Holder</span>
+                                 <span className="text-white">{userProfile.name || 'Lily Rose'}</span>
+                              </div>
+                              <div>
+                                 <span className="block text-[7px] opacity-50 mb-0.5">Expires</span>
+                                 <span className="text-white">11/30</span>
+                              </div>
+                           </div>
+                        </div>
+
+                        <div className="mt-5">
+                           <div className="flex justify-between items-end mb-1.5">
+                              <div>
+                                <span className="text-[9px] text-slate-500 uppercase font-mono block">Card Spending</span>
+                                <span className="text-lg font-bold text-white">${weeklySpentTotal.toLocaleString(undefined, {minimumFractionDigits:2})}</span>
+                              </div>
+                              <span className="text-[10px] text-emerald-400 font-bold">+0.8% vs last month</span>
+                           </div>
+                           <div className="w-full bg-[#0d1117] h-2 rounded-full overflow-hidden mb-1.5 border border-slate-800">
+                              <div className="h-full bg-gradient-to-r from-[#00f2fe] to-blue-500 rounded-full" style={{width: `${Math.min(100, (weeklySpentTotal / (Number(userProfile.weeklyMaxSpend) || 4000)) * 100)}%`}}></div>
+                           </div>
+                           <span className="text-[9px] text-slate-500 font-mono">Monthly Limit: ${Number(userProfile.weeklyMaxSpend || 4000).toLocaleString()}</span>
+                        </div>
+                     </div>
+                  </div>
+
+                </div>
+
+                {/* TRANSACTION HISTORY SECTION */}
+                <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
+                  <div className="p-4 px-5 border-b border-slate-800 flex justify-between items-center bg-[#161b22]">
+                     <h3 className="text-xs font-bold text-white uppercase tracking-wider">Transaction History</h3>
+                     <div className="flex items-center gap-2">
+                        <button onClick={() => setShowAddTxModal(true)} className="px-3 py-1.5 bg-[#00f2fe] text-[#0d1117] rounded-lg text-xs font-bold flex items-center gap-1 hover:bg-cyan-400 transition-colors cursor-pointer">
+                           <Plus className="w-3 h-3"/> Add
+                        </button>
+                     </div>
+                  </div>
+                  <div className="overflow-x-auto">
+                     <table className="w-full text-left text-xs text-slate-300">
+                        <thead className="bg-[#0d1117] text-slate-500 uppercase font-mono text-[9px] border-b border-slate-800">
+                           <tr>
+                              <th className="py-3 px-5 font-medium">Transaction ID</th>
+                              <th className="py-3 px-5 font-medium">Description</th>
+                              <th className="py-3 px-5 font-medium">Category</th>
+                              <th className="py-3 px-5 font-medium">Date</th>
+                              <th className="py-3 px-5 font-medium text-right">Amount</th>
+                              <th className="py-3 px-5 font-medium text-center">Status</th>
+                           </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                           {transactions.length === 0 && (
+                             <tr><td colSpan="6" className="py-8 text-center text-slate-600">No transactions recorded.</td></tr>
+                           )}
+                           {transactions.slice(0, 5).map((tx, idx) => (
+                              <tr key={tx.id || idx} className="hover:bg-slate-800/20 transition-colors group">
+                                 <td className="py-3 px-5 font-mono text-slate-500 text-[10px]">TXN-2026-00{idx+1}</td>
+                                 <td className="py-3 px-5 font-medium text-white flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center shrink-0 text-[10px]" style={{color: CATEGORY_COLORS[tx.category] || '#fff'}}>
+                                       {tx.category.charAt(0)}
+                                    </div>
+                                    {tx.description}
+                                 </td>
+                                 <td className="py-3 px-5">
+                                    <span className="flex items-center gap-1.5 font-mono text-[11px]">
+                                       <span className="w-1.5 h-1.5 rounded-full" style={{backgroundColor: CATEGORY_COLORS[tx.category] || '#94a3b8'}}></span>
+                                       {tx.category}
+                                    </span>
+                                 </td>
+                                 <td className="py-3 px-5 text-slate-500 font-mono text-[11px]">{tx.date}</td>
+                                 <td className={`py-3 px-5 text-right font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-white'}`}>
+                                    {tx.type === 'income' ? '+' : '-'}${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                 </td>
+                                 <td className="py-3 px-5 text-center">
+                                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded font-mono text-[9px] uppercase tracking-wider">Success</span>
+                                 </td>
+                              </tr>
+                           ))}
+                        </tbody>
+                     </table>
+                  </div>
+                  {transactions.length > 5 && (
+                     <div className="p-3 border-t border-slate-800 bg-[#0d1117] text-center">
+                        <button onClick={() => setActiveTab('ledger')} className="text-[10px] text-slate-400 hover:text-white uppercase font-mono tracking-widest cursor-pointer">View All Data →</button>
+                     </div>
+                  )}
                 </div>
 
               </div>
             )}
 
-            {/* DUAL LEDGER TAB (INTEGRATED WITH AUDIT & VISUAL CHARTS) */}
+            {/* INTEGRATED LEDGER & AUDIT TAB */}
             {activeTab === 'ledger' && (
               <div className="space-y-6 anim-slide-in">
-                {/* Header & Main Control Bar */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                   <div>
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                      <Wallet className="w-5 h-5 text-cyan-400" /> Integrated Dual Ledger & Audit Center
+                    <h2 className="text-base font-bold text-white flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-[#00f2fe]" /> Integrated Ledger & Audit
                     </h2>
-                    <p className="text-xs text-slate-400 mt-1">Real-time transaction tracking combined with category diagnostics and anomaly alerts.</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Real-time transaction tracking and spending analytics.</p>
                   </div>
                   
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handlePrintPdfReport}
-                      className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all"
+                      className="bg-[#21262d] hover:bg-[#30363d] text-white border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer transition-all"
                     >
-                      <Download className="w-4 h-4" /> Export Report (PDF)
+                      <Download className="w-3.5 h-3.5" /> Export
                     </button>
                     <button 
                       onClick={() => setShowAddTxModal(true)}
-                      className="bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-slate-950 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-500/20"
+                      className="bg-[#00f2fe] text-[#0d1117] px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-md hover:bg-cyan-400 transition-colors"
                     >
-                      <Plus className="w-4 h-4" /> Add Record
+                      <Plus className="w-3.5 h-3.5" /> Add Record
                     </button>
                   </div>
                 </div>
 
-                {/* System Warning & Target Banner inside Ledger */}
-                {systemAlerts.length > 0 && (
-                  <div className="space-y-2">
-                    {systemAlerts.map((alert, idx) => (
-                      <div key={idx} className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs backdrop-blur-md ${alert.type === 'danger' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'}`}>
-                        <div className="flex items-center gap-2.5">
-                          <AlertTriangle className="w-4 h-4 shrink-0" />
-                          <span><strong>{alert.title}:</strong> {alert.message}</span>
-                        </div>
-                        <button onClick={() => setActiveTab('report')} className="underline font-bold text-[10px] uppercase cursor-pointer shrink-0 ml-2">Adjust Limits</button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Visual Category & Spending Breakdown Graphs */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Category Breakdown Pie Chart */}
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80 flex flex-col items-center justify-center">
+                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col items-center justify-center">
                     <h3 className="text-xs font-mono uppercase text-slate-400 self-start mb-2">Category Distribution</h3>
-                    <div className="h-56 w-full relative">
+                    <div className="h-48 w-full relative">
                       {categoryBreakdown.length === 0 ? (
-                        <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">No expense data</div>
+                        <div className="h-full flex items-center justify-center text-xs text-slate-600 font-mono">No expense data</div>
                       ) : (
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
@@ -1371,39 +1574,39 @@ export default function App() {
                               data={categoryBreakdown}
                               cx="50%"
                               cy="50%"
-                              innerRadius={50}
-                              outerRadius={75}
+                              innerRadius={45}
+                              outerRadius={65}
                               paddingAngle={4}
                               dataKey="value"
                             >
                               {categoryBreakdown.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.fill} stroke="rgba(0,0,0,0.4)" />
+                                <Cell key={`cell-${index}`} fill={entry.fill} stroke="rgba(0,0,0,0.2)" />
                               ))}
                             </Pie>
-                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px', color: '#fff', fontSize: '12px' }} formatter={(val) => [`HK$ ${val.toLocaleString()}`, 'Amount']} />
+                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`$${val.toLocaleString()}`, 'Amount']} />
                           </PieChart>
                         </ResponsiveContainer>
                       )}
                     </div>
                   </div>
 
-                  {/* Category Spending Progress Bars */}
-                  <div className="lg:col-span-2 bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80 space-y-3 flex flex-col justify-center">
-                    <h3 className="text-xs font-mono uppercase text-slate-400">Expense Ranking & Category Shares</h3>
+                  {/* Category Progress Bars */}
+                  <div className="lg:col-span-2 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col justify-center">
+                    <h3 className="text-xs font-mono uppercase text-slate-400 mb-3">Expense Ranking & Shares</h3>
                     {categoryBreakdown.length === 0 ? (
-                      <div className="text-xs text-slate-500 font-mono py-8 text-center">Add transactions to visualize category metrics.</div>
+                      <div className="text-xs text-slate-600 font-mono py-8 text-center">Add transactions to visualize category metrics.</div>
                     ) : (
-                      <div className="space-y-2.5 max-h-52 overflow-y-auto pr-1 no-scrollbar">
+                      <div className="space-y-2.5 max-h-44 overflow-y-auto pr-2 no-scrollbar">
                         {categoryBreakdown.map(cat => (
                           <div key={cat.name} className="space-y-1">
                             <div className="flex justify-between text-xs font-mono">
-                              <span className="text-white font-semibold flex items-center gap-2">
-                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.fill }}></span>
+                              <span className="text-white font-medium flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cat.fill }}></span>
                                 {cat.name}
                               </span>
-                              <span className="text-slate-400">HK$ {cat.value.toLocaleString()} ({cat.percentage}%)</span>
+                              <span className="text-slate-400">${cat.value.toLocaleString()} ({cat.percentage}%)</span>
                             </div>
-                            <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden">
+                            <div className="w-full bg-[#0d1117] h-1.5 rounded-full overflow-hidden border border-slate-800">
                               <div className="h-full rounded-full transition-all duration-500" style={{ width: `${cat.percentage}%`, backgroundColor: cat.fill }}></div>
                             </div>
                           </div>
@@ -1414,44 +1617,44 @@ export default function App() {
                 </div>
 
                 {/* Ledger Table */}
-                <div className="bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden">
-                  <div className="px-5 py-3.5 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
-                    <span className="text-xs font-mono uppercase text-cyan-300">Transaction History Log</span>
+                <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
+                  <div className="px-5 py-3 bg-[#0d1117] border-b border-slate-800 flex justify-between items-center">
+                    <span className="text-xs font-mono uppercase text-[#00f2fe]">Transaction History Log</span>
                     <span className="text-[10px] text-slate-500 font-mono">{transactions.length} Records</span>
                   </div>
 
                   <table className="w-full text-left text-sm text-slate-300">
-                    <thead className="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase text-[10px] font-mono">
+                    <thead className="bg-[#161b22] border-b border-slate-800 text-slate-500 uppercase text-[10px] font-mono">
                       <tr>
-                        <th className="py-3.5 px-4">Date</th>
-                        <th className="py-3.5 px-4">Description</th>
-                        <th className="py-3.5 px-4">Category</th>
-                        <th className="py-3.5 px-4 text-right">Amount (HKD)</th>
-                        <th className="py-3.5 px-4 text-center">Action</th>
+                        <th className="py-3 px-5">Date</th>
+                        <th className="py-3 px-5">Description</th>
+                        <th className="py-3 px-5">Category</th>
+                        <th className="py-3 px-5 text-right">Amount</th>
+                        <th className="py-3 px-5 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {transactions.length === 0 && (
                         <tr>
-                          <td colSpan="5" className="py-8 text-center text-xs text-slate-500">No transactions recorded yet. Click "Add Record" to start logging cash flows.</td>
+                          <td colSpan="5" className="py-8 text-center text-xs text-slate-600">No transactions recorded yet. Click "Add Record" to start logging cash flows.</td>
                         </tr>
                       )}
                       {transactions.map(tx => (
-                        <tr key={tx.id} className="hover:bg-slate-800/40 transition-colors">
-                          <td className="py-3.5 px-4 text-xs font-mono text-slate-400">{tx.date}</td>
-                          <td className="py-3.5 px-4 font-semibold text-white">{tx.description}</td>
-                          <td className="py-3.5 px-4">
+                        <tr key={tx.id} className="hover:bg-slate-800/20 transition-colors">
+                          <td className="py-3 px-5 text-xs font-mono text-slate-500">{tx.date}</td>
+                          <td className="py-3 px-5 font-semibold text-white">{tx.description}</td>
+                          <td className="py-3 px-5">
                             <span 
-                              className="px-2.5 py-1 rounded-md text-xs font-mono text-slate-200 border border-slate-700/60"
-                              style={{ backgroundColor: `${CATEGORY_COLORS[tx.category] || '#334155'}20` }}
+                              className="px-2 py-0.5 rounded text-[10px] font-mono font-medium border border-slate-700/60"
+                              style={{ color: CATEGORY_COLORS[tx.category] || '#94a3b8', backgroundColor: `${CATEGORY_COLORS[tx.category]}15` }}
                             >
                               {tx.category}
                             </span>
                           </td>
-                          <td className={`py-3.5 px-4 text-right font-mono font-bold ${tx.type === 'income' ? 'text-emerald-400' : 'text-slate-200'}`}>
-                            {tx.type === 'income' ? '+' : '-'} HK$ {Number(tx.amount).toLocaleString()}
+                          <td className={`py-3 px-5 text-right font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>
+                            {tx.type === 'income' ? '+' : '-'} ${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits:2})}
                           </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3 px-5 text-center">
                             <button onClick={() => handleDeleteTransaction(tx.id)} className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer transition-colors"><Trash2 className="w-4 h-4" /></button>
                           </td>
                         </tr>
@@ -1459,24 +1662,25 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+
               </div>
             )}
 
-            {/* SPENDING & WARNINGS REPORT TAB */}
+            {/* REPORT / ANALYTICS TAB */}
             {activeTab === 'report' && (
               <div className="space-y-6 anim-slide-in">
-                <div className="bg-slate-900/60 p-6 rounded-3xl border border-slate-800/80 space-y-6">
+                <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800/80 shadow-md space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <ShieldAlert className="w-5 h-5 text-cyan-400" /> Comprehensive Anomaly & Target Audit
+                      <h2 className="text-base font-bold text-white flex items-center gap-2">
+                        <ShieldAlert className="w-4 h-4 text-[#00f2fe]" /> Analytics & Target Audit
                       </h2>
-                      <p className="text-xs text-slate-400 mt-1">Detects high-value expense outliers, frequent micro-spending, and budget thresholds.</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Deep dive into anomalies and threshold alerts.</p>
                     </div>
 
                     <button
                       onClick={handlePrintPdfReport}
-                      className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all self-start sm:self-auto"
+                      className="bg-[#21262d] hover:bg-[#30363d] text-white border border-slate-700 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all"
                     >
                       <Download className="w-4 h-4" /> Download Report (PDF)
                     </button>
@@ -1484,7 +1688,7 @@ export default function App() {
 
                   {systemAlerts.length > 0 ? (
                     <div className="space-y-3">
-                      <h3 className="text-xs font-mono uppercase text-cyan-400">System Detected Warnings & Alerts</h3>
+                      <h3 className="text-xs font-mono uppercase text-[#00f2fe]">System Detected Warnings & Alerts</h3>
                       <div className="grid grid-cols-1 gap-3">
                         {systemAlerts.map((alert, idx) => (
                           <div key={idx} className={`p-4 rounded-2xl border flex items-start gap-3 ${alert.type === 'danger' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'}`}>
@@ -1502,70 +1706,6 @@ export default function App() {
                       <CheckCircle2 className="w-4 h-4" /> All spending is within normal target parameters! No active anomalies detected.
                     </div>
                   )}
-
-                  {anomalyAnalysis.anomalies.length > 0 && (
-                    <div className="space-y-3 pt-2">
-                      <h3 className="text-xs font-mono uppercase text-rose-400 flex items-center gap-1.5">
-                        <AlertCircle className="w-4 h-4" /> High-Value Expense Outliers
-                      </h3>
-                      <div className="space-y-2">
-                        {anomalyAnalysis.anomalies.map(a => (
-                          <div key={a.id || a.description} className="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl flex justify-between items-center text-xs">
-                            <div>
-                              <span className="font-bold text-white block">{a.description}</span>
-                              <span className="text-slate-400 text-[10px]">{a.date} • Category: {a.category}</span>
-                            </div>
-                            <span className="font-mono font-bold text-rose-400 text-sm">HK$ {Number(a.amount).toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
-                    <div className="space-y-4 bg-slate-950 p-5 rounded-2xl border border-slate-800">
-                      <h3 className="text-xs font-mono uppercase text-cyan-300 flex items-center gap-2">
-                        <Sliders className="w-4 h-4" /> Interactive Target Adjuster
-                      </h3>
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1.5 font-mono">Max Allowed Weekly Spending (HKD)</label>
-                        <input 
-                          type="number" 
-                          value={userProfile.weeklyMaxSpend} 
-                          onChange={e => handleUpdateTargets(e.target.value, userProfile.weeklyMinSavings)} 
-                          className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white font-mono" 
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-400 block mb-1.5 font-mono">Min Weekly Savings Target (HKD)</label>
-                        <input 
-                          type="number" 
-                          value={userProfile.weeklyMinSavings} 
-                          onChange={e => handleUpdateTargets(userProfile.weeklyMaxSpend, e.target.value)} 
-                          className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white font-mono" 
-                        />
-                      </div>
-                      <p className="text-[10px] text-slate-500">Targets auto-save and update system alerts real-time.</p>
-                    </div>
-
-                    <div className="space-y-4 bg-slate-950 p-5 rounded-2xl border border-slate-800">
-                      <h3 className="text-xs font-mono uppercase text-cyan-300 flex items-center gap-2">
-                        <Compass className="w-4 h-4" /> Pattern & Frequency Breakdown
-                      </h3>
-                      <div className="flex justify-between items-center text-xs py-2 border-b border-slate-800">
-                        <span className="text-slate-400">Total Outflow Analyzed:</span>
-                        <span className="font-bold text-white font-mono">HK$ {anomalyAnalysis.totalSpent.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs py-2 border-b border-slate-800">
-                        <span className="text-slate-400">Historical Average Expense / Tx:</span>
-                        <span className="font-bold text-cyan-400 font-mono">HK$ {anomalyAnalysis.meanAmount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs py-2">
-                        <span className="text-slate-400">Weekend Expenditure Ratio:</span>
-                        <span className="font-bold text-amber-400 font-mono">{anomalyAnalysis.weekendRatio}%</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -1574,25 +1714,25 @@ export default function App() {
             {activeTab === 'portfolio' && (
               <div className="space-y-6 anim-slide-in">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
-                    <span className="text-xs font-mono uppercase text-slate-400">Total Market Valuation (HKD)</span>
-                    <div className="text-2xl font-black text-white mt-1">HK$ {portfolioTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
+                    <span className="text-xs font-mono uppercase text-slate-500">Total Market Valuation</span>
+                    <div className="text-2xl font-black text-white mt-1">${portfolioTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                   </div>
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
-                    <span className="text-xs font-mono uppercase text-slate-400">Cost Basis (HKD)</span>
-                    <div className="text-2xl font-black text-slate-300 mt-1">HK$ {portfolioTotalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
+                    <span className="text-xs font-mono uppercase text-slate-500">Cost Basis</span>
+                    <div className="text-2xl font-black text-slate-300 mt-1">${portfolioTotalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                   </div>
-                  <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
-                    <span className="text-xs font-mono uppercase text-slate-400">Unrealized P&L</span>
+                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
+                    <span className="text-xs font-mono uppercase text-slate-500">Unrealized P&L</span>
                     <div className={`text-2xl font-black mt-1 ${portfolioUnrealizedGain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {portfolioUnrealizedGain >= 0 ? '+' : ''}HK$ {portfolioUnrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({portfolioGainPercent}%)
+                      {portfolioUnrealizedGain >= 0 ? '+' : ''}${portfolioUnrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({portfolioGainPercent}%)
                     </div>
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/60 p-5 rounded-2xl border border-slate-800/80">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                   <div>
-                    <h3 className="font-bold text-white flex items-center gap-2"><TrendingUp className="w-5 h-5 text-cyan-400"/> Equity & Fund Holdings</h3>
+                    <h3 className="font-bold text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-[#00f2fe]"/> Equity & Fund Holdings</h3>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       {lastMarketSyncTime ? `Live market synced at ${lastMarketSyncTime} (FX USD/HKD = 7.82)` : 'Live stock price feed active'}
                     </p>
@@ -1602,34 +1742,34 @@ export default function App() {
                     <button 
                       onClick={handleSyncMarketPrices}
                       disabled={isSyncingMarket}
-                      className="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                      className="bg-[#21262d] hover:bg-[#30363d] text-white border border-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncingMarket ? 'animate-spin text-cyan-400' : ''}`} />
-                      <span>{isSyncingMarket ? 'Syncing...' : 'Sync Market Prices'}</span>
+                      <RefreshCw className={`w-3.5 h-3.5 ${isSyncingMarket ? 'animate-spin' : ''}`} />
+                      <span>{isSyncingMarket ? 'Syncing...' : 'Sync Prices'}</span>
                     </button>
 
-                    <button onClick={() => setShowAddStockModal(true)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-indigo-500/20 cursor-pointer">
+                    <button onClick={() => setShowAddStockModal(true)} className="bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-md cursor-pointer">
                       <Plus className="w-4 h-4" /> Add Asset
                     </button>
                   </div>
                 </div>
 
-                <div className="bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden">
+                <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
                   <table className="w-full text-left text-sm text-slate-300">
-                    <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase text-[10px] font-mono">
+                    <thead className="bg-[#0d1117] border-b border-slate-800 text-slate-500 uppercase text-[10px] font-mono">
                       <tr>
-                        <th className="py-3.5 px-4">Symbol</th>
-                        <th className="py-3.5 px-4 text-right">Shares</th>
-                        <th className="py-3.5 px-4 text-right">Avg Cost</th>
-                        <th className="py-3.5 px-4 text-right">Live Price</th>
-                        <th className="py-3.5 px-4 text-right">Market Value (HKD)</th>
-                        <th className="py-3.5 px-4 text-center">Action</th>
+                        <th className="py-3.5 px-5">Symbol</th>
+                        <th className="py-3.5 px-5 text-right">Shares</th>
+                        <th className="py-3.5 px-5 text-right">Avg Cost</th>
+                        <th className="py-3.5 px-5 text-right">Live Price</th>
+                        <th className="py-3.5 px-5 text-right">Market Value</th>
+                        <th className="py-3.5 px-5 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {portfolio.length === 0 && (
                         <tr>
-                          <td colSpan="6" className="py-8 text-center text-xs text-slate-500">No assets in portfolio. Click "Add Asset" to track TSLA, AAPL, NVDA, 2800.HK, or 0700.HK.</td>
+                          <td colSpan="6" className="py-8 text-center text-xs text-slate-600">No assets in portfolio. Click "Add Asset" to track TSLA, AAPL, NVDA, 2800.HK, or 0700.HK.</td>
                         </tr>
                       )}
                       {portfolio.map(item => {
@@ -1640,19 +1780,19 @@ export default function App() {
                         const isPositive = Number(gainPercent) >= 0;
 
                         return (
-                          <tr key={item.id} className="hover:bg-slate-800/40">
-                            <td className="py-3.5 px-4 font-bold text-white">
+                          <tr key={item.id} className="hover:bg-slate-800/20">
+                            <td className="py-3.5 px-5 font-bold text-white">
                               <div className="flex items-center gap-2">
                                 <span>{item.symbol}</span>
-                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700">{currency}</span>
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">{currency}</span>
                               </div>
-                              <span className="block text-xs font-normal text-slate-400 mt-0.5">{item.name}</span>
+                              <span className="block text-xs font-normal text-slate-500 mt-0.5">{item.name}</span>
                             </td>
-                            <td className="py-3.5 px-4 text-right font-mono">{item.shares}</td>
-                            <td className="py-3.5 px-4 text-right font-mono text-slate-400">
+                            <td className="py-3.5 px-5 text-right font-mono">{item.shares}</td>
+                            <td className="py-3.5 px-5 text-right font-mono text-slate-400">
                               {currency === 'USD' ? '$' : 'HK$'}{item.buyPrice.toFixed(2)}
                             </td>
-                            <td className="py-3.5 px-4 text-right font-mono text-white">
+                            <td className="py-3.5 px-5 text-right font-mono text-white">
                               <div className="flex items-center justify-end gap-1">
                                 <span>{currency === 'USD' ? '$' : 'HK$'}{item.currentPrice.toFixed(2)}</span>
                                 {isPositive ? <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" /> : <ArrowDownRight className="w-3.5 h-3.5 text-rose-400" />}
@@ -1661,10 +1801,10 @@ export default function App() {
                                 {isPositive ? '+' : ''}{gainPercent}%
                               </span>
                             </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400">
-                              HK$ {valueInHkd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <td className="py-3.5 px-5 text-right font-mono font-bold text-emerald-400">
+                              ${valueInHkd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td className="py-3.5 px-4 text-center">
+                            <td className="py-3.5 px-5 text-center">
                               <button onClick={() => handleDeleteStock(item.id)} className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                             </td>
                           </tr>
@@ -1674,139 +1814,62 @@ export default function App() {
                   </table>
                 </div>
 
-                {/* LIVE MARKET & MACRO FINANCIAL NEWS INTELLIGENCE BLOCK */}
-                <div className="bg-slate-900/60 p-6 rounded-3xl border border-slate-800/80 space-y-6">
+                {/* LIVE MARKET NEWS */}
+                <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800/80 shadow-md space-y-6">
                   
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
                     <div>
-                      <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                        <Newspaper className="w-5 h-5 text-cyan-400" /> Live Market & Macro Financial News Intelligence
+                      <h2 className="text-base font-bold text-white flex items-center gap-2">
+                        <Newspaper className="w-4 h-4 text-[#00f2fe]" /> Live Market Intelligence (RSS)
                       </h2>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Real-time market catalysts, central bank signals, and economic developments affecting equity valuations.
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Real-time feeds affecting global equity valuations.
                       </p>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">
+                      <span className="text-[10px] font-mono text-slate-500 hidden sm:inline">
                         Updated {lastNewsSyncTime}
                       </span>
                       <button 
                         onClick={handleRefreshNews}
                         disabled={isSyncingNews}
-                        className="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                        className="bg-[#21262d] hover:bg-[#30363d] text-white border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                       >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isSyncingNews ? 'animate-spin text-cyan-400' : ''}`} />
-                        <span>{isSyncingNews ? 'Syncing...' : 'Sync Feed'}</span>
+                        <RefreshCw className={`w-3.5 h-3.5 ${isSyncingNews ? 'animate-spin' : ''}`} />
+                        <span>{isSyncingNews ? 'Syncing...' : 'Refresh'}</span>
                       </button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800/80 flex items-start gap-3">
-                      <Zap className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest block font-semibold">Rate Outlook</span>
-                        <h4 className="text-xs font-bold text-white mt-0.5">Global Central Banks Maintain Data-Driven Rate Path</h4>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800/80 flex items-start gap-3">
-                      <Activity className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest block font-semibold">Tech & Semiconductors</span>
-                        <h4 className="text-xs font-bold text-white mt-0.5">AI Capex Expansion Accelerates Hyperscaler Earnings</h4>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800/80 flex items-start gap-3">
-                      <Globe className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest block font-semibold">Greater China Market</span>
-                        <h4 className="text-xs font-bold text-white mt-0.5">HK Market Liquidity Boosted by Fiscal Measures</h4>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-                      {['All', 'Central Bank & Rates', 'Tech & AI', 'Macro Economy', 'Energy & Commodities'].map(cat => (
-                        <button
-                          key={cat}
-                          onClick={() => setNewsCategory(cat)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-mono whitespace-nowrap transition-all cursor-pointer ${
-                            newsCategory === cat 
-                              ? 'bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/50 font-bold' 
-                              : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-slate-200'
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex-1 sm:w-64">
-                        <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
-                        <input
-                          type="text"
-                          value={newsSearch}
-                          onChange={e => setNewsSearch(e.target.value)}
-                          placeholder="Search headlines or tickers..."
-                          className="w-full pl-9 pr-4 py-2 glass-input rounded-xl text-xs text-white"
-                        />
-                      </div>
-
-                      <button
-                        onClick={() => setFilterByHoldingsOnly(!filterByHoldingsOnly)}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-mono flex items-center gap-2 border transition-all cursor-pointer whitespace-nowrap ${
-                          filterByHoldingsOnly
-                            ? 'bg-blue-500/20 text-blue-300 border-blue-500/50 font-bold'
-                            : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
-                        }`}
-                      >
-                        <Filter className="w-3.5 h-3.5" />
-                        <span>Filter Portfolio Assets</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
                     {filteredNews.length === 0 ? (
-                      <div className="p-8 text-center text-xs text-slate-500 bg-slate-950/40 rounded-2xl border border-slate-800/60">
-                        No financial headlines matching current search parameters or portfolio tags.
+                      <div className="p-8 text-center text-xs text-slate-500 bg-[#0d1117] rounded-2xl border border-slate-800/60">
+                        {isSyncingNews ? "Fetching live market news..." : "No financial headlines found."}
                       </div>
                     ) : (
                       filteredNews.map(item => (
                         <div 
                           key={item.id} 
-                          className="p-4 bg-slate-950/70 border border-slate-800/80 hover:border-slate-700/80 rounded-2xl transition-all space-y-2.5 group"
+                          className="p-4 bg-[#0d1117] border border-slate-800/80 hover:border-slate-700 rounded-2xl transition-all space-y-2.5 group"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
                               <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                                item.impact === 'High' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
-                                item.impact === 'Positive' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                                item.impact === 'Warning' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                                'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                                item.impact === 'High Impact' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                                'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                               }`}>
                                 {item.impact}
                               </span>
-                              <span className="text-[11px] font-mono text-cyan-400">{item.source}</span>
+                              <span className="text-[11px] font-mono text-[#00f2fe]">{item.source}</span>
                               <span className="text-[10px] text-slate-500">• {item.time}</span>
-                            </div>
-
-                            <div className="flex items-center gap-1.5">
-                              {item.symbols.map(sym => (
-                                <span key={sym} className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-300 border border-slate-700">
-                                  ${sym}
-                                </span>
-                              ))}
                             </div>
                           </div>
 
-                          <h3 className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-bold text-white group-hover:text-[#00f2fe] transition-colors flex items-center justify-between gap-2">
                             <a href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:underline">
                               <span>{item.title}</span>
-                              <ExternalLink className="w-3.5 h-3.5 text-slate-500 inline shrink-0" />
+                              <ExternalLink className="w-3.5 h-3.5 text-slate-600 inline shrink-0" />
                             </a>
                           </h3>
 
@@ -1823,49 +1886,62 @@ export default function App() {
               </div>
             )}
 
-            {/* WEALTH SIMULATOR TAB */}
+            {/* WEALTH SIMULATOR TAB (Expanded Gamified Scenarios) */}
             {activeTab === 'simulator' && (
               <div className="space-y-6 anim-slide-in">
-                <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800/80">
-                  <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                    <Sliders className="w-5 h-5 text-blue-400" /> Compound Wealth Trajectory Simulator
+                <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
+                  <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Gamified Wealth Simulator
                   </h2>
-                  <p className="text-xs text-slate-400 mb-6">Uses standard Time Value of Money (TVM) monthly compounding: <span className="text-blue-400 font-bold">HK$ {Number(userProfile.targetAmount || 0).toLocaleString()}</span> goal.</p>
+                  <p className="text-xs text-slate-400 mb-6">Test live financial life events and compound wealth towards your target.</p>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="space-y-5 bg-slate-950 p-5 rounded-2xl border border-slate-800/80">
+                    <div className="space-y-5 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
+                      
+                      {/* Expanded Gamification Scenarios */}
+                      <div className="pb-4 border-b border-slate-800">
+                         <h3 className="text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-3">Interactive Life Scenarios</h3>
+                         <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => setSimInitial(p => Math.max(0, Math.floor(p * 0.8)))} className="p-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-[10px] font-bold text-left transition-colors">📉 Market Crash (-20%)</button>
+                            <button onClick={() => setSimMonthly(p => Math.min(500000, p + 10000))} className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10px] font-bold text-left transition-colors">📈 Job Promotion (+10k/mo)</button>
+                            <button onClick={() => setSimInitial(p => p + 500000)} className="p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 rounded-xl text-[10px] font-bold text-left transition-colors">🎁 Crypto Windfall (+500k)</button>
+                            <button onClick={() => setSimInitial(p => Math.max(0, p - 1000000))} className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 rounded-xl text-[10px] font-bold text-left transition-colors">🏠 Buy Flat Down Payment</button>
+                         </div>
+                      </div>
+
                       <div>
                         <label className="text-xs font-mono text-slate-300 flex justify-between mb-2">
                           <span>Initial Capital</span>
-                          <span className="text-blue-400 font-bold">HK$ {simInitial.toLocaleString()}</span>
+                          <span className="text-white font-bold">${simInitial.toLocaleString()}</span>
                         </label>
-                        <input type="range" min="0" max="500000" step="10000" value={simInitial} onChange={e => setSimInitial(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
+                        <input type="range" min="0" max="5000000" step="10000" value={simInitial} onChange={e => setSimInitial(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 flex justify-between mb-2">
                           <span>Monthly Deposit</span>
-                          <span className="text-blue-400 font-bold">HK$ {simMonthly.toLocaleString()}</span>
+                          <span className="text-white font-bold">${simMonthly.toLocaleString()}</span>
                         </label>
-                        <input type="range" min="1000" max="50000" step="1000" value={simMonthly} onChange={e => setSimMonthly(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
+                        {/* Expanded max to 500,000 */}
+                        <input type="range" min="1000" max="500000" step="1000" value={simMonthly} onChange={e => setSimMonthly(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 flex justify-between mb-2">
                           <span>Expected Return</span>
-                          <span className="text-blue-400 font-bold">{simRate}% / year</span>
+                          <span className="text-white font-bold">{simRate}% / year</span>
                         </label>
                         <input type="range" min="1" max="15" step="0.5" value={simRate} onChange={e => setSimRate(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 flex justify-between mb-2">
                           <span>Time Horizon</span>
-                          <span className="text-blue-400 font-bold">{simYears} Years</span>
+                          <span className="text-white font-bold">{simYears} Years</span>
                         </label>
                         <input type="range" min="1" max="30" step="1" value={simYears} onChange={e => setSimYears(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
                       </div>
                     </div>
 
                     <div className="lg:col-span-2 space-y-4">
-                      <div className="h-72 w-full">
+                      <div className="h-72 w-full bg-[#0d1117] border border-slate-800 rounded-2xl p-4">
                         <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={simulationTrajectory}>
                             <defs>
@@ -1874,20 +1950,20 @@ export default function App() {
                                 <stop offset="95%" stopColor="#00f2fe" stopOpacity={0}/>
                               </linearGradient>
                             </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                            <XAxis dataKey="year" stroke="#64748b" />
-                            <YAxis stroke="#64748b" />
-                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }} formatter={(val) => [`HK$ ${val.toLocaleString()}`, 'Value']} />
-                            <Area type="monotone" dataKey="balance" stroke="#00f2fe" strokeWidth={3} fillOpacity={1} fill="url(#colorBal)" name="Portfolio Value" />
-                            <Area type="monotone" dataKey="invested" stroke="#64748b" strokeDasharray="4 4" strokeWidth={2} fillOpacity={0} name="Total Principal" />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
+                            <XAxis dataKey="year" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff', fontSize: '11px' }} formatter={(val) => [`$${val.toLocaleString()}`, 'Value']} />
+                            <Area type="monotone" dataKey="balance" stroke="#00f2fe" strokeWidth={2.5} fillOpacity={1} fill="url(#colorBal)" name="Portfolio Value" />
+                            <Area type="monotone" dataKey="invested" stroke="#8b949e" strokeDasharray="4 4" strokeWidth={1.5} fillOpacity={0} name="Total Principal" />
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
 
-                      <div className="p-4 bg-slate-950 rounded-xl border border-slate-800/80 flex justify-between items-center text-xs font-mono">
+                      <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800 flex justify-between items-center text-xs font-mono">
                         <span className="text-slate-400">Projected Value at Year {simYears}:</span>
-                        <span className="text-xl font-bold text-cyan-400">
-                          HK$ {simulationTrajectory[simulationTrajectory.length - 1]?.balance.toLocaleString()}
+                        <span className="text-xl font-bold text-[#00f2fe]">
+                          ${simulationTrajectory[simulationTrajectory.length - 1]?.balance.toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -1899,14 +1975,14 @@ export default function App() {
             {/* DEBT HEALTH TAB */}
             {activeTab === 'debt' && (
               <div className="space-y-6 anim-slide-in">
-                <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800/80">
-                  <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-rose-400" /> Debt Repayment Optimizer (Snowball vs. Avalanche)
+                <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
+                  <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-rose-400" /> Debt Repayment Optimizer
                   </h2>
-                  <p className="text-xs text-slate-400 mb-6">Analyze credit card debt or personal loans to optimize interest expenditure.</p>
+                  <p className="text-xs text-slate-400 mb-6">Analyze credit card debt or personal loans and save your payoff plan directly to Firebase.</p>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="space-y-4 bg-slate-950 p-5 rounded-2xl border border-slate-800/80">
+                    <div className="space-y-4 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Total Unsecured Debt (HKD)</label>
                         <input type="number" value={debtAmount} onChange={e => setDebtAmount(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
@@ -1921,32 +1997,40 @@ export default function App() {
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Payoff Strategy</label>
-                        <select value={debtStrategy} onChange={e => setDebtStrategy(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white [&>option]:bg-slate-900">
-                          <option value="avalanche">Avalanche (Mathematically Highest Interest Savings)</option>
+                        <select value={debtStrategy} onChange={e => setDebtStrategy(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white [&>option]:bg-[#161b22]">
+                          <option value="avalanche">Avalanche (Highest Interest Savings)</option>
                           <option value="snowball">Snowball (Psychological Momentum)</option>
                         </select>
                       </div>
+
+                      <button 
+                        onClick={handleSaveDebtPlan} 
+                        className="w-full mt-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
+                      >
+                        {isSavingDebt ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4" />}
+                        <span>Save Debt Plan</span>
+                      </button>
                     </div>
 
                     <div className="lg:col-span-2 space-y-4">
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                          <span className="text-[10px] font-mono text-slate-400 uppercase">Estimated Debt Free Time</span>
+                        <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
+                          <span className="text-[10px] font-mono text-slate-500 uppercase">Estimated Debt Free Time</span>
                           <div className="text-2xl font-bold text-emerald-400 mt-1">{debtPayoffTrajectory.totalMonths} Months</div>
                         </div>
-                        <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                          <span className="text-[10px] font-mono text-slate-400 uppercase">Total Interest Cost</span>
-                          <div className="text-2xl font-bold text-rose-400 mt-1">HK$ {debtPayoffTrajectory.totalInterest.toLocaleString()}</div>
+                        <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
+                          <span className="text-[10px] font-mono text-slate-500 uppercase">Total Interest Cost</span>
+                          <div className="text-2xl font-bold text-rose-400 mt-1">${debtPayoffTrajectory.totalInterest.toLocaleString()}</div>
                         </div>
                       </div>
 
-                      <div className="h-56 w-full">
+                      <div className="h-56 w-full bg-[#0d1117] rounded-xl border border-slate-800 p-4">
                         <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={debtPayoffTrajectory.trajectory}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                            <XAxis dataKey="month" stroke="#64748b" />
-                            <YAxis stroke="#64748b" />
-                            <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#fff' }} />
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
+                            <XAxis dataKey="month" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${v/1000}k`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff' }} />
                             <Area type="monotone" dataKey="balance" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.2} name="Remaining Balance" />
                           </AreaChart>
                         </ResponsiveContainer>
@@ -1960,14 +2044,14 @@ export default function App() {
             {/* MPF & TAX TAB */}
             {activeTab === 'mpf' && (
               <div className="space-y-6 anim-slide-in">
-                <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800/80">
-                  <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                    <PiggyBank className="w-5 h-5 text-indigo-400" /> Mandatory Provident Fund (MPF) & Tax Savings (TVC)
+                <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
+                  <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
+                    <PiggyBank className="w-4 h-4 text-indigo-400" /> MPF & Tax Savings (TVC)
                   </h2>
                   <p className="text-xs text-slate-400 mb-6">Calculate HK MPF statutory contributions and Tax-Deductible Voluntary Contributions (TVC) benefits.</p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-4 bg-slate-950 p-5 rounded-2xl border border-slate-800/80">
+                    <div className="space-y-4 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Monthly Employment Income (HKD)</label>
                         <input type="number" value={mpfIncome} onChange={e => setMpfIncome(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
@@ -1976,34 +2060,30 @@ export default function App() {
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Monthly TVC Voluntary Contribution (HKD)</label>
                         <input type="number" value={tvcMonthly} onChange={e => setTvcMonthly(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
                       </div>
-                      <div className="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-300">
-                        <strong>DIS Guidance:</strong> The Default Investment Strategy (Core Accumulation Fund vs Age 50+ De-risking) provides a low-cost, automated global option for young employees.
-                      </div>
                     </div>
 
                     <div className="space-y-4">
-                      <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                      <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800 flex justify-between items-center">
                         <div>
                           <span className="text-xs text-slate-400 font-mono block">Mandatory Monthly Employee Contribution</span>
-                          <span className="text-xs text-slate-500">(5% up to HK$1,500 max cap)</span>
+                          <span className="text-[10px] text-slate-500">(5% up to HK$1,500 max cap)</span>
                         </div>
-                        <span className="text-xl font-bold text-white">HK$ {mpfCalc.mandatory.toLocaleString()}</span>
+                        <span className="text-xl font-bold text-white">${mpfCalc.mandatory.toLocaleString()}</span>
                       </div>
 
-                      <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex justify-between items-center">
+                      <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800 flex justify-between items-center">
                         <div>
                           <span className="text-xs text-slate-400 font-mono block">Annual TVC Tax Deductible Total</span>
-                          <span className="text-xs text-slate-500">(Cap: HK$ 60,000 / year)</span>
+                          <span className="text-[10px] text-slate-500">(Cap: $60,000 / year)</span>
                         </div>
-                        <span className="text-xl font-bold text-indigo-400">HK$ {mpfCalc.annualTvc.toLocaleString()}</span>
+                        <span className="text-xl font-bold text-indigo-400">${mpfCalc.annualTvc.toLocaleString()}</span>
                       </div>
 
                       <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex justify-between items-center">
                         <div>
                           <span className="text-xs text-emerald-400 font-mono block">Estimated Annual Salaries Tax Savings</span>
-                          <span className="text-xs text-emerald-500/80">(Based on standard marginal tax tier)</span>
                         </div>
-                        <span className="text-2xl font-black text-emerald-400">HK$ {mpfCalc.estimatedTaxSaved.toLocaleString()}</span>
+                        <span className="text-2xl font-black text-emerald-400">${mpfCalc.estimatedTaxSaved.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -2013,19 +2093,19 @@ export default function App() {
 
             {/* AI CHAT TAB */}
             {activeTab === 'advisor' && (
-              <div className="h-[75vh] flex flex-col bg-slate-900/60 rounded-2xl border border-slate-800/80 overflow-hidden anim-slide-in">
-                <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center gap-3">
-                  <Bot className="w-5 h-5 text-blue-400" />
+              <div className="h-[75vh] flex flex-col bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden anim-slide-in">
+                <div className="p-4 bg-[#0d1117] border-b border-slate-800 flex items-center gap-3">
+                  <Bot className="w-4 h-4 text-[#00f2fe]" />
                   <div>
                     <h3 className="font-bold text-sm text-white">A.F.A. AI Advisor</h3>
-                    <p className="text-[10px] text-slate-400 font-mono">Tailored for {userProfile.name} • Goal: {userProfile.goal}</p>
+                    <p className="text-[10px] text-slate-500 font-mono">Tailored for {userProfile.name} • Goal: {userProfile.goal}</p>
                   </div>
                 </div>
 
-                <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#070b12]">
+                <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#161b22]">
                   {chatMessages.map((msg, idx) => (
                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${msg.role === 'user' ? 'bg-[#00f2fe] text-slate-950 font-semibold' : 'bg-slate-900 border border-slate-800 text-slate-200'}`}>
+                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${msg.role === 'user' ? 'bg-[#00f2fe] text-[#0d1117] font-bold' : 'bg-[#0d1117] border border-slate-800 text-slate-200'}`}>
                         {msg.text}
                       </div>
                     </div>
@@ -2033,10 +2113,10 @@ export default function App() {
                   {isLoadingAi && <div className="text-xs text-slate-500 font-mono italic">A.F.A AI is analyzing...</div>}
                 </div>
 
-                <form onSubmit={handleSendMessage} className="p-3 bg-slate-950 border-t border-slate-800 flex gap-2">
-                  <input type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="Ask about HK tax deductions, market news, or spending..." className="flex-1 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-[#00f2fe]" />
-                  <button type="submit" className="bg-[#00f2fe] hover:bg-cyan-400 text-slate-950 px-5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
-                    <Send className="w-4 h-4" /> Send
+                <form onSubmit={handleSendMessage} className="p-3 bg-[#0d1117] border-t border-slate-800 flex gap-2">
+                  <input type="text" value={userInput} onChange={(e) => setUserInput(e.target.value)} placeholder="Ask about HK tax deductions, market news, or spending..." className="flex-1 px-4 py-2 rounded-xl bg-[#161b22] border border-slate-800 text-xs text-white focus:outline-none focus:border-[#00f2fe]" />
+                  <button type="submit" className="bg-[#00f2fe] hover:bg-cyan-400 text-[#0d1117] px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
+                    <Send className="w-3.5 h-3.5" /> Send
                   </button>
                 </form>
               </div>
@@ -2045,48 +2125,48 @@ export default function App() {
             {/* AI DIAGNOSTIC TAB */}
             {activeTab === 'diagnostic' && (
               <div className="space-y-6 anim-slide-in">
-                <div className="bg-slate-900/60 p-6 rounded-2xl border border-slate-800/80">
-                  <h2 className="text-lg font-bold text-white mb-4">AI Financial Health Diagnostic</h2>
+                <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
+                  <h2 className="text-base font-bold text-white mb-4">AI Financial Health Diagnostic</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                    <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
                       <span className="text-xs font-mono text-slate-400">Savings Ratio (50/30/20)</span>
                       <div className="text-2xl font-bold text-emerald-400 mt-1">{savingsRatio.toFixed(1)}%</div>
-                      <p className="text-xs text-slate-400 mt-2">Target benchmark is 20%+.</p>
+                      <p className="text-xs text-slate-500 mt-2">Target benchmark is 20%+.</p>
                     </div>
-                    <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                    <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
                       <span className="text-xs font-mono text-slate-400">Rent Burden Threshold</span>
                       <div className="text-2xl font-bold text-amber-400 mt-1">{rentBurdenRatio.toFixed(1)}%</div>
-                      <p className="text-xs text-slate-400 mt-2">Maximum benchmark is 35%.</p>
+                      <p className="text-xs text-slate-500 mt-2">Maximum benchmark is 35%.</p>
                     </div>
-                    <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
+                    <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
                       <span className="text-xs font-mono text-slate-400">Tax Optimization Cap</span>
-                      <div className="text-2xl font-bold text-indigo-400 mt-1">HK$ 60,000 Cap</div>
-                      <p className="text-xs text-slate-400 mt-2">Consider TVC tax deductions.</p>
+                      <div className="text-2xl font-bold text-indigo-400 mt-1">$60,000 Cap</div>
+                      <p className="text-xs text-slate-500 mt-2">Consider TVC tax deductions.</p>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* MANDATORY REGULATORY FOOTER DISCLAIMER */}
-            <footer className="mt-8 p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 text-[10px] text-slate-500 font-mono leading-relaxed text-center">
-              <p><strong>Regulatory Compliance Disclaimer:</strong> A.F.A. (Automated Financial Advisor) is an educational tool designed for financial literacy, debt modeling, and budgeting habit formation in Hong Kong. It does not provide regulated investment advice, securities recommendations, or discretionary portfolio management under the Securities and Futures Ordinance (SFO). All market quotes are provided for educational tracking.</p>
+            {/* REGULATORY FOOTER */}
+            <footer className="mt-8 p-4 rounded-2xl bg-[#161b22] border border-slate-800/80 text-[10px] text-slate-500 font-mono leading-relaxed text-center shadow-inner">
+              <p><strong>Regulatory Compliance Disclaimer:</strong> A.F.A. (Automated Financial Advisor) is an educational tool designed for financial literacy, debt modeling, and budgeting habit formation in Hong Kong. It does not provide regulated investment advice under the Securities and Futures Ordinance (SFO).</p>
             </footer>
 
           </main>
         </div>
       )}
 
-      {/* MODALS WITH GLASSMORPHISM */}
+      {/* MODALS */}
       {showAddTxModal && (
-        <div className="fixed inset-0 z-50 bg-[#05080f]/60 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
-          <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-md w-full relative">
-            <h3 className="text-lg font-black tracking-widest uppercase text-white mb-6">Log Transaction</h3>
+        <div className="fixed inset-0 z-50 bg-[#0d1117]/80 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
+          <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-md w-full relative border border-slate-700/50">
+            <h3 className="text-base font-bold tracking-wider uppercase text-white mb-5">Log Transaction</h3>
             <form onSubmit={handleAddTransaction} className="space-y-4">
-              <input type="text" required placeholder="Description" value={newTx.description} onChange={e => setNewTx({ ...newTx, description: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white" />
-              <input type="number" required placeholder="Amount (HKD)" value={newTx.amount} onChange={e => setNewTx({ ...newTx, amount: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white" />
-              <input type="date" required value={newTx.date} onChange={e => setNewTx({ ...newTx, date: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white font-mono" />
-              <select value={newTx.category} onChange={e => setNewTx({ ...newTx, category: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white [&>option]:bg-slate-900">
+              <input type="text" required placeholder="Description" value={newTx.description} onChange={e => setNewTx({ ...newTx, description: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+              <input type="number" required placeholder="Amount" value={newTx.amount} onChange={e => setNewTx({ ...newTx, amount: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+              <input type="date" required value={newTx.date} onChange={e => setNewTx({ ...newTx, date: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
+              <select value={newTx.category} onChange={e => setNewTx({ ...newTx, category: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
                 <option value="Salary">Salary</option>
                 <option value="Dining">Dining</option>
                 <option value="Shopping">Shopping</option>
@@ -2095,13 +2175,13 @@ export default function App() {
                 <option value="Transport">Transport</option>
                 <option value="Investment">Investment Deposit</option>
               </select>
-              <select value={newTx.type} onChange={e => setNewTx({ ...newTx, type: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white [&>option]:bg-slate-900">
+              <select value={newTx.type} onChange={e => setNewTx({ ...newTx, type: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
                 <option value="expense">Expense / Outflow</option>
                 <option value="income">Income / Inflow</option>
               </select>
-              <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setShowAddTxModal(false)} className="px-5 py-2.5 text-xs text-slate-300 bg-white/5 rounded-xl cursor-pointer">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 text-xs font-black uppercase bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-slate-950 rounded-xl cursor-pointer">Save Record</button>
+              <div className="flex justify-end gap-2 pt-3">
+                <button type="button" onClick={() => setShowAddTxModal(false)} className="px-4 py-2 text-xs text-slate-400 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">Cancel</button>
+                <button type="submit" className="px-4 py-2 text-xs font-bold uppercase bg-[#00f2fe] text-[#0d1117] rounded-xl cursor-pointer hover:bg-cyan-400">Save Record</button>
               </div>
             </form>
           </div>
@@ -2109,14 +2189,14 @@ export default function App() {
       )}
 
       {showAddStockModal && (
-        <div className="fixed inset-0 z-50 bg-[#05080f]/60 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
-          <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-md w-full relative">
-            <h3 className="text-lg font-black tracking-widest uppercase text-white mb-2">Add Equity Asset</h3>
-            <p className="text-xs text-slate-400 mb-6">Enter ticker (e.g., TSLA, AAPL, NVDA, 2800.HK, 0700.HK) for live price auto-fetch.</p>
+        <div className="fixed inset-0 z-50 bg-[#0d1117]/80 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
+          <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-md w-full relative border border-slate-700/50">
+            <h3 className="text-base font-bold tracking-wider uppercase text-white mb-2">Add Equity Asset</h3>
+            <p className="text-xs text-slate-400 mb-5">Enter ticker (e.g., TSLA, AAPL, NVDA, 2800.HK, 0700.HK) for live price auto-fetch.</p>
 
             <form onSubmit={handleAddStock} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-mono text-cyan-300 uppercase tracking-widest mb-1">Ticker Symbol</label>
+                <label className="block text-[10px] font-mono text-[#00f2fe] uppercase tracking-widest mb-1">Ticker Symbol</label>
                 <div className="flex gap-2">
                   <input 
                     type="text" 
@@ -2124,53 +2204,53 @@ export default function App() {
                     placeholder="e.g., TSLA or 2800.HK" 
                     value={newStock.symbol} 
                     onChange={e => setNewStock({ ...newStock, symbol: e.target.value })} 
-                    className="flex-1 px-4 py-3 glass-input rounded-xl text-sm text-white uppercase font-mono" 
+                    className="flex-1 px-4 py-2.5 glass-input rounded-xl text-xs text-white uppercase font-mono" 
                   />
                   <button 
                     type="button" 
                     onClick={() => handleLookupTicker(newStock.symbol)} 
                     disabled={isSearchingTicker || !newStock.symbol}
-                    className="px-4 py-3 bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    className="px-3.5 py-2.5 bg-[#00f2fe]/10 border border-[#00f2fe]/30 text-[#00f2fe] rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer disabled:opacity-50 hover:bg-[#00f2fe]/20"
                   >
-                    {isSearchingTicker ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                    {isSearchingTicker ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
                     <span>Lookup</span>
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Asset / Company Name</label>
-                <input type="text" placeholder="e.g. Tesla Inc." value={newStock.name} onChange={e => setNewStock({ ...newStock, name: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white" />
+                <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Asset Name</label>
+                <input type="text" placeholder="Auto-filled Asset Name" value={newStock.name} readOnly className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white opacity-60 cursor-not-allowed" />
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <div className="w-1/2">
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Shares Count</label>
-                  <input type="number" step="any" required placeholder="Shares" value={newStock.shares} onChange={e => setNewStock({ ...newStock, shares: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white font-mono" />
+                  <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Shares</label>
+                  <input type="number" step="any" required placeholder="Shares" value={newStock.shares} onChange={e => setNewStock({ ...newStock, shares: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
                 </div>
                 <div className="w-1/2">
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Currency Tier</label>
-                  <select value={newStock.currency} onChange={e => setNewStock({ ...newStock, currency: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white font-mono [&>option]:bg-slate-900">
+                  <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Currency</label>
+                  <select value={newStock.currency} onChange={e => setNewStock({ ...newStock, currency: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono [&>option]:bg-[#161b22]">
                     <option value="HKD">HKD ($)</option>
                     <option value="USD">USD ($)</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex gap-3">
                 <div className="w-1/2">
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Buy Price ({newStock.currency})</label>
-                  <input type="number" step="0.01" required placeholder="Buy Price" value={newStock.buyPrice} onChange={e => setNewStock({ ...newStock, buyPrice: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white font-mono" />
+                  <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Buy Price</label>
+                  <input type="number" step="0.01" required placeholder="Buy Price" value={newStock.buyPrice} onChange={e => setNewStock({ ...newStock, buyPrice: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
                 </div>
                 <div className="w-1/2">
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Live Price ({newStock.currency})</label>
-                  <input type="number" step="0.01" placeholder="Current Price" value={newStock.currentPrice} onChange={e => setNewStock({ ...newStock, currentPrice: e.target.value })} className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white font-mono" />
+                  <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Live Price</label>
+                  <input type="number" step="0.01" placeholder="Auto-filled" value={newStock.currentPrice} readOnly className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono opacity-60 cursor-not-allowed" />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setShowAddStockModal(false)} className="px-5 py-2.5 text-xs text-slate-300 bg-white/5 rounded-xl cursor-pointer">Cancel</button>
-                <button type="submit" className="px-5 py-2.5 text-xs font-black uppercase bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl shadow-lg shadow-indigo-500/20 cursor-pointer">Save Asset</button>
+              <div className="flex justify-end gap-2 pt-3">
+                <button type="button" onClick={() => setShowAddStockModal(false)} className="px-4 py-2 text-xs text-slate-400 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">Cancel</button>
+                <button type="submit" className="px-4 py-2 text-xs font-black uppercase bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 rounded-xl shadow-md cursor-pointer">Save Asset</button>
               </div>
             </form>
           </div>
