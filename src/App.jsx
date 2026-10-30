@@ -227,7 +227,33 @@ export default function App() {
   const [onboardingStep, setOnboardingStep] = useState(1);
   const [authError, setAuthError] = useState('');
   const [authActionLoading, setAuthActionLoading] = useState(false);
-  
+  const [loginQuote, setLoginQuote] = useState('');
+
+  // Curated Inspiring & Engaging Investor Quotes
+  const inspirationalQuotes = useMemo(() => [
+    "“Rule No. 1: Never lose money. Rule No. 2: Never forget rule no. 1.” — Warren Buffett",
+    "“An investment in knowledge pays the best interest.” — Benjamin Franklin",
+    "“The stock market is designed to transfer money from the active to the patient.” — Warren Buffett",
+    "“Risk comes from not knowing what you're doing.” — Warren Buffett",
+    "“Know what you own, and know why you own it.” — Peter Lynch",
+    "“Compound interest is the eighth wonder of the world. He who understands it, earns it... he who doesn't... pays it.” — Albert Einstein",
+    "“In investing, what is comfortable is rarely profitable.” — Robert Arnott",
+    "“Price is what you pay. Value is what you get.” — Warren Buffett",
+    "“Do not save what is left after spending, but spend what is left after saving.” — Warren Buffett",
+    "“The most important quality for an investor is temperament, not intellect.” — Warren Buffett",
+    "“Opportunities come infrequently. When it rains gold, put out the bucket, not the thimble.” — Warren Buffett",
+    "“Financial freedom is available to those who learn about it and work for it.” — Robert Kiyosaki",
+    "“Formal education will make you a living; self-education will make you a fortune.” — Jim Rohn"
+  ], []);
+
+  // Pick a random quote whenever login view mounts or refreshes
+  useEffect(() => {
+    if (authMode === 'login') {
+      const randomIndex = Math.floor(Math.random() * inspirationalQuotes.length);
+      setLoginQuote(inspirationalQuotes[randomIndex]);
+    }
+  }, [authMode, inspirationalQuotes]);
+
   // Tailored User Profile State
   const [userProfile, setUserProfile] = useState({
     name: '',
@@ -238,13 +264,19 @@ export default function App() {
     targetAmount: '',
     monthlyIncome: '30000',
     weeklyMaxSpend: '3500',
-    weeklyMinSavings: '1200'
+    weeklyMinSavings: '1200',
+    profilePic: '',
+    gender: 'Female',
+    phone: '',
+    birthday: '',
+    homeAddress: ''
   });
 
   // Data States
   const [activeTab, setActiveTab] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
   const [portfolio, setPortfolio] = useState([]);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // Live Market API Sync Controls
   const [isSyncingMarket, setIsSyncingMarket] = useState(false);
@@ -556,8 +588,8 @@ export default function App() {
         ...newTx, 
         amount: parseFloat(newTx.amount) 
       });
-      setShowAddTxModal(false); // Disappear immediately after saving
       setNewTx({ description: '', amount: '', category: 'Dining', type: 'expense', date: new Date().toISOString().split('T')[0] });
+      setShowAddTxModal(false);
     } catch (error) {
       console.error("Error adding transaction:", error);
     }
@@ -635,6 +667,26 @@ export default function App() {
       console.error("Error saving debt plan", error);
     } finally {
       setIsSavingDebt(false);
+    }
+  };
+
+  const handleSaveProfileInfo = async (e) => {
+    e.preventDefault();
+    if (!user) return;
+    try {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+      const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+      await updateDoc(profileRef, {
+        name: userProfile.name || '',
+        profilePic: userProfile.profilePic || '',
+        gender: userProfile.gender || 'Female',
+        phone: userProfile.phone || '',
+        birthday: userProfile.birthday || '',
+        homeAddress: userProfile.homeAddress || ''
+      });
+      setShowProfileModal(false);
+    } catch (error) {
+      console.error("Error saving profile:", error);
     }
   };
 
@@ -1096,7 +1148,9 @@ export default function App() {
                 <div className="space-y-5 anim-slide-in">
                   <div className="text-center mb-6">
                     <h2 className="text-2xl font-black text-white tracking-wider">Welcome Back</h2>
-                    <p className="text-[10px] text-cyan-300/80 mt-1.5 uppercase font-mono tracking-widest leading-relaxed px-2">Your personal automated financial assistant</p>
+                    <p className="text-[11px] text-cyan-300/90 mt-2 font-mono tracking-wide leading-relaxed px-3 italic">
+                      {loginQuote || "“An investment in knowledge pays the best interest.” — Benjamin Franklin"}
+                    </p>
                   </div>
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div>
@@ -1212,17 +1266,21 @@ export default function App() {
           <div className="p-5 flex flex-col gap-1 border-b border-slate-800/50">
              <div className="flex items-center gap-3">
                 <AppIcon className="w-7 h-7" />
-                <h1 className="text-lg font-bold tracking-wider text-white leading-none">Fintrack</h1>
+                <h1 className="text-lg font-bold tracking-wider text-white leading-none">A.F.A.</h1>
              </div>
-             <p className="text-[9px] text-slate-500 font-mono tracking-widest uppercase pl-[38px]">Automated Advisor</p>
+             <p className="text-[8px] text-slate-500 font-mono tracking-widest uppercase pl-[38px]">Automated Financial Assistant</p>
           </div>
 
-          <div className="p-3 flex items-center gap-2.5 mx-3 mt-4 bg-[#0d1117] rounded-xl border border-slate-800/80">
-             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#00f2fe] to-blue-600 flex items-center justify-center text-[#0d1117] font-bold text-xs">
-                {(userProfile.name || user.email).charAt(0).toUpperCase()}
-             </div>
-             <div className="overflow-hidden">
-                <p className="text-xs font-bold text-white truncate">{userProfile.name || 'Lily Rose'}</p>
+          <div onClick={() => setShowProfileModal(true)} className="p-3 flex items-center gap-2.5 mx-3 mt-4 bg-[#0d1117] rounded-xl border border-slate-800/80 cursor-pointer hover:border-[#00f2fe]/40 transition-all group">
+             {userProfile.profilePic ? (
+               <img src={userProfile.profilePic} alt="Avatar" className="w-8 h-8 rounded-full object-cover border border-slate-700" />
+             ) : (
+               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#00f2fe] to-blue-600 flex items-center justify-center text-[#0d1117] font-bold text-xs">
+                  {(userProfile.name || user.email).charAt(0).toUpperCase()}
+               </div>
+             )}
+             <div className="overflow-hidden flex-1">
+                <p className="text-xs font-bold text-white truncate group-hover:text-[#00f2fe] transition-colors">{userProfile.name || 'Lily Rose'}</p>
                 <p className="text-[9px] text-slate-500 truncate">{user.email}</p>
              </div>
           </div>
@@ -1316,6 +1374,17 @@ export default function App() {
                    <Bell className="w-4 h-4" />
                    {systemAlerts.length > 0 && <span className="absolute top-0 right-0 w-2 h-2 bg-rose-500 rounded-full"></span>}
                 </button>
+                
+                <div onClick={() => setShowProfileModal(true)} className="flex items-center gap-2 cursor-pointer bg-[#0d1117] px-3 py-1.5 rounded-xl border border-slate-800 hover:border-[#00f2fe]/40 transition-colors">
+                   {userProfile.profilePic ? (
+                     <img src={userProfile.profilePic} alt="Avatar" className="w-6 h-6 rounded-full object-cover" />
+                   ) : (
+                     <div className="w-6 h-6 rounded-full bg-[#00f2fe] text-[#0d1117] font-bold text-[10px] flex items-center justify-center">
+                       {(userProfile.name || user.email).charAt(0).toUpperCase()}
+                     </div>
+                   )}
+                   <span className="text-xs font-bold text-slate-200 hidden sm:inline">{userProfile.name || 'User'}</span>
+                </div>
              </div>
           </header>
 
@@ -2251,6 +2320,74 @@ export default function App() {
               <div className="flex justify-end gap-2 pt-3">
                 <button type="button" onClick={() => setShowAddStockModal(false)} className="px-4 py-2 text-xs text-slate-400 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-xs font-black uppercase bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 rounded-xl shadow-md cursor-pointer">Save Asset</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PERSONAL INFO PROFILE MODAL */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 bg-[#0d1117]/85 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
+          <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-lg w-full relative border border-slate-700/50 max-h-[90vh] overflow-y-auto no-scrollbar">
+            <div className="flex justify-between items-center mb-6">
+               <h3 className="text-lg font-black tracking-wider uppercase text-white">Personal info</h3>
+               <button onClick={() => setShowProfileModal(false)} className="text-slate-400 hover:text-white text-xs font-mono">✕ Close</button>
+            </div>
+
+            <form onSubmit={handleSaveProfileInfo} className="space-y-4">
+              <div className="flex items-center justify-between p-3.5 bg-[#0d1117] rounded-2xl border border-slate-800">
+                <div>
+                  <span className="text-xs font-bold text-white block">Profile picture URL</span>
+                  <span className="text-[10px] text-slate-500">Paste direct image link</span>
+                </div>
+                {userProfile.profilePic ? (
+                  <img src={userProfile.profilePic} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-[#00f2fe]" />
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-[#00f2fe]">
+                    {(userProfile.name || 'U').charAt(0)}
+                  </div>
+                )}
+              </div>
+              <input type="text" placeholder="https://images.unsplash.com/photo-..." value={userProfile.profilePic} onChange={e => setUserProfile({...userProfile, profilePic: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Name</label>
+                <input type="text" placeholder="Alex Mercer" required value={userProfile.name} onChange={e => setUserProfile({...userProfile, name: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Gender</label>
+                <select value={userProfile.gender} onChange={e => setUserProfile({...userProfile, gender: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Email</label>
+                <input type="email" disabled value={userProfile.email} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-slate-500 cursor-not-allowed" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Phone</label>
+                <input type="text" placeholder="+852 9123 4567" value={userProfile.phone || ''} onChange={e => setUserProfile({...userProfile, phone: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Birthday</label>
+                <input type="text" placeholder="15 July 1998" value={userProfile.birthday || ''} onChange={e => setUserProfile({...userProfile, birthday: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Home address</label>
+                <input type="text" placeholder="Harbour City, Tsim Sha Tsui, Hong Kong" value={userProfile.homeAddress || ''} onChange={e => setUserProfile({...userProfile, homeAddress: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button type="button" onClick={() => setShowProfileModal(false)} className="px-5 py-2.5 text-xs text-slate-400 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">Cancel</button>
+                <button type="submit" className="px-5 py-2.5 text-xs font-black uppercase bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 rounded-xl shadow-md cursor-pointer">Save Changes</button>
               </div>
             </form>
           </div>
