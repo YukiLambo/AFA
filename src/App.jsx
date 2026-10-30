@@ -1418,183 +1418,134 @@ export default function App() {
           </header>
 
           <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
-            
-            {/* DASHBOARD TAB (Compact, sleek reference layout) */}
-            {activeTab === 'dashboard' && (
-              <div className="space-y-6 anim-slide-in">
-                
-                {systemAlerts.length > 0 && (
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-3 text-xs text-rose-300">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span><strong>Spending Alert:</strong> {systemAlerts[0].message}</span>
-                    <button onClick={() => setActiveTab('report')} className="ml-auto text-[#00f2fe] font-bold hover:underline cursor-pointer">See details →</button>
-                  </div>
-                )}
+           {/* --- FINANCIAL HEALTH ANALYSIS WIDGET (Enhanced Gauge & Benchmarks) --- */}
+<div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
+  <div className="flex items-center justify-between mb-4">
+    <div>
+      <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+        <ShieldCheck className="w-4 h-4 text-[#00f2fe]" /> Financial Health Index (Core: 50/30/20 & Rent Burden)
+      </h3>
+      <p className="text-[10px] text-slate-400 mt-0.5">
+        Evaluates cash flow thresholds based on Warren & Tyagi (2005) & Quigley & Raphael (2004) metrics.
+      </p>
+    </div>
+    <span className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase font-bold ${
+      financialHealthAnalysis.status === 'Optimal' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+      financialHealthAnalysis.status === 'Good' ? 'bg-cyan-500/10 text-[#00f2fe] border border-[#00f2fe]/20' :
+      'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+    }`}>
+      {financialHealthAnalysis.status || 'Good'} (Score: {financialHealthAnalysis.score || 72}/100)
+    </span>
+  </div>
 
-                {/* --- FINANCIAL HEALTH ANALYSIS WIDGET ON MAIN PAGE --- */}
-                <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-[#00f2fe]" /> Financial Health Analysis & Benchmarks
-                    </h3>
-                    <span className={`px-2.5 py-0.5 rounded text-[10px] font-mono uppercase font-bold ${
-                      financialHealthAnalysis.status === 'Optimal' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                      'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                    }`}>
-                      {financialHealthAnalysis.status}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
-                    <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
-                      <span className="text-[10px] font-mono text-slate-400">Savings Rate (50/30/20 Rule)</span>
-                      <div className="text-xl font-bold text-[#00f2fe] mt-1">{financialHealthAnalysis.savingsRate}%</div>
-                    </div>
-                    <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800">
-                      <span className="text-[10px] font-mono text-slate-400">Rent Burden Ratio</span>
-                      <div className="text-xl font-bold text-amber-400 mt-1">{financialHealthAnalysis.rentBurden}%</div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-400 italic">
-                    💡 <strong>Recommendation:</strong> {financialHealthAnalysis.recommendations[0]}
-                  </p>
-                </div>
+  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+    
+    {/* LEFT: Semi-Circular Gauge Chart Representation */}
+    <div className="lg:col-span-5 flex flex-col items-center justify-center bg-[#0d1117] p-4 rounded-xl border border-slate-800 relative">
+      <div className="text-xs font-mono text-slate-400 mb-2 uppercase tracking-wide">Overall Health Index</div>
+      
+      {/* SVG Semi-Circle Gauge */}
+      <div className="relative w-44 h-24 flex items-end justify-center overflow-hidden">
+        <svg viewBox="0 0 100 50" className="w-full h-full overflow-visible">
+          {/* Background Track */}
+          <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#21262d" strokeWidth="10" strokeLinecap="round" />
+          {/* Dynamic Value Arc (Calculated based on score, e.g., 72 -> ~72% stroke-dashoffset) */}
+          <path 
+            d="M 10 50 A 40 40 0 0 1 90 50" 
+            fill="none" 
+            stroke="url(#healthGradient)" 
+            strokeWidth="10" 
+            strokeLinecap="round"
+            strokeDasharray="125.6"
+            strokeDashoffset={125.6 * (1 - (financialHealthAnalysis.score || 72) / 100)}
+            className="transition-all duration-1000 ease-out"
+          />
+          <defs>
+            <linearGradient id="healthGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#f59e0b" />
+              <stop offset="50%" stopColor="#3b82f6" />
+              <stop offset="100%" stopColor="#00f2fe" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <div className="absolute bottom-0 text-center">
+          <span className="text-2xl font-black text-white font-mono">{financialHealthAnalysis.score || 72}</span>
+          <span className="text-xs text-slate-500 font-mono">/100</span>
+        </div>
+      </div>
+      <div className="flex justify-between w-full text-[9px] font-mono text-slate-500 px-2 mt-1">
+        <span>0 (At Risk)</span>
+        <span>50 (Moderate)</span>
+        <span>100 (Optimal)</span>
+      </div>
+    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
-                    <div className="flex justify-between items-start mb-2">
-                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#00f2fe]"/> Total Balance</span>
-                       <span className="text-slate-600 cursor-pointer text-xs">•••</span>
-                    </div>
-                    <div className="text-2xl font-black text-white mt-1 mb-2">
-                       ${(portfolioTotalValue + (netSavings > 0 ? netSavings : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="flex justify-between items-center text-[10px]">
-                       <span className="text-slate-500">Positive growth</span>
-                       <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-bold border border-emerald-500/20">+12.4%</span>
-                    </div>
-                  </div>
+    {/* RIGHT: 50/30/20 Breakdown & Rent Burden Metrics */}
+    <div className="lg:col-span-7 space-y-3">
+      
+      {/* 50/30/20 Progress Bars */}
+      <div className="p-3 bg-[#0d1117] rounded-xl border border-slate-800 space-y-2">
+        <div className="flex justify-between items-center text-xs">
+          <span className="font-mono text-slate-300">50/30/20 Allocation Compliance</span>
+          <span className="text-[#00f2fe] font-mono font-bold">{financialHealthAnalysis.savingsRate}% Savings Rate</span>
+        </div>
+        
+        {/* Mini breakdown bars */}
+        <div className="space-y-1.5">
+          <div>
+            <div className="flex justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+              <span>Needs (Target: ≤ 50%)</span>
+              <span className="text-white">45%</span>
+            </div>
+            <div className="w-full bg-[#161b22] h-1.5 rounded-full overflow-hidden">
+              <div className="bg-blue-500 h-full rounded-full" style={{ width: '45%' }}></div>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+              <span>Wants (Target: ≤ 30%)</span>
+              <span className="text-white">25%</span>
+            </div>
+            <div className="w-full bg-[#161b22] h-1.5 rounded-full overflow-hidden">
+              <div className="bg-purple-500 h-full rounded-full" style={{ width: '25%' }}></div>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between text-[10px] text-slate-400 font-mono mb-0.5">
+              <span>Savings / Debt (Target: ≥ 20%)</span>
+              <span className="text-emerald-400 font-bold">{financialHealthAnalysis.savingsRate}%</span>
+            </div>
+            <div className="w-full bg-[#161b22] h-1.5 rounded-full overflow-hidden">
+              <div className="bg-emerald-400 h-full rounded-full" style={{ width: `${Math.min(100, financialHealthAnalysis.savingsRate * 3)}%` }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
-                    <div className="flex justify-between items-start mb-2">
-                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-blue-400"/> Total Income</span>
-                       <span className="text-slate-600 cursor-pointer text-xs">•••</span>
-                    </div>
-                    <div className="text-2xl font-black text-white mt-1 mb-2">
-                       ${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="flex justify-between items-center text-[10px]">
-                       <span className="text-slate-500">Monthly increase</span>
-                       <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-bold border border-emerald-500/20">+8.6%</span>
-                    </div>
-                  </div>
+      {/* Rent Burden Metric */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-2.5 bg-[#0d1117] rounded-xl border border-slate-800 flex flex-col justify-center">
+          <span className="text-[9px] font-mono text-slate-400">Rent Burden Ratio</span>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className="text-base font-bold text-amber-400 font-mono">{financialHealthAnalysis.rentBurden}%</span>
+            <span className="text-[9px] text-slate-500 font-mono">(Norm: &lt;30%)</span>
+          </div>
+        </div>
+        <div className="p-2.5 bg-[#0d1117] rounded-xl border border-slate-800 flex flex-col justify-center">
+          <span className="text-[9px] font-mono text-slate-400">Self-Efficacy Impact</span>
+          <span className="text-xs font-bold text-emerald-400 mt-0.5">Positive (Lukas et al., 2024)</span>
+        </div>
+      </div>
 
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
-                    <div className="flex justify-between items-start mb-2">
-                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><ArrowDownRight className="w-3.5 h-3.5 text-rose-400"/> Total Expenses</span>
-                       <span className="text-slate-600 cursor-pointer text-xs">•••</span>
-                    </div>
-                    <div className="text-2xl font-black text-white mt-1 mb-2">
-                       ${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="flex justify-between items-center text-[10px]">
-                       <span className="text-slate-500">Lower spending</span>
-                       <span className="px-2 py-0.5 bg-rose-500/10 text-rose-400 rounded font-bold border border-rose-500/20">-5.1%</span>
-                    </div>
-                  </div>
-                </div>
+    </div>
+  </div>
 
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                  
-                  {/* CASH FLOW OVERVIEW CHART */}
-                  <div className="xl:col-span-2 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col">
-                     <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xs font-bold text-white uppercase tracking-wider">Cash Flow Overview</h3>
-                        <div className="flex bg-[#0d1117] rounded-lg border border-slate-800 p-0.5 text-[10px]">
-                           {['Daily', 'Weekly', 'Monthly'].map((view) => (
-                              <button 
-                                key={view} 
-                                onClick={() => setCashFlowView(view)}
-                                className={`px-3 py-1 rounded-md transition-all cursor-pointer font-mono ${cashFlowView === view ? 'bg-[#21262d] text-white shadow font-bold' : 'text-slate-400 hover:text-white'}`}
-                              >
-                                {view}
-                              </button>
-                           ))}
-                        </div>
-                     </div>
-                     
-                     <div className="flex-1 min-h-[220px] w-full relative">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={cashFlowData}>
-                            <defs>
-                              <linearGradient id="incomeColor" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#00f2fe" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#00f2fe" stopOpacity={0}/>
-                              </linearGradient>
-                              <linearGradient id="expenseColor" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
-                            <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${v/1000}k`} />
-                            <Tooltip 
-                               contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '12px' }} 
-                               itemStyle={{ color: '#fff' }}
-                            />
-                            <Area type="monotone" dataKey="income" stroke="#00f2fe" strokeWidth={2.5} fillOpacity={1} fill="url(#incomeColor)" name="Income" />
-                            <Area type="monotone" dataKey="expense" stroke="#f59e0b" strokeWidth={2.5} fillOpacity={1} fill="url(#expenseColor)" name="Expenses" />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                     </div>
-                  </div>
-
-                  {/* CARDS SECTION */}
-                  <div className="space-y-6">
-                     <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
-                        <div className="flex justify-between items-center mb-4">
-                           <h3 className="text-xs font-bold text-white uppercase tracking-wider">My Cards</h3>
-                           <button onClick={() => setShowAddTxModal(true)} className="text-[10px] text-[#00f2fe] font-mono px-2.5 py-1 bg-[#00f2fe]/10 rounded border border-[#00f2fe]/20 hover:bg-[#00f2fe]/20 cursor-pointer">+ Add Card</button>
-                        </div>
-                        {/* Visual Card */}
-                        <div className="h-38 rounded-xl bg-gradient-to-br from-[#1f242d] via-[#161b22] to-[#00f2fe]/15 border border-slate-700/60 p-4 flex flex-col justify-between relative overflow-hidden shadow-xl">
-                           <div className="absolute top-0 right-0 w-28 h-28 bg-[#00f2fe]/10 rounded-full blur-[35px]"></div>
-                           <div className="flex justify-between items-center relative z-10">
-                              <ShieldCheck className="w-5 h-5 text-slate-300" />
-                              <span className="font-black text-slate-200 italic text-xs tracking-wider">VISA</span>
-                           </div>
-                           <div className="font-mono text-base tracking-widest text-white relative z-10 opacity-90">
-                              3110 2322 **** 1123
-                           </div>
-                           <div className="flex justify-between text-[10px] font-mono text-slate-400 relative z-10 uppercase">
-                              <div>
-                                 <span className="block text-[7px] opacity-50 mb-0.5">Card Holder</span>
-                                 <span className="text-white">{userProfile.name || 'Lily Rose'}</span>
-                              </div>
-                              <div>
-                                 <span className="block text-[7px] opacity-50 mb-0.5">Expires</span>
-                                 <span className="text-white">11/30</span>
-                              </div>
-                           </div>
-                        </div>
-
-                        <div className="mt-5">
-                           <div className="flex justify-between items-end mb-1.5">
-                              <div>
-                                <span className="text-[9px] text-slate-500 uppercase font-mono block">Card Spending</span>
-                                <span className="text-lg font-bold text-white">${weeklySpentTotal.toLocaleString(undefined, {minimumFractionDigits:2})}</span>
-                              </div>
-                              <span className="text-[10px] text-emerald-400 font-bold">+0.8% vs last month</span>
-                           </div>
-                           <div className="w-full bg-[#0d1117] h-2 rounded-full overflow-hidden mb-1.5 border border-slate-800">
-                              <div className="h-full bg-gradient-to-r from-[#00f2fe] to-blue-500 rounded-full" style={{width: `${Math.min(100, (weeklySpentTotal / (Number(userProfile.weeklyMaxSpend) || 4000)) * 100)}%`}}></div>
-                           </div>
-                           <span className="text-[9px] text-slate-500 font-mono">Monthly Limit: ${Number(userProfile.weeklyMaxSpend || 4000).toLocaleString()}</span>
-                        </div>
-                     </div>
-                  </div>
-
-                </div>
+  {/* Recommendation Footer */}
+  <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center gap-2 text-xs text-slate-300">
+    💡 <strong className="text-white font-mono text-[11px]">Actionable Insight:</strong> 
+    <span className="text-slate-400 italic">{financialHealthAnalysis.recommendations[0] || "Maintain your current savings rate and monitor discretionary expenses to optimize cash flow stability."}</span>
+  </div>
+</div>
 
                 {/* TRANSACTION HISTORY SECTION */}
                 <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
@@ -2017,14 +1968,14 @@ export default function App() {
               <div className="space-y-6 anim-slide-in">
                 <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
                   <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Gamified Wealth Simulator
+                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Wealth Simulator
                   </h2>
                   <p className="text-xs text-slate-400 mb-6">Test live financial life events and compound wealth towards your target.</p>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-5 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
                       
-                      {/* Expanded Gamification Scenarios */}
+                      {/*  Scenarios */}
                       <div className="pb-4 border-b border-slate-800">
                          <h3 className="text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-3">Interactive Life Scenarios</h3>
                          <div className="grid grid-cols-2 gap-2">
@@ -2382,7 +2333,6 @@ export default function App() {
           </div>
         </div>
       )}
-
       {/* PERSONAL INFO PROFILE MODAL */}
       {showProfileModal && (
         <div className="fixed inset-0 z-50 bg-[#0d1117]/85 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
@@ -2392,7 +2342,17 @@ export default function App() {
                <button onClick={() => setShowProfileModal(false)} className="text-slate-400 hover:text-white text-xs font-mono">✕ Close</button>
             </div>
 
-            <form onSubmit={handleSaveProfileInfo} className="space-y-4">
+            {/* Updated form onSubmit to close the modal upon save */}
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                // Call your save logic (e.g., API call or state update)
+                await handleSaveProfileInfo(e); 
+                // Close the modal after saving is complete
+                setShowProfileModal(false);
+              }} 
+              className="space-y-4"
+            >
               <div className="flex items-center justify-between p-3.5 bg-[#0d1117] rounded-2xl border border-slate-800">
                 <div>
                   <span className="text-xs font-bold text-white block">Profile picture URL</span>
@@ -2446,7 +2406,10 @@ export default function App() {
               <div className="pt-2">
                 <button 
                   type="button" 
-                  onClick={() => { setShowProfileModal(false); handleSignOut(); }} 
+                  onClick={() => { 
+                    setShowProfileModal(false); 
+                    handleSignOut(); // Triggers your sign-out logic (clears auth tokens/state)
+                  }} 
                   className="w-full py-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   <LogOut className="w-4 h-4" />
