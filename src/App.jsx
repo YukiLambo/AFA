@@ -3020,14 +3020,26 @@ const handleSendMessage = async (e) => {
 
     try {
       const apiKey = import.meta.env?.VITE_GEMINI_API_KEY || "";
-      if (!apiKey) throw new Error("API key missing. Please add VITE_GEMINI_API_KEY to your .env file.");
+      if (!apiKey) throw new Error("API key missing. Please add your API key.");
 
+      // Use DeepSeek API endpoint as you updated
       const apiUrl = `https://api.deepseek.com/v1/chat/completions`;
       
+      // Build rich context from your state
+      const portfolioSummary = portfolio.map(p => `${p.symbol} (${p.name}): ${p.shares} shares @ ${p.currency} ${p.currentPrice}`).join(', ');
+      const totalPortfolioVal = portfolioTotalValue.toFixed(2);
+
       const systemPrompt = `You are A.F.A, a personalized financial advisor for ${userProfile.name}.
-      Weekly Max Spend Limit: HK$ ${userProfile.weeklyMaxSpend}, Min Savings Target: HK$ ${userProfile.weeklyMinSavings}.
-      Detected ${anomalyAnalysis.anomalies.length} high-value expense outliers.
-      Weekend Spend Ratio: ${anomalyAnalysis.weekendRatio}%.`;
+      - User Goal: ${userProfile.goal} (${userProfile.targetAmount} HKD target)
+      - Risk Tolerance: ${userProfile.riskTolerance}
+      - Weekly Max Spend Limit: HK$ ${userProfile.weeklyMaxSpend}
+      - Min Savings Target: HK$ ${userProfile.weeklyMinSavings}
+      - Current Portfolio Assets: [${portfolioSummary}] (Total Value: HK$ ${totalPortfolioVal})
+      - Monthly Income: HK$ ${userProfile.monthlyIncome}
+      - Detected Outliers: ${anomalyAnalysis.anomalies.length}
+      - Weekend Spend Ratio: ${anomalyAnalysis.weekendRatio}%
+      
+      Provide concise, actionable, and structured financial advice tailored to Hong Kong markets (MPF, TVC, HKD stocks, etc.).`;
 
       const res = await fetch(apiUrl, {
         method: 'POST',
@@ -3040,16 +3052,18 @@ const handleSendMessage = async (e) => {
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userMsg }
-          ]
+          ],
+          stream: false
         })
       });
       
       const data = await res.json();
       if (data.error) throw new Error(data.error.message || "API request failed");
       
-      const reply = data?.choices?.[0]?.message?.content || "I couldn't process that. Please try again.";
+      const reply = data?.choices?.[0]?.message?.content || "I couldn't generate a response. Please try again.";
       setChatMessages(prev => [...prev, { role: 'model', text: reply }]);
     } catch (err) {
+      console.error("AI Chat Error:", err);
       setChatMessages(prev => [...prev, { role: 'model', text: `System Error: ${err.message}` }]);
     } finally {
       setIsLoadingAi(false);
