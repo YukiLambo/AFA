@@ -133,6 +133,8 @@ const fetchLiveStockQuote = async (rawSymbol) => {
 };
 
 // --- CATEGORY COLOR MATRIX ---
+
+
 const CATEGORY_COLORS = {
   'Dining': '#f43f5e',
   'Shopping': '#ec4899',
@@ -792,6 +794,7 @@ export default function App() {
   };
 
   // --- FINANCIAL THEORY CALCULATIONS ---
+  
   const totalIncome = useMemo(() => transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const totalExpense = useMemo(() => transactions.filter(t => t.type === 'expense' && t.category !== 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const totalInvestmentDeposits = useMemo(() => transactions.filter(t => t.category === 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
@@ -2649,7 +2652,7 @@ export default function App() {
               </div>
             )}
 
-            {/* AI CHAT TAB */}
+ {/* AI CHAT TAB */}
             {activeTab === 'advisor' && (
               <div className="h-[75vh] flex flex-col bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden anim-slide-in">
                 <div className="p-4 bg-[#0d1117] border-b border-slate-800 flex items-center gap-3">
@@ -3007,3 +3010,48 @@ export default function App() {
     </div>
   );
 }
+const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!userInput.trim() || isLoadingAi) return;
+    const userMsg = userInput.trim();
+    setUserInput('');
+    setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setIsLoadingAi(true);
+
+    try {
+      const apiKey = import.meta.env?.VITE_GEMINI_API_KEY || "";
+      if (!apiKey) throw new Error("API key missing. Please add VITE_GEMINI_API_KEY to your .env file.");
+
+      const apiUrl = `https://api.deepseek.com/v1/chat/completions`;
+      
+      const systemPrompt = `You are A.F.A, a personalized financial advisor for ${userProfile.name}.
+      Weekly Max Spend Limit: HK$ ${userProfile.weeklyMaxSpend}, Min Savings Target: HK$ ${userProfile.weeklyMinSavings}.
+      Detected ${anomalyAnalysis.anomalies.length} high-value expense outliers.
+      Weekend Spend Ratio: ${anomalyAnalysis.weekendRatio}%.`;
+
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}` 
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMsg }
+          ]
+        })
+      });
+      
+      const data = await res.json();
+      if (data.error) throw new Error(data.error.message || "API request failed");
+      
+      const reply = data?.choices?.[0]?.message?.content || "I couldn't process that. Please try again.";
+      setChatMessages(prev => [...prev, { role: 'model', text: reply }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'model', text: `System Error: ${err.message}` }]);
+    } finally {
+      setIsLoadingAi(false);
+    }
+  };
