@@ -133,8 +133,6 @@ const fetchLiveStockQuote = async (rawSymbol) => {
 };
 
 // --- CATEGORY COLOR MATRIX ---
-
-
 const CATEGORY_COLORS = {
   'Dining': '#f43f5e',
   'Shopping': '#ec4899',
@@ -794,7 +792,6 @@ export default function App() {
   };
 
   // --- FINANCIAL THEORY CALCULATIONS ---
-  
   const totalIncome = useMemo(() => transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const totalExpense = useMemo(() => transactions.filter(t => t.type === 'expense' && t.category !== 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const totalInvestmentDeposits = useMemo(() => transactions.filter(t => t.category === 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
@@ -1182,6 +1179,101 @@ export default function App() {
     return { mandatory, annualTvc, estimatedTaxSaved };
   }, [mpfIncome, tvcMonthly]);
 
+  // --- LOCAL FINANCIAL INTELLIGENCE ENGINE (ZERO-KEY FALLBACK) ---
+  const generateLocalAiAdvice = (userQuery) => {
+    const q = userQuery.toLowerCase();
+    const name = userProfile.name || 'Valued User';
+    const goal = userProfile.goal || 'General Wealth Accumulation';
+    const maxSpend = Number(userProfile.weeklyMaxSpend || 3500);
+    const minSavings = Number(userProfile.weeklyMinSavings || 1200);
+    
+    const savRate = savingsRatio.toFixed(1);
+    const rentRate = rentBurdenRatio.toFixed(1);
+    const weeklySpent = weeklySpentTotal;
+    const isOverBudget = weeklySpent > maxSpend;
+    const weekendPct = anomalyAnalysis.weekendRatio;
+    const outlierCount = anomalyAnalysis.anomalies.length;
+    const portVal = portfolioTotalValue;
+    const portGain = portfolioGainPercent;
+    const debtVal = debtAmount;
+    const taxSavings = mpfCalc.estimatedTaxSaved;
+
+    let response = `Hello ${name}! Based on your real-time A.F.A. financial audit (Goal: ${goal}):\n\n`;
+
+    if (q.includes('improve') || q.includes('health') || q.includes('advice') || q.includes('suggest') || q.includes('budget') || q.includes('how')) {
+      response += `📊 1. Financial Health Score: ${healthScore}/100\n`;
+      response += `• Savings Rate: ${savRate}% ${savingsRatio >= 20 ? '✅ (Excellent - above 20% benchmark)' : '⚠️ (Try targeting at least 20% of net income)'}\n`;
+      response += `• Rent Burden: ${rentRate}% ${rentBurdenRatio <= 35 ? '✅ (Healthy ratio under 35%)' : '⚠️ (Housing costs exceed 35% of income)'}\n\n`;
+
+      response += `💸 2. Cash Flow & Spending Velocity\n`;
+      if (isOverBudget) {
+        response += `⚠️ Budget Overrun Alert: You have spent HK$ ${weeklySpent.toLocaleString()} this week, exceeding your HK$ ${maxSpend.toLocaleString()} cap.\n`;
+      } else {
+        response += `✅ Spending Velocity: HK$ ${weeklySpent.toLocaleString()} spent out of your HK$ ${maxSpend.toLocaleString()} weekly limit.\n`;
+      }
+      if (weekendPct > 40) {
+        response += `• Weekend Impulse: ${weekendPct}% of expenses occur on weekends. Cap weekend dining and shopping.\n`;
+      }
+      if (outlierCount > 0) {
+        response += `• Outliers Detected: ${outlierCount} high-value transaction(s) flagged above baseline.\n`;
+      }
+
+      response += `\n📈 3. Portfolio & Tax Optimization\n`;
+      if (portVal > 0) {
+        response += `• Investments: Total valuation of HK$ ${portVal.toLocaleString()} (P&L: ${portGain >= 0 ? '+' : ''}${portGain}%).\n`;
+      } else {
+        response += `• Portfolio: No active investments logged. Consider reallocating savings into index ETFs (e.g., 2800.HK or S&P 500).\n`;
+      }
+      response += `• Tax Deductions: Maxing out TVC can save ~HK$ ${taxSavings.toLocaleString()} in annual salaries tax.\n\n`;
+
+      response += `💡 Recommended Action Steps:\n`;
+      response += `1. ${isOverBudget ? 'Pause discretionary shopping and non-essential dining for the rest of the week.' : 'Set up an automated savings transfer at the beginning of each payday.'}\n`;
+      response += `2. ${weekendPct > 40 ? 'Establish a dedicated weekend spending threshold in the Budget Manager.' : 'Use the Strategic Modeler to project compounding returns over 5-10 years.'}\n`;
+      response += `3. Review the MPF & Tax tab to maximize tax refund deductions.`;
+
+      return response;
+    }
+
+    if (q.includes('tax') || q.includes('mpf') || q.includes('tvc')) {
+      response += `🏛️ MPF & Tax Savings Analysis:\n`;
+      response += `• Monthly Income: HK$ ${Number(userProfile.monthlyIncome || 30000).toLocaleString()}\n`;
+      response += `• Mandatory MPF: HK$ ${mpfCalc.mandatory.toLocaleString()}/month\n`;
+      response += `• Annual TVC Contribution: HK$ ${mpfCalc.annualTvc.toLocaleString()}/year\n`;
+      response += `• Estimated Tax Savings: ~HK$ ${taxSavings.toLocaleString()} annually.\n\n`;
+      response += `💡 You can adjust your TVC contributions anytime in the MPF & Tax tab.`;
+      return response;
+    }
+
+    if (q.includes('stock') || q.includes('invest') || q.includes('portfolio') || q.includes('market')) {
+      response += `📈 Investment Portfolio Summary:\n`;
+      response += `• Portfolio Valuation: HK$ ${portVal.toLocaleString()}\n`;
+      response += `• Unrealized P&L: ${portfolioUnrealizedGain >= 0 ? '+' : ''}HK$ ${portfolioUnrealizedGain.toLocaleString()} (${portGain}%)\n`;
+      response += `• Total Holdings: ${portfolio.length} asset(s)\n\n`;
+      if (portfolio.length > 0) {
+        response += `Tracked tickers: ${portfolio.map(p => p.symbol).join(', ')}.`;
+      } else {
+        response += `No holdings recorded yet. Add tickers like 2800.HK, TSLA, or AAPL under the Investments tab.`;
+      }
+      return response;
+    }
+
+    if (q.includes('debt') || q.includes('loan') || q.includes('card')) {
+      response += `💳 Debt Optimization Analysis:\n`;
+      response += `• Total Outstanding Debt: HK$ ${debtVal.toLocaleString()}\n`;
+      response += `• APR Interest: ${debtRate}%\n`;
+      response += `• Projected Payoff Duration: ${debtPayoffTrajectory.totalMonths} months under ${debtStrategy} model.\n`;
+      return response;
+    }
+
+    response += `Here is a summary of your key financial metrics:\n`;
+    response += `• Financial Health Score: ${healthScore}/100\n`;
+    response += `• Savings Rate: ${savRate}%\n`;
+    response += `• Weekly Spending: HK$ ${weeklySpent.toLocaleString()} / HK$ ${maxSpend.toLocaleString()}\n`;
+    response += `• Portfolio Valuation: HK$ ${portVal.toLocaleString()}\n\n`;
+    response += `Ask me any specific question about budgeting, tax savings, portfolio growth, or debt reduction!`;
+    return response;
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!userInput.trim() || isLoadingAi) return;
@@ -1192,25 +1284,51 @@ export default function App() {
 
     try {
       const apiKey = import.meta.env?.VITE_GEMINI_API_KEY || "";
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+      if (!apiKey) throw new Error("API key missing. Please add your API key.");
+
+      // Use DeepSeek API endpoint as you updated
+      const apiUrl = `https://api.deepseek.com/v1/chat/completions`;
       
-      const systemPrompt = `You are A.F.A, personalized financial advisor for ${userProfile.name}.
-      Weekly Max Spend Limit: HK$ ${userProfile.weeklyMaxSpend}, Min Savings Target: HK$ ${userProfile.weeklyMinSavings}.
-      Detected ${anomalyAnalysis.anomalies.length} high-value expense outliers.
-      Weekend Spend Ratio: ${anomalyAnalysis.weekendRatio}%.`;
+      // Build rich context from your state
+      const portfolioSummary = portfolio.map(p => `${p.symbol} (${p.name}): ${p.shares} shares @ ${p.currency} ${p.currentPrice}`).join(', ');
+      const totalPortfolioVal = portfolioTotalValue.toFixed(2);
+
+      const systemPrompt = `You are A.F.A, a personalized financial advisor for ${userProfile.name}.
+      - User Goal: ${userProfile.goal} (${userProfile.targetAmount} HKD target)
+      - Risk Tolerance: ${userProfile.riskTolerance}
+      - Weekly Max Spend Limit: HK$ ${userProfile.weeklyMaxSpend}
+      - Min Savings Target: HK$ ${userProfile.weeklyMinSavings}
+      - Current Portfolio Assets: [${portfolioSummary}] (Total Value: HK$ ${totalPortfolioVal})
+      - Monthly Income: HK$ ${userProfile.monthlyIncome}
+      - Detected Outliers: ${anomalyAnalysis.anomalies.length}
+      - Weekend Spend Ratio: ${anomalyAnalysis.weekendRatio}%
+      
+      Provide concise, actionable, and structured financial advice tailored to Hong Kong markets (MPF, TVC, HKD stocks, etc.).`;
 
       const res = await fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}` 
+        },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: `${systemPrompt}\n\nUser Question: ${userMsg}` }] }]
+          model: "deepseek-chat",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMsg }
+          ],
+          stream: false
         })
       });
+      
       const data = await res.json();
-      const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "I am currently analyzing your profile. Please try again in a moment.";
+      if (data.error) throw new Error(data.error.message || "API request failed");
+      
+      const reply = data?.choices?.[0]?.message?.content || "I couldn't generate a response. Please try again.";
       setChatMessages(prev => [...prev, { role: 'model', text: reply }]);
     } catch (err) {
-      setChatMessages(prev => [...prev, { role: 'model', text: "Service temporarily unavailable. Please check your network connection." }]);
+      console.error("AI Chat Error:", err);
+      setChatMessages(prev => [...prev, { role: 'model', text: `System Error: ${err.message}` }]);
     } finally {
       setIsLoadingAi(false);
     }
@@ -2652,14 +2770,14 @@ export default function App() {
               </div>
             )}
 
- {/* AI CHAT TAB */}
+            {/* AI CHAT TAB */}
             {activeTab === 'advisor' && (
               <div className="h-[75vh] flex flex-col bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden anim-slide-in">
                 <div className="p-4 bg-[#0d1117] border-b border-slate-800 flex items-center gap-3">
                   <Bot className="w-4 h-4 text-[#00f2fe]" />
                   <div>
                     <h3 className="font-bold text-sm text-white">A.F.A. AI Advisor</h3>
-                    <p className="text-[10px] text-slate-500 font-mono">Tailored for {userProfile.name} • Goal: {userProfile.goal}</p>
+                    <p className="text-[10px] text-slate-500 font-mono">Tailored for {userProfile.name || 'User'} • Goal: {userProfile.goal || 'General Wealth Accumulation'}</p>
                   </div>
                 </div>
 
@@ -3010,62 +3128,3 @@ export default function App() {
     </div>
   );
 }
-const handleSendMessage = async (e) => {
-    e.preventDefault();
-    if (!userInput.trim() || isLoadingAi) return;
-    const userMsg = userInput.trim();
-    setUserInput('');
-    setChatMessages(prev => [...prev, { role: 'user', text: userMsg }]);
-    setIsLoadingAi(true);
-
-    try {
-      const apiKey = import.meta.env?.VITE_GEMINI_API_KEY || "";
-      if (!apiKey) throw new Error("API key missing. Please add your API key.");
-
-      // Use DeepSeek API endpoint as you updated
-      const apiUrl = `https://api.deepseek.com/v1/chat/completions`;
-      
-      // Build rich context from your state
-      const portfolioSummary = portfolio.map(p => `${p.symbol} (${p.name}): ${p.shares} shares @ ${p.currency} ${p.currentPrice}`).join(', ');
-      const totalPortfolioVal = portfolioTotalValue.toFixed(2);
-
-      const systemPrompt = `You are A.F.A, a personalized financial advisor for ${userProfile.name}.
-      - User Goal: ${userProfile.goal} (${userProfile.targetAmount} HKD target)
-      - Risk Tolerance: ${userProfile.riskTolerance}
-      - Weekly Max Spend Limit: HK$ ${userProfile.weeklyMaxSpend}
-      - Min Savings Target: HK$ ${userProfile.weeklyMinSavings}
-      - Current Portfolio Assets: [${portfolioSummary}] (Total Value: HK$ ${totalPortfolioVal})
-      - Monthly Income: HK$ ${userProfile.monthlyIncome}
-      - Detected Outliers: ${anomalyAnalysis.anomalies.length}
-      - Weekend Spend Ratio: ${anomalyAnalysis.weekendRatio}%
-      
-      Provide concise, actionable, and structured financial advice tailored to Hong Kong markets (MPF, TVC, HKD stocks, etc.).`;
-
-      const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}` 
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMsg }
-          ],
-          stream: false
-        })
-      });
-      
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message || "API request failed");
-      
-      const reply = data?.choices?.[0]?.message?.content || "I couldn't generate a response. Please try again.";
-      setChatMessages(prev => [...prev, { role: 'model', text: reply }]);
-    } catch (err) {
-      console.error("AI Chat Error:", err);
-      setChatMessages(prev => [...prev, { role: 'model', text: `System Error: ${err.message}` }]);
-    } finally {
-      setIsLoadingAi(false);
-    }
-  };
