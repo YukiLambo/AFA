@@ -1284,7 +1284,16 @@ export default function App() {
 
     try {
       const apiKey = import.meta.env?.VITE_GEMINI_API_KEY || "";
-      if (!apiKey) throw new Error("API key missing. Please add your API key.");
+      
+      // 1. FALLBACK TO LOCAL ENGINE IF NO API KEY IS CONFIGURED
+      if (!apiKey) {
+        // Simulate a brief thinking delay for realistic UX
+        await new Promise(resolve => setTimeout(resolve, 1200)); 
+        const localReply = generateLocalAiAdvice(userMsg);
+        setChatMessages(prev => [...prev, { role: 'model', text: localReply }]);
+        setIsLoadingAi(false);
+        return;
+      }
 
       // Use DeepSeek API endpoint as you updated
       const apiUrl = `https://api.deepseek.com/v1/chat/completions`;
@@ -1305,6 +1314,12 @@ export default function App() {
       
       Provide concise, actionable, and structured financial advice tailored to Hong Kong markets (MPF, TVC, HKD stocks, etc.).`;
 
+      // 2. INCLUDE CHAT HISTORY FOR THE API CONTEXT
+      const apiMessages = chatMessages.map(msg => ({
+        role: msg.role === 'model' ? 'assistant' : 'user',
+        content: msg.text
+      }));
+
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: { 
@@ -1315,6 +1330,7 @@ export default function App() {
           model: "deepseek-chat",
           messages: [
             { role: "system", content: systemPrompt },
+            ...apiMessages,
             { role: "user", content: userMsg }
           ],
           stream: false
@@ -1328,7 +1344,9 @@ export default function App() {
       setChatMessages(prev => [...prev, { role: 'model', text: reply }]);
     } catch (err) {
       console.error("AI Chat Error:", err);
-      setChatMessages(prev => [...prev, { role: 'model', text: `System Error: ${err.message}` }]);
+      // 3. GRACEFUL FALLBACK TO LOCAL ENGINE ON API FAILURE
+      const fallbackReply = generateLocalAiAdvice(userMsg);
+      setChatMessages(prev => [...prev, { role: 'model', text: fallbackReply }]);
     } finally {
       setIsLoadingAi(false);
     }
