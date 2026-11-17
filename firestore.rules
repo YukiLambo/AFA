@@ -1,0 +1,13 @@
+rules_version = '2';
+// Recommended rules for A.F.A.: each signed-in user can read and write only their own data.
+// Paste into Firebase Console > Firestore Database > Rules, then Publish.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/{appId}/users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
