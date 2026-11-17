@@ -116,7 +116,7 @@ flowchart LR
   UI -->|"profile snapshot + chat"| AI
 
   GH["GitHub repository"] -->|"push to main"| CI["GitHub Actions<br/>npm ci → vite build"]
-  CI -->|"publish dist/"| PAGES["GitHub Pages<br/>(gh-pages branch)"]
+  CI -->|"upload dist/"| PAGES["GitHub Pages"]
   PAGES -->|"static files"| Browser
 ```
 
@@ -298,20 +298,20 @@ The test harness is not yet committed as an automated suite; adding it to CI is 
 flowchart LR
   E["Edit or upload a file on github.com"] --> M["Commit to main"]
   M --> A["GitHub Actions: Build and deploy"]
-  A --> I["npm ci"] --> B["vite build<br/>(injects VITE_DEEPSEEK_API_KEY secret)"] --> P["publish dist/ to gh-pages"]
+  A --> I["npm ci"] --> B["vite build<br/>(injects VITE_DEEPSEEK_API_KEY secret)"] --> P["deploy dist/ to GitHub Pages"]
   P --> L["Live in about 2 minutes<br/>yukilambo.github.io/AFA"]
 ```
 
 - Workflow: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml). It runs on every push to `main`, or manually from the Actions tab.
 - **AI key (optional):** add a repository secret named `VITE_DEEPSEEK_API_KEY` under *Settings → Secrets and variables → Actions*. Without it, the chatbot uses its built-in engine.
-- **GitHub Pages:** *Settings → Pages → Deploy from branch → `gh-pages` / root*.
+- **GitHub Pages:** *Settings → Pages → Build and deployment → Source: GitHub Actions*.
 
 ---
 
 ## 8. Project structure
 
 ```
-├── .github/workflows/deploy.yml   CI/CD: build and publish to GitHub Pages
+├── .github/workflows/deploy.yml   CI/CD: build and deploy to GitHub Pages
 ├── index.html                     HTML entry (title, favicon links)
 ├── public/                        Favicon and app icons (the A.F.A. "A")
 ├── vite.config.js                 Vite config (base path /AFA/)
