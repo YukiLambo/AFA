@@ -62,7 +62,7 @@ Existing tools are fragmented and rarely reflect Hong Kong's tax rules, MPF or l
 | **Live stock search** | Search **any** HK or US stock by ticker or company name (`700`, `AAPL`, `tencent`) and add it in one click | — |
 | **Live news** | Headlines from Yahoo Finance, SCMP, CNBC and RTHK, refreshed every 5 minutes; stories about the user's holdings are tagged | — |
 | **Strategic Wealth Modeler** | Projects wealth from starting capital, monthly deposit, return and horizon | Time value of money, monthly compounding (Bodie, Kane & Marcus, 2014) |
-| **Debt Health** | Payoff timeline and total interest | Amortisation (Lusardi & Mitchell, 2014) |
+| **Debt Health** | Users record and save every debt they owe (name, type, balance, APR, minimum payment), then get a multi-debt payoff plan with debt-free date, total interest and payoff order | Avalanche vs Snowball amortisation (Lusardi & Mitchell, 2014) |
 | **MPF & Tax** | Mandatory MPF and the salaries tax saved by Tax-Deductible Voluntary Contributions (TVC) | HK progressive salaries tax and MPF rules |
 | **A.F.A. AI Chat** | A conversational assistant that already knows the user's profile, budget, holdings and debt, and remembers the conversation | LLM with a structured financial snapshot, plus a built-in fallback engine |
 | **Saved profile** | Everything a user enters (profile, ledger, holdings, calculator inputs, chat) is restored at next login | Per-user Firestore documents |
@@ -154,6 +154,7 @@ artifacts/afa-default/users/{uid}/
 
 - **Onboarding** saves the full profile at registration, so nothing has to be re-entered.
 - **Calculator inputs** (modeler, debt, MPF and TVC) auto-save 1.2 s after the user stops typing (debounced) and are restored once per login.
+- **Debts** are stored on the profile as a `debts` array, with a Save button and a saved/unsaved status. Older profiles that held a single total are converted into one debt on first load.
 - **Chat history** is saved after every reply and restored at login. "New Chat" clears it.
 - **Latest prices** are written back to each holding, so the next login opens with recent values even before the live feed answers.
 - **Security rules** ([`firestore.rules`](firestore.rules)) let a signed-in user read and write only their own subtree. Unauthenticated requests are rejected.
@@ -206,7 +207,7 @@ All calculations run in the browser on the user's own data, recomputed with Reac
 | **Outlier detection** | Mean μ and standard deviation σ of all expenses; flags expenses above max(μ + 1.8σ, HK$1,500) |
 | **Weekend ratio** | Saturday and Sunday spending ÷ total spending (alert above 50% and HK$1,000) |
 | **Wealth projection** | Monthly compounding: *B*ₜ₊₁ = (*B*ₜ + deposit) × (1 + *r*/12), tracked against total contributed |
-| **Debt payoff** | Monthly amortisation: interest = balance × APR/12; principal = payment − interest; stops if the payment doesn't cover interest |
+| **Debt payoff** | Month by month for every debt: add interest (balance × APR/12), pay each minimum, then send the extra payment plus any freed-up minimums to the target debt (Avalanche: highest APR first; Snowball: smallest balance first). Flags plans whose payments never beat the interest |
 | **Mandatory MPF** | 5% of income between HK$7,100 and HK$30,000 (HK$1,500 maximum) |
 | **TVC tax saving** | Salaries tax without TVC minus salaries tax with TVC (deduction capped at HK$60,000; mandatory MPF deduction capped at HK$18,000) |
 | **Salaries tax** | The lower of: progressive (2 / 6 / 10 / 14% on successive HK$50,000 bands, then 17%, after the HK$132,000 basic allowance) or the standard rate (15% on the first HK$5M of net income, 16% above) |
@@ -365,7 +366,6 @@ npm run build                 # production build in dist/
 | The AI key is exposed in the static bundle | Move AI calls to a serverless function (e.g. Firebase Cloud Functions) so the key stays server-side |
 | Market data uses public endpoints without a service-level agreement | Use a licensed market-data API for production |
 | USD/HKD uses a fixed 7.82 rate | Fetch the live rate (HKD is pegged within 7.75–7.85, so the error is small) |
-| The debt module models a single debt; the strategy selector is a placeholder | Multi-debt Avalanche vs Snowball comparison, as described in the proposal |
 | `App.jsx` is about 3,500 lines | Split into feature modules and custom hooks, and add unit tests for the finance engine |
 | No automated test suite in CI | Commit the Playwright harness and run it in GitHub Actions |
 | Tailwind is loaded from a CDN at runtime | Compile Tailwind at build time for faster loads |

@@ -9,7 +9,6 @@
   <rect x="2" y="2" width="96" height="96" rx="26" fill="#0a0f1a" stroke="url(#g)" stroke-width="4"/>
   <g stroke="url(#g)" stroke-linecap="round" stroke-linejoin="round" fill="none">
     <path d="M27 74 L50 23 L73 74" stroke-width="11"/>
-    <path d="M37 54 L63 54" stroke-width="9"/>
   </g>
   <circle cx="50" cy="23" r="7.5" fill="#ffffff"/>
   <circle cx="27" cy="74" r="6" fill="#00f2fe"/>

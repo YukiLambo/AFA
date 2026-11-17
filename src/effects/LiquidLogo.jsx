@@ -18,10 +18,6 @@ function drawLogoMask(size) {
   ctx.beginPath();
   ctx.moveTo(28 * k, 72 * k); ctx.lineTo(50 * k, 25 * k); ctx.lineTo(72 * k, 72 * k);
   ctx.stroke();
-  ctx.lineWidth = 8 * k;
-  ctx.beginPath();
-  ctx.moveTo(38 * k, 52 * k); ctx.lineTo(62 * k, 52 * k);
-  ctx.stroke();
   [[50, 25, 6.5], [28, 72, 5.5], [72, 72, 5.5]].forEach(([x, y, r]) => {
     ctx.beginPath();
     ctx.arc(x * k, y * k, r * k, 0, Math.PI * 2);

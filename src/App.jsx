@@ -15,6 +15,7 @@ import LiquidBackdrop from './effects/LiquidBackdrop';
 import LiquidGlass from './effects/LiquidGlass';
 import LiquidLogo from './effects/LiquidLogo';
 import IntroScene from './effects/IntroScene';
+import LiquidGlassLayer from './effects/LiquidGlassLayer';
 
 // --- FIREBASE INTEGRATION ---
 import { initializeApp } from 'firebase/app';
@@ -248,21 +249,136 @@ const DEFAULT_CHAT_GREETING = "Hi! I'm A.F.A., your financial assistant. I alrea
 const CHAT_QUICK_PROMPTS = ['How am I doing this month?', 'Am I on track for my goal?', 'Where can I cut spending?', 'How much tax can TVC save me?', 'Is my portfolio too risky?'];
 
 // --- CATEGORY COLOR MATRIX ---
+// Every category has its own vibrant colour, tuned to glow on the dark liquid-glass background
+// --- DEBT PLANNER HELPERS ---
+const DEBT_TYPES = ['Credit card', 'Personal loan', 'Student loan', 'Car loan', 'Mortgage', 'Buy now pay later', 'Other'];
+
+const normalizeDebt = (d = {}) => ({
+  id: d.id || `d${Math.random().toString(36).slice(2, 9)}`,
+  name: String(d.name || 'Debt').slice(0, 60),
+  type: DEBT_TYPES.includes(d.type) ? d.type : 'Other',
+  balance: Math.max(0, Number(d.balance) || 0),
+  apr: Math.max(0, Number(d.apr) || 0),
+  minPay: Math.max(0, Number(d.minPay) || 0)
+});
+
+// Avalanche pays the highest APR first; snowball pays the smallest balance first.
+// Every debt gets its minimum; the extra amount plus minimums freed by cleared debts go to the target.
+const simulateDebtPayoff = (debtList, extra, strategy) => {
+  const live = debtList.map(normalizeDebt).filter(d => d.balance > 0).map(d => ({ ...d }));
+  const budget = live.reduce((sum, d) => sum + d.minPay, 0) + (Number(extra) || 0);
+  const totalStart = live.reduce((sum, d) => sum + d.balance, 0);
+  const trajectory = [{ month: 'Now', balance: Math.round(totalStart) }];
+  const order = (a, b) => (strategy === 'snowball' ? a.balance - b.balance || b.apr - a.apr : b.apr - a.apr || a.balance - b.balance);
+  const payoffOrder = [];
+  let month = 0;
+  let totalInterest = 0;
+  let stuck = false;
+  const MAX_MONTHS = 600;
+  if (live.length === 0) return { trajectory, totalMonths: 0, totalInterest: 0, payoffOrder, stuck: false, budget: 0, debtFreeLabel: '' };
+
+  while (live.some(d => d.balance > 0.005) && month < MAX_MONTHS) {
+    month++;
+    let interestThisMonth = 0;
+    live.forEach(d => {
+      if (d.balance <= 0) return;
+      const interest = d.balance * (d.apr / 100 / 12);
+      d.balance += interest;
+      interestThisMonth += interest;
+    });
+    totalInterest += interestThisMonth;
+    let cash = budget;
+    // Minimum payments first
+    live.forEach(d => {
+      if (d.balance <= 0) return;
+      const pay = Math.min(d.minPay, d.balance, cash);
+      d.balance -= pay;
+      cash -= pay;
+    });
+    // Then everything left to the target debt(s)
+    [...live].filter(d => d.balance > 0).sort(order).forEach(d => {
+      if (cash <= 0) return;
+      const pay = Math.min(cash, d.balance);
+      d.balance -= pay;
+      cash -= pay;
+    });
+    live.forEach(d => {
+      if (d.balance <= 0.005 && !payoffOrder.find(p => p.id === d.id)) {
+        d.balance = 0;
+        payoffOrder.push({ id: d.id, name: d.name, month });
+      }
+    });
+    const remaining = live.reduce((sum, d) => sum + d.balance, 0);
+    if (month <= 24 || month % 3 === 0 || remaining === 0) trajectory.push({ month: `M${month}`, balance: Math.round(remaining) });
+    // Payments that never beat the interest would run forever
+    if (budget <= interestThisMonth + 0.01) { stuck = true; break; }
+  }
+  if (month >= MAX_MONTHS) stuck = true;
+  const done = new Date();
+  done.setMonth(done.getMonth() + month);
+  return {
+    trajectory,
+    totalMonths: month,
+    totalInterest: Math.round(totalInterest),
+    payoffOrder,
+    stuck,
+    budget,
+    debtFreeLabel: stuck ? '' : done.toLocaleDateString('en-HK', { month: 'short', year: 'numeric' })
+  };
+};
+
 const CATEGORY_COLORS = {
-  'Dining': '#f43f5e',
-  'Shopping': '#ec4899',
-  'Entertainment': '#a855f7',
-  'Rent': '#f59e0b',
-  'Transport': '#3b82f6',
-  'Salary': '#10b981',
-  'Capital Gain': '#059669',
+  'Dining': '#ff6b8b',
+  'Shopping': '#c084fc',
+  'Entertainment': '#ff4fd8',
+  'Rent': '#ffd166',
+  'Transport': '#4f8cff',
+  'Salary': '#2dd4bf',
+  'Capital Gain': '#a3e635',
   'Dividend': '#34d399',
-  'Freelance': '#a7f3d0',
-  'Interest': '#6ee7b7',
-  'Gift': '#fbbf24',
+  'Freelance': '#38bdf8',
+  'Interest': '#93c5fd',
+  'Gift': '#f9a8d4',
   'Investment': '#00f2fe',
-  'Utilities': '#6366f1',
-  'Other': '#64748b'
+  'Utilities': '#8b5cf6',
+  'Other': '#94a3b8'
+};
+
+// Palette for charts whose items are not categories (payment methods, asset classes...)
+// Dashboard blocks that get the liquid-glass treatment
+const GLASS_PANEL_SELECTOR = '.afa-content [class~="bg-[#161b22]"]:not(.absolute):not(.fixed)';
+
+const CHART_PALETTE = ['#00f2fe', '#8b5cf6', '#ff4fd8', '#2dd4bf', '#ffd166', '#4f8cff', '#ff6b8b', '#a3e635', '#c084fc', '#38bdf8'];
+const colorFor = (name, index) => CATEGORY_COLORS[name] || CHART_PALETTE[index % CHART_PALETTE.length];
+
+// Glowing vertical gradients for bars: url(#afaBar0) ... url(#afaBar9), plus the portfolio bars.
+// A plain <defs> element (not a component): Recharts only renders <defs> it finds directly in a chart.
+const CHART_GRADIENT_DEFS = (
+  <defs>
+    {CHART_PALETTE.map((c, i) => (
+      <linearGradient key={c} id={`afaBar${i}`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={c} stopOpacity={0.95} />
+        <stop offset="100%" stopColor={c} stopOpacity={0.25} />
+      </linearGradient>
+    ))}
+    <linearGradient id="afaBarPortfolio" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stopColor="#00f2fe" stopOpacity={0.95} />
+      <stop offset="100%" stopColor="#7c5cff" stopOpacity={0.45} />
+    </linearGradient>
+  </defs>
+);
+
+// Pie labels drawn in their slice's colour
+const renderPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name, index }) => {
+  const angle = (-midAngle * Math.PI) / 180;
+  const r = outerRadius + 14;
+  const x = cx + r * Math.cos(angle);
+  const y = cy + r * Math.sin(angle);
+  return (
+    <text x={x} y={y} fill={colorFor(name, index)} fontSize={10} fontWeight={700} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+      {`${name} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
 };
 
 // --- CUSTOM APP ICON ---
@@ -308,7 +424,6 @@ const AppIcon = ({ className = "w-9 h-9", animateStroke = false }) => (
       }
     `}</style>
     <defs>
-      {/* userSpaceOnUse: with the default bounding-box units, the horizontal crossbar (zero-height box) was never painted */}
       <linearGradient id="iconGrad" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="100" y2="100">
         <stop offset="0%" stopColor="#00f2fe" />
         <stop offset="100%" stopColor="#4facfe" />
@@ -330,7 +445,6 @@ const AppIcon = ({ className = "w-9 h-9", animateStroke = false }) => (
     
     <path className="left-leg" d="M 28 72 L 50 25" stroke="url(#iconGrad)" strokeWidth="7.5" strokeLinecap="round" filter="url(#glow)" />
     <path className="right-leg" d="M 50 25 L 72 72" stroke="url(#iconGrad)" strokeWidth="7.5" strokeLinecap="round" filter="url(#glow)" />
-    <path className="crossbar" d="M 38 52 L 62 52" stroke="url(#iconGrad)" strokeWidth="6.5" strokeLinecap="round" filter="url(#glow)" />
     
     <circle className="cyber-node" cx="50" cy="25" r="5.5" fill="#ffffff" style={{ animationDelay: '0.8s', transformOrigin: '50px 25px' }} />
     <circle className="cyber-node" cx="28" cy="72" r="4.5" fill="#00f2fe" style={{ animationDelay: '1.0s', transformOrigin: '28px 72px' }} />
@@ -503,10 +617,16 @@ export default function App() {
   // Debt Strategy State
   const [isDebtLoaded, setIsDebtLoaded] = useState(false);
   const [isSavingDebt, setIsSavingDebt] = useState(false);
-  const [debtAmount, setDebtAmount] = useState(45000);
-  const [debtRate, setDebtRate] = useState(24.5);
-  const [debtMinPay, setDebtMinPay] = useState(2500);
+  // Each debt the user owes: { id, name, type, balance, apr, minPay } (saved to the profile as `debts`)
+  const [debts, setDebts] = useState([]);
+  const [debtExtra, setDebtExtra] = useState(0); // extra HKD per month on top of all minimum payments
   const [debtStrategy, setDebtStrategy] = useState('avalanche');
+  const [debtDraft, setDebtDraft] = useState({ name: '', type: 'Credit card', balance: '', apr: '', minPay: '' });
+  const [debtSaveState, setDebtSaveState] = useState({ status: 'idle', at: null, message: '' });
+  // Totals across every debt (kept under the old names so the advisor and reports keep working)
+  const debtAmount = useMemo(() => debts.reduce((sum, d) => sum + (Number(d.balance) || 0), 0), [debts]);
+  const debtRate = useMemo(() => (debtAmount > 0 ? Math.round(debts.reduce((sum, d) => sum + (Number(d.balance) || 0) * (Number(d.apr) || 0), 0) / debtAmount * 100) / 100 : 0), [debts, debtAmount]);
+  const debtMinPay = useMemo(() => debts.reduce((sum, d) => sum + (Number(d.minPay) || 0), 0) + (Number(debtExtra) || 0), [debts, debtExtra]);
 
   // MPF & Tax State
   const [mpfIncome, setMpfIncome] = useState(30000);
@@ -564,11 +684,16 @@ export default function App() {
         setUserProfile(prev => ({ ...prev, ...data }));
         
         // Restore everything the user typed last time (runs once per login)
-        if (!settingsLoadedRef.current && data.email) {
+        if (!settingsLoadedRef.current) {
           const saved = data.settings || {};
-          if (data.debtAmount !== undefined) setDebtAmount(Number(data.debtAmount));
-          if (data.debtRate !== undefined) setDebtRate(Number(data.debtRate));
-          if (data.debtMinPay !== undefined) setDebtMinPay(Number(data.debtMinPay));
+          if (Array.isArray(data.debts)) {
+            setDebts(data.debts.map(normalizeDebt));
+          } else if (Number(data.debtAmount) > 0) {
+            // Older profiles stored one total; turn it into a single debt so nothing is lost
+            setDebts([normalizeDebt({ name: 'Existing debt', type: 'Other', balance: data.debtAmount, apr: data.debtRate, minPay: data.debtMinPay })]);
+          }
+          if (data.debtExtra !== undefined) setDebtExtra(Number(data.debtExtra) || 0);
+          if (data.debtsSavedAt) setDebtSaveState({ status: 'saved', at: data.debtsSavedAt, message: '' });
           if (saved.debtStrategy) setDebtStrategy(saved.debtStrategy);
           if (saved.simInitial !== undefined) setSimInitial(Number(saved.simInitial));
           if (saved.simMonthly !== undefined) setSimMonthly(Number(saved.simMonthly));
@@ -622,7 +747,7 @@ export default function App() {
 
   // Splash Screen Delay
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 6000); // safety net; IntroScene ends itself
+    const timer = setTimeout(() => setShowSplash(false), 7000); // safety net; IntroScene ends itself
     return () => clearTimeout(timer);
   }, []);
 
@@ -994,19 +1119,49 @@ export default function App() {
     setIsEditingTarget(false);
   };
 
+  // Writes the full debt list to Firestore straight away (the auto-save below also keeps it in sync)
   const handleSaveDebtPlan = async () => {
     if (!user) return;
     setIsSavingDebt(true);
+    setDebtSaveState(prev => ({ ...prev, status: 'saving', message: '' }));
     try {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
       const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
-      await setDoc(profileRef, { debtAmount, debtRate, debtMinPay }, { merge: true });
+      const savedAt = new Date().toISOString();
+      await setDoc(profileRef, {
+        debts: debts.map(normalizeDebt),
+        debtExtra: Number(debtExtra) || 0,
+        debtAmount, debtRate, debtMinPay,
+        debtsSavedAt: savedAt,
+        settings: { debtStrategy }
+      }, { merge: true });
+      setDebtSaveState({ status: 'saved', at: savedAt, message: '' });
     } catch (error) {
-      console.error("Error saving debt plan", error);
-      alert("Failed to save debt plan.");
+      console.error("Error saving debts", error);
+      setDebtSaveState(prev => ({ ...prev, status: 'error', message: 'Could not save. Check your connection and try again.' }));
     } finally {
       setIsSavingDebt(false);
     }
+  };
+
+  const handleAddDebt = (e) => {
+    e?.preventDefault();
+    const balance = Number(debtDraft.balance);
+    if (!(balance > 0)) return;
+    const name = debtDraft.name.trim() || debtDraft.type;
+    setDebts(prev => [...prev, normalizeDebt({ ...debtDraft, name, id: `d${Date.now().toString(36)}` })]);
+    setDebtDraft({ name: '', type: debtDraft.type, balance: '', apr: '', minPay: '' });
+    setDebtSaveState(prev => ({ ...prev, status: 'dirty' }));
+  };
+
+  const handleUpdateDebt = (id, field, value) => {
+    setDebts(prev => prev.map(d => (d.id === id ? { ...d, [field]: field === 'name' || field === 'type' ? value : value === '' ? '' : Number(value) } : d)));
+    setDebtSaveState(prev => ({ ...prev, status: 'dirty' }));
+  };
+
+  const handleDeleteDebt = (id) => {
+    setDebts(prev => prev.filter(d => d.id !== id));
+    setDebtSaveState(prev => ({ ...prev, status: 'dirty' }));
   };
 
   const handleSaveProfileInfo = async (e) => {
@@ -1372,31 +1527,9 @@ export default function App() {
     return data;
   }, [simInitial, simMonthly, simRate, simYears]);
 
-  const debtPayoffTrajectory = useMemo(() => {
-    let balance = debtAmount;
-    const monthlyRate = (debtRate / 100) / 12;
-    let month = 0;
-    let totalInterest = 0;
-    const trajectory = [{ month: 'M0', balance: balance, interestPaid: 0 }];
-
-    while (balance > 0 && month < 120) {
-      month++;
-      const interest = balance * monthlyRate;
-      totalInterest += interest;
-      const principal = debtMinPay - interest;
-      if (principal <= 0) break;
-      balance = Math.max(0, balance - principal);
-      
-      if (month % 3 === 0 || balance === 0) {
-        trajectory.push({
-          month: `M${month}`,
-          balance: Math.round(balance),
-          interestPaid: Math.round(totalInterest)
-        });
-      }
-    }
-    return { trajectory, totalMonths: month, totalInterest: Math.round(totalInterest) };
-  }, [debtAmount, debtRate, debtMinPay]);
+  // Month-by-month payoff of every debt: minimums on all, everything extra to the target debt
+  const debtPayoffTrajectory = useMemo(() => simulateDebtPayoff(debts, debtExtra, debtStrategy), [debts, debtExtra, debtStrategy]);
+  const debtAltPlan = useMemo(() => simulateDebtPayoff(debts, debtExtra, debtStrategy === 'avalanche' ? 'snowball' : 'avalanche'), [debts, debtExtra, debtStrategy]);
 
   const mpfCalc = useMemo(() => {
     const income = Number(mpfIncome) || 0;
@@ -1447,7 +1580,7 @@ export default function App() {
         gainPct: Number(portfolioGainPercent),
         holdings: portfolio.map(p => ({ symbol: p.symbol, name: p.name, shares: p.shares, price: p.currentPrice, currency: p.currency, category: p.category, dayChangePct: p.dayChangePct }))
       },
-      debt: { balanceHKD: Number(debtAmount) || 0, aprPct: Number(debtRate) || 0, monthlyPaymentHKD: Number(debtMinPay) || 0, strategy: debtStrategy, monthsToClear: debtPayoffTrajectory.totalMonths, totalInterestHKD: debtPayoffTrajectory.totalInterest },
+      debt: { debts: debts.map(d => ({ name: d.name, type: d.type, balanceHKD: Number(d.balance) || 0, aprPct: Number(d.apr) || 0, minPaymentHKD: Number(d.minPay) || 0 })), extraMonthlyHKD: Number(debtExtra) || 0, debtFreeDate: debtPayoffTrajectory.debtFreeLabel, balanceHKD: Number(debtAmount) || 0, aprPct: Number(debtRate) || 0, monthlyPaymentHKD: Number(debtMinPay) || 0, strategy: debtStrategy, monthsToClear: debtPayoffTrajectory.totalMonths, totalInterestHKD: debtPayoffTrajectory.totalInterest },
       mpf: { mandatoryMonthlyHKD: Math.round(mpfCalc.mandatory), tvcAnnualHKD: mpfCalc.annualTvc, estimatedTaxSavedHKD: mpfCalc.estimatedTaxSaved }
     };
   };
@@ -1534,7 +1667,7 @@ export default function App() {
 
       case 'debt':
         if (!s.debt.balanceHKD) return `Good news, ${s.firstName} — you have no debt recorded. If you do carry a card balance or loan, add it in the Debt Health tab and I'll work out the fastest way to clear it.`;
-        return `You owe ${hkd(s.debt.balanceHKD)} at ${s.debt.aprPct}% APR. Paying ${hkd(s.debt.monthlyPaymentHKD)} a month clears it in about ${s.debt.monthsToClear} months and costs ${hkd(s.debt.totalInterestHKD)} in interest.\n\n` +
+        return `You owe ${hkd(s.debt.balanceHKD)}${s.debt.debts.length > 1 ? ` across ${s.debt.debts.length} debts (${s.debt.debts.map(d => d.name).join(', ')})` : ''} at ${s.debt.aprPct}% ${s.debt.debts.length > 1 ? 'average ' : ''}APR. Paying ${hkd(s.debt.monthlyPaymentHKD)} a month with the ${s.debt.strategy} method clears it in about ${s.debt.monthsToClear} months and costs ${hkd(s.debt.totalInterestHKD)} in interest.\n\n` +
           `That interest rate is ${s.debt.aprPct > 12 ? 'far higher than any realistic investment return, so paying this down first is your best "investment"' : 'moderate, so balance repayment with saving'}. Every extra ${hkd(1000)} a month shortens the timeline noticeably — want me to estimate how much you could free up from your spending?`;
 
       case 'invest-more':
@@ -1685,6 +1818,8 @@ ${JSON.stringify(snapshot)}`;
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
       const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
       setDoc(profileRef, {
+        debts: debts.map(normalizeDebt),
+        debtExtra: Number(debtExtra) || 0,
         debtAmount: Number(debtAmount) || 0,
         debtRate: Number(debtRate) || 0,
         debtMinPay: Number(debtMinPay) || 0,
@@ -1698,10 +1833,12 @@ ${JSON.stringify(snapshot)}`;
           tvcMonthly: Number(tvcMonthly) || 0,
           cashFlowView
         }
-      }, { merge: true }).catch(err => console.error("Settings auto-save failed:", err));
+      }, { merge: true })
+        .then(() => setDebtSaveState(prev => (prev.status === 'dirty' ? { status: 'saved', at: new Date().toISOString(), message: '' } : prev)))
+        .catch(err => console.error("Settings auto-save failed:", err));
     }, 1200);
     return () => clearTimeout(timer);
-  }, [user, debtAmount, debtRate, debtMinPay, debtStrategy, simInitial, simMonthly, simRate, simYears, mpfIncome, tvcMonthly, cashFlowView]);
+  }, [user, debts, debtExtra, debtAmount, debtRate, debtMinPay, debtStrategy, simInitial, simMonthly, simRate, simYears, mpfIncome, tvcMonthly, cashFlowView]);
 
   const cashFlowData = useMemo(() => {
     const now = new Date();
@@ -1818,12 +1955,20 @@ ${JSON.stringify(snapshot)}`;
           background-color: rgba(22, 27, 34, 0.8);
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 32px -14px rgba(0, 0, 0, 0.7);
         }
+        /* Liquid glass blocks: the WebGL layer paints the refraction underneath, CSS adds edge light */
+        .afa-glass-on .afa-fx .afa-content [class~="bg-[#161b22]"]:not(.absolute):not(.fixed) {
+          background: linear-gradient(140deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.012) 42%, rgba(0, 242, 254, 0.035));
+          border-color: rgba(160, 225, 255, 0.18) !important;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(0, 242, 254, 0.04), 0 22px 44px -20px rgba(0, 0, 0, 0.75);
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       {/* Animated liquid background (only when visual effects are on; never over the splash) */}
       {!showSplash && <LiquidBackdrop />}
+      {/* Liquid glass under every dashboard block (one WebGL pass for all of them) */}
+      {user && !showSplash && <LiquidGlassLayer selector={GLASS_PANEL_SELECTOR} clipSelector=".afa-content" />}
 
       {/* Ambient Lights */}
       <div className="fixed top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-[#00f2fe]/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
@@ -1831,11 +1976,7 @@ ${JSON.stringify(snapshot)}`;
       {/* SPLASH SCREEN */}
       {showSplash && (
         // Opening animation: rising cube field with the A.F.A. logo on the centre cube (click / Esc to skip)
-        <IntroScene
-          duration={3800}
-          onDone={() => setShowSplash(false)}
-          logo={<AppIcon className="w-full h-full" animateStroke={true} />}
-        />
+        <IntroScene duration={4600} onDone={() => setShowSplash(false)} />
       )}
 
       {/* AUTHENTICATION & REGISTRATION */}
@@ -2071,7 +2212,7 @@ ${JSON.stringify(snapshot)}`;
         <div className={`afa-content flex-1 flex flex-col relative h-full overflow-y-auto overflow-x-hidden dashboard-enter ${fx.enabled ? 'bg-transparent' : 'bg-[#0d1117]'}`}>
           
           {/* HEADER (Main Content Area) */}
-          <header className={`sticky top-0 z-30 ${fx.enabled ? 'bg-[#161b22]/60' : 'bg-[#161b22]/90'} backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-3.5 shadow-sm`}>
+          <header className={`sticky top-0 z-30 ${fx.enabled ? 'bg-[#0d1117]/80' : 'bg-[#161b22]/90'} backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-3.5 shadow-sm`}>
              <div className="flex items-center gap-4">
                 <h2 className="text-base font-bold text-white tracking-wide">
                   {activeTab === 'dashboard' ? 'Dashboard' : 
@@ -2435,10 +2576,13 @@ ${JSON.stringify(snapshot)}`;
                       {paymentMethodsData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No payment data</div> : 
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={paymentMethodsData}>
+                          {CHART_GRADIENT_DEFS}
                           <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
                           <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                          <Bar dataKey="amount" fill="#93c5fd" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={72}>
+                            {paymentMethodsData.map((entry, index) => <Cell key={`pay-${index}`} fill={`url(#afaBar${index % CHART_PALETTE.length})`} />)}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>}
                     </div>
@@ -2450,10 +2594,13 @@ ${JSON.stringify(snapshot)}`;
                       {receivingMethodsData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No receiving data</div> : 
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={receivingMethodsData}>
+                          {CHART_GRADIENT_DEFS}
                           <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
                           <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                          <Bar dataKey="amount" fill="#6ee7b7" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={72}>
+                            {receivingMethodsData.map((entry, index) => <Cell key={`recv-${index}`} fill={`url(#afaBar${(index + 3) % CHART_PALETTE.length})`} />)}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>}
                     </div>
@@ -2467,9 +2614,9 @@ ${JSON.stringify(snapshot)}`;
                       {categoryBreakdown.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No expense data</div> : 
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={categoryBreakdown} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{fontSize: '9px', fill: '#fff'}}>
+                          <Pie data={categoryBreakdown} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3} cornerRadius={6} label={renderPieLabel} labelLine={false}>
                             {categoryBreakdown.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill || '#00f2fe'} stroke="rgba(0,0,0,0.2)" />
+                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
                             ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
@@ -2484,9 +2631,9 @@ ${JSON.stringify(snapshot)}`;
                       {incomeCategoryData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No income data</div> : 
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={incomeCategoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{fontSize: '9px', fill: '#fff'}}>
+                          <Pie data={incomeCategoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3} cornerRadius={6} label={renderPieLabel} labelLine={false}>
                             {incomeCategoryData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'][index % 5]} stroke="rgba(0,0,0,0.2)" />
+                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
                             ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
@@ -2881,11 +3028,17 @@ ${JSON.stringify(snapshot)}`;
                     portfolioGrowth.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">{marketFeedDown ? 'Price history unavailable while the live feed is unreachable.' : 'Loading price history...'}</div> :
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={portfolioGrowth}>
+                        {CHART_GRADIENT_DEFS}
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                         <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
                         <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                         <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`HK$ ${Number(val).toLocaleString()}`, 'Value']} />
-                        <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} />
+                        {/* Solid green on days the value rose, solid red on days it fell */}
+                        <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+                          {portfolioGrowth.map((entry, index) => (
+                            <Cell key={`pg-${index}`} fill={index === 0 || entry.value >= portfolioGrowth[index - 1].value ? '#16c784' : '#ea3943'} />
+                          ))}
+                        </Bar>
                       </BarChart>
                     </ResponsiveContainer>}
                   </div>
@@ -2898,9 +3051,9 @@ ${JSON.stringify(snapshot)}`;
                       {portfolio.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No portfolio data</div> :
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={portfolioDiversity} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{fontSize:'10px', fill:'#fff'}}>
+                          <Pie data={portfolioDiversity} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} cornerRadius={6} dataKey="value" label={renderPieLabel} labelLine={false}>
                             {portfolioDiversity.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill || ['#00f2fe', '#3b82f6', '#8b5cf6', '#ec4899'][index % 4]} stroke="rgba(0,0,0,0.2)"/>
+                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
                             ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`$${val.toLocaleString(undefined, {maximumFractionDigits:0})}`, 'Value']} />
@@ -3085,51 +3238,170 @@ ${JSON.stringify(snapshot)}`;
             {activeTab === 'debt' && (
               <div className="space-y-6 anim-slide-in">
                 <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
-                  <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-rose-400" /> Debt Repayment Optimizer
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
+                    <div>
+                      <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                        <CreditCard className="w-4 h-4 text-rose-400" /> My Debts
+                      </h2>
+                      <p className="text-xs text-slate-400">Record every card, loan or instalment you owe. A.F.A. saves the list to your account and builds a payoff plan from it.</p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-[11px] font-mono" data-testid="debt-save-status">
+                        {debtSaveState.status === 'saving' && <span className="text-slate-400">Saving…</span>}
+                        {debtSaveState.status === 'dirty' && <span className="text-amber-400">Unsaved changes</span>}
+                        {debtSaveState.status === 'saved' && debtSaveState.at && <span className="text-emerald-400 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Saved {new Date(debtSaveState.at).toLocaleString('en-HK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}
+                        {debtSaveState.status === 'error' && <span className="text-rose-400">{debtSaveState.message}</span>}
+                      </span>
+                      <button
+                        onClick={handleSaveDebtPlan}
+                        disabled={isSavingDebt}
+                        className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-pointer transition-all disabled:opacity-60"
+                      >
+                        {isSavingDebt ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        <span>Save debts</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Add a debt */}
+                  <form onSubmit={handleAddDebt} className="grid grid-cols-2 md:grid-cols-6 gap-3 bg-[#0d1117] p-4 rounded-2xl border border-slate-800/80 mb-5">
+                    <div className="col-span-2 md:col-span-2">
+                      <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Name</label>
+                      <input type="text" placeholder="e.g. HSBC Red card" value={debtDraft.name} onChange={e => setDebtDraft(d => ({ ...d, name: e.target.value }))} className="w-full px-3 py-2 glass-input rounded-lg text-sm text-white" />
+                    </div>
+                    <div className="col-span-2 md:col-span-1">
+                      <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Type</label>
+                      <select value={debtDraft.type} onChange={e => setDebtDraft(d => ({ ...d, type: e.target.value }))} className="w-full px-3 py-2 glass-input rounded-lg text-sm text-white [&>option]:bg-[#161b22]">
+                        {DEBT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Balance (HKD)</label>
+                      <input type="number" min="0" required placeholder="20000" value={debtDraft.balance} onChange={e => setDebtDraft(d => ({ ...d, balance: e.target.value }))} className="w-full px-3 py-2 glass-input rounded-lg text-sm text-white" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">APR %</label>
+                      <input type="number" min="0" step="0.1" placeholder="24" value={debtDraft.apr} onChange={e => setDebtDraft(d => ({ ...d, apr: e.target.value }))} className="w-full px-3 py-2 glass-input rounded-lg text-sm text-white" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Min / month</label>
+                      <input type="number" min="0" placeholder="800" value={debtDraft.minPay} onChange={e => setDebtDraft(d => ({ ...d, minPay: e.target.value }))} className="w-full px-3 py-2 glass-input rounded-lg text-sm text-white" />
+                    </div>
+                    <button type="submit" className="col-span-2 md:col-span-6 bg-[#00f2fe]/10 hover:bg-[#00f2fe]/20 text-[#00f2fe] border border-[#00f2fe]/30 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all">
+                      <Plus className="w-4 h-4" /> Add debt
+                    </button>
+                  </form>
+
+                  {/* Debt list (editable in place) */}
+                  {debts.length === 0 ? (
+                    <div className="text-center py-10 border border-dashed border-slate-700 rounded-2xl text-sm text-slate-400">
+                      No debts recorded yet. Add your first one above, then press <span className="text-rose-300 font-semibold">Save debts</span>.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-2xl border border-slate-800/80">
+                      <table className="w-full text-sm min-w-[640px]">
+                        <thead className="bg-[#0d1117] text-[10px] font-mono uppercase text-slate-500">
+                          <tr>
+                            <th className="text-left px-3 py-2">Debt</th>
+                            <th className="text-left px-3 py-2">Type</th>
+                            <th className="text-right px-3 py-2">Balance (HKD)</th>
+                            <th className="text-right px-3 py-2">APR %</th>
+                            <th className="text-right px-3 py-2">Min / month</th>
+                            <th className="text-right px-3 py-2">Paid off</th>
+                            <th className="px-3 py-2"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {debts.map(d => {
+                            const done = debtPayoffTrajectory.payoffOrder.find(p => p.id === d.id);
+                            const coversInterest = (Number(d.minPay) || 0) > (Number(d.balance) || 0) * (Number(d.apr) || 0) / 1200;
+                            return (
+                              <tr key={d.id} className="border-t border-slate-800/80">
+                                <td className="px-3 py-2"><input value={d.name} onChange={e => handleUpdateDebt(d.id, 'name', e.target.value)} className="w-full bg-transparent text-white outline-none focus:bg-[#0d1117] rounded px-1" /></td>
+                                <td className="px-3 py-2">
+                                  <select value={d.type} onChange={e => handleUpdateDebt(d.id, 'type', e.target.value)} className="bg-transparent text-slate-300 text-xs outline-none [&>option]:bg-[#161b22]">
+                                    {DEBT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                  </select>
+                                </td>
+                                <td className="px-3 py-2"><input type="number" min="0" value={d.balance} onChange={e => handleUpdateDebt(d.id, 'balance', e.target.value)} className="w-28 ml-auto block text-right bg-transparent text-white outline-none focus:bg-[#0d1117] rounded px-1" /></td>
+                                <td className="px-3 py-2"><input type="number" min="0" step="0.1" value={d.apr} onChange={e => handleUpdateDebt(d.id, 'apr', e.target.value)} className="w-16 ml-auto block text-right bg-transparent text-white outline-none focus:bg-[#0d1117] rounded px-1" /></td>
+                                <td className="px-3 py-2">
+                                  <input type="number" min="0" value={d.minPay} onChange={e => handleUpdateDebt(d.id, 'minPay', e.target.value)} className={`w-24 ml-auto block text-right bg-transparent outline-none focus:bg-[#0d1117] rounded px-1 ${coversInterest || !(d.balance > 0) ? 'text-white' : 'text-amber-400'}`} title={coversInterest ? '' : 'This minimum does not cover the monthly interest'} />
+                                </td>
+                                <td className="px-3 py-2 text-right text-xs font-mono text-emerald-400">{done ? `M${done.month}` : '—'}</td>
+                                <td className="px-3 py-2 text-right">
+                                  <button onClick={() => handleDeleteDebt(d.id)} aria-label={`Delete ${d.name}`} className="p-1.5 text-slate-500 hover:text-rose-400 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot className="bg-[#0d1117] text-xs font-mono">
+                          <tr className="border-t border-slate-800/80">
+                            <td className="px-3 py-2 text-slate-400" colSpan={2}>Total · {debts.length} debt{debts.length === 1 ? '' : 's'}</td>
+                            <td className="px-3 py-2 text-right text-white font-bold">${debtAmount.toLocaleString()}</td>
+                            <td className="px-3 py-2 text-right text-slate-300">{debtRate}% avg</td>
+                            <td className="px-3 py-2 text-right text-slate-300">${(debtMinPay - (Number(debtExtra) || 0)).toLocaleString()}</td>
+                            <td colSpan={2}></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Payoff plan */}
+                <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
+                  <h2 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-emerald-400" /> Payoff Plan
                   </h2>
-                  <p className="text-xs text-slate-400 mb-6">Analyze credit card debt or personal loans and save your payoff plan directly to Firebase.</p>
+                  <p className="text-xs text-slate-400 mb-6">Every debt gets its minimum payment. Your extra money, plus any minimum freed up when a debt is cleared, goes to the debt your strategy picks.</p>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-4 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
                       <div>
-                        <label className="text-xs font-mono text-slate-300 block mb-1.5">Total Unsecured Debt (HKD)</label>
-                        <input type="number" value={debtAmount || ''} onChange={e => setDebtAmount(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-mono text-slate-300 block mb-1.5">APR Interest Rate (%)</label>
-                        <input type="number" step="0.5" value={debtRate || ''} onChange={e => setDebtRate(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-mono text-slate-300 block mb-1.5">Monthly Repayment Allocation (HKD)</label>
-                        <input type="number" value={debtMinPay || ''} onChange={e => setDebtMinPay(Number(e.target.value))} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
+                        <label className="text-xs font-mono text-slate-300 block mb-1.5">Extra payment per month (HKD)</label>
+                        <input type="number" min="0" value={debtExtra || ''} placeholder="0" onChange={e => { setDebtExtra(Number(e.target.value) || 0); setDebtSaveState(prev => ({ ...prev, status: 'dirty' })); }} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
+                        <p className="text-[10px] text-slate-500 mt-1">On top of the minimums. Total each month: ${debtMinPay.toLocaleString()}</p>
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Payoff Strategy</label>
                         <select value={debtStrategy} onChange={e => setDebtStrategy(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white [&>option]:bg-[#161b22]">
-                          <option value="avalanche">Avalanche (Highest Interest Savings)</option>
-                          <option value="snowball">Snowball (Psychological Momentum)</option>
+                          <option value="avalanche">Avalanche (highest APR first, least interest)</option>
+                          <option value="snowball">Snowball (smallest balance first, quick wins)</option>
                         </select>
                       </div>
-
-                      <button 
-                        onClick={handleSaveDebtPlan} 
-                        className="w-full mt-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer transition-all"
-                      >
-                        {isSavingDebt ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4" />}
-                        <span>Save Debt Plan</span>
-                      </button>
+                      {debts.length > 1 && !debtPayoffTrajectory.stuck && !debtAltPlan.stuck && (
+                        <div className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-800 pt-3">
+                          {debtAltPlan.totalInterest > debtPayoffTrajectory.totalInterest
+                            ? <>This strategy saves <span className="text-emerald-400 font-semibold">${(debtAltPlan.totalInterest - debtPayoffTrajectory.totalInterest).toLocaleString()}</span> in interest compared with {debtStrategy === 'avalanche' ? 'snowball' : 'avalanche'}.</>
+                            : debtAltPlan.totalInterest < debtPayoffTrajectory.totalInterest
+                              ? <>{debtStrategy === 'avalanche' ? 'Snowball' : 'Avalanche'} would cost <span className="text-amber-400 font-semibold">${(debtPayoffTrajectory.totalInterest - debtAltPlan.totalInterest).toLocaleString()}</span> less interest, but this order clears accounts sooner.</>
+                              : <>Both strategies cost the same interest for these debts.</>}
+                        </div>
+                      )}
                     </div>
 
                     <div className="lg:col-span-2 space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      {debtPayoffTrajectory.stuck && debts.length > 0 && (
+                        <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-300 flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <span>Your monthly payments don't cover the interest, so these debts would never be cleared. Raise the minimums or add an extra payment.</span>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
-                          <span className="text-[10px] font-mono text-slate-500 uppercase">Estimated Debt Free Time</span>
-                          <div className="text-2xl font-bold text-emerald-400 mt-1">{debtPayoffTrajectory.totalMonths} Months</div>
+                          <span className="text-[10px] font-mono text-slate-500 uppercase">Debt-free in</span>
+                          <div className="text-2xl font-bold text-emerald-400 mt-1">{debts.length === 0 ? '—' : debtPayoffTrajectory.stuck ? 'Never' : `${debtPayoffTrajectory.totalMonths} mo`}</div>
+                          {debtPayoffTrajectory.debtFreeLabel && <div className="text-[10px] text-slate-500 mt-0.5">{debtPayoffTrajectory.debtFreeLabel}</div>}
                         </div>
                         <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
-                          <span className="text-[10px] font-mono text-slate-500 uppercase">Total Interest Cost</span>
-                          <div className="text-2xl font-bold text-rose-400 mt-1">${debtPayoffTrajectory.totalInterest.toLocaleString()}</div>
+                          <span className="text-[10px] font-mono text-slate-500 uppercase">Total interest</span>
+                          <div className="text-2xl font-bold text-rose-400 mt-1">{debts.length === 0 || debtPayoffTrajectory.stuck ? '—' : `$${debtPayoffTrajectory.totalInterest.toLocaleString()}`}</div>
+                        </div>
+                        <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
+                          <span className="text-[10px] font-mono text-slate-500 uppercase">Pay first</span>
+                          <div className="text-base font-bold text-white mt-1.5 truncate">{debtPayoffTrajectory.payoffOrder[0]?.name || [...debts].filter(d => d.balance > 0).sort((a, b) => debtStrategy === 'snowball' ? a.balance - b.balance : b.apr - a.apr)[0]?.name || '—'}</div>
                         </div>
                       </div>
 
@@ -3137,13 +3409,21 @@ ${JSON.stringify(snapshot)}`;
                         <ResponsiveContainer width="100%" height="100%">
                           <AreaChart data={debtPayoffTrajectory.trajectory}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
-                            <XAxis dataKey="month" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${v/1000}k`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff' }} />
+                            <XAxis dataKey="month" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} minTickGap={16} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${Math.round(v/1000)}k`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff' }} formatter={v => [`$${Number(v).toLocaleString()}`, 'Remaining balance']} />
                             <Area type="monotone" dataKey="balance" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.2} name="Remaining Balance" />
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
+
+                      {debtPayoffTrajectory.payoffOrder.length > 0 && (
+                        <ol className="flex flex-wrap gap-2 text-[11px] font-mono">
+                          {debtPayoffTrajectory.payoffOrder.map((p, i) => (
+                            <li key={p.id} className="px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-300">{i + 1}. {p.name} · M{p.month}</li>
+                          ))}
+                        </ol>
+                      )}
                     </div>
                   </div>
                 </div>
