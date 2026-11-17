@@ -14,6 +14,7 @@ import { useFx } from './effects/FxContext';
 import LiquidBackdrop from './effects/LiquidBackdrop';
 import LiquidGlass from './effects/LiquidGlass';
 import LiquidLogo from './effects/LiquidLogo';
+import IntroScene from './effects/IntroScene';
 
 // --- FIREBASE INTEGRATION ---
 import { initializeApp } from 'firebase/app';
@@ -621,7 +622,7 @@ export default function App() {
 
   // Splash Screen Delay
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2800);
+    const timer = setTimeout(() => setShowSplash(false), 6000); // safety net; IntroScene ends itself
     return () => clearTimeout(timer);
   }, []);
 
@@ -1829,19 +1830,12 @@ ${JSON.stringify(snapshot)}`;
 
       {/* SPLASH SCREEN */}
       {showSplash && (
-        <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex flex-col items-center justify-center p-6 transition-opacity duration-1000">
-          <div className="relative flex items-center justify-center mb-10">
-            <AppIcon className="w-28 h-28 drop-shadow-[0_0_35px_rgba(0,242,254,0.4)]" animateStroke={true} />
-          </div>
-          <div translate="no" className="notranslate flex text-4xl sm:text-5xl font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400">
-             <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards', opacity: 0 }}>A.</span>
-             <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards', opacity: 0 }}>F.</span>
-             <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards', opacity: 0 }}>A.</span>
-          </div>
-          <p style={{ animation: 'fadeUpStagger 1s ease-out 1.3s forwards', opacity: 0 }} className="text-xs text-cyan-400/70 font-mono tracking-widest mt-5 uppercase text-center leading-relaxed">
-            Automated Financial Assistant
-          </p>
-        </div>
+        // Opening animation: rising cube field with the A.F.A. logo on the centre cube (click / Esc to skip)
+        <IntroScene
+          duration={3800}
+          onDone={() => setShowSplash(false)}
+          logo={<AppIcon className="w-full h-full" animateStroke={true} />}
+        />
       )}
 
       {/* AUTHENTICATION & REGISTRATION */}
