@@ -246,7 +246,8 @@ flowchart LR
 
 - **Liquid metal:** the liquid-logo shader detects the edges of the "A" mark and flows a noise-driven vector field around them. I added a **duotone colour map** (dark navy → cyan → white) to match the brand, anti-aliased edges and 2× supersampling for small sizes. On the login screen the original stroke-drawing animation plays first, then the metal fades in. **The opening splash animation is unchanged.**
 - **Liquid glass:** liquid-glass-js refracts a one-time `html2canvas` screenshot of the page, which goes stale in a live dashboard. The adapted version instead refracts the **live animated backdrop canvas every frame**, keeping the library's rim and edge refraction model, Gaussian blur and tint. The blur kernel was reduced (13×13 → 7×7) and the canvas renders at half resolution so it can run continuously.
-- **Performance:** at most 3 WebGL contexts per screen. Rendering pauses when the tab is hidden and the logo pauses when off-screen. Contexts are released on unmount, since browsers allow only about 16.
+- **Glass blocks:** every dashboard block is liquid glass. Rather than one WebGL context per block (browsers allow only about 16), `LiquidGlassLayer` draws all visible blocks in a single full-screen pass: each pixel finds the block it belongs to and applies the same refraction model. It redraws on each backdrop frame and immediately on scroll, so the glass stays aligned with the cards.
+- **Performance:** at most 4 WebGL contexts per screen. Rendering pauses when the tab is hidden and the logo pauses when off-screen. Contexts are released on unmount, since browsers allow only about 16.
 - **Accessibility and fallback:** effects are off by default when the system asks for reduced motion, can be toggled with the ✦ button in the header (remembered per device), and switch off automatically if WebGL or shader compilation fails. In every case the UI falls back to the original design.
 
 ---
@@ -326,7 +327,9 @@ flowchart LR
         ├── FxContext.jsx          Effects on/off state, WebGL and reduced-motion detection
         ├── LiquidBackdrop.jsx     Animated liquid-metal background
         ├── LiquidLogo.jsx         Liquid-metal "A" logo
-        ├── LiquidGlass.jsx        Glass refraction layer
+        ├── LiquidGlass.jsx        Glass refraction for the sidebar and login card
+        ├── LiquidGlassLayer.jsx   Glass for every dashboard block in one WebGL pass
+        ├── IntroScene.jsx         Opening animation (3D cube field with the logo)
         ├── shaders.js             GLSL shaders (adapted, with attribution)
         └── gl.js                  WebGL helpers and colour presets
 ```

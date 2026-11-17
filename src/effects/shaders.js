@@ -250,3 +250,106 @@ void main() {
   gl_FragColor = vec4(clamp(color.rgb, 0.0, 1.0), mask);
 }
 `;
+
+// Glass for many panels in one pass (same refraction model as GLASS_FRAG, adapted from liquid-glass-js).
+// Each pixel finds the panel it belongs to, then refracts the live backdrop exactly like a single panel.
+// One WebGL context covers every card on screen, instead of one context per card.
+export const GLASS_LAYER_MAX = 20;
+export const GLASS_LAYER_FRAG = `
+precision mediump float;
+#define MAX_RECTS ${20}
+
+uniform sampler2D u_image;
+uniform vec2 u_viewport;               // viewport size in CSS pixels
+uniform vec2 u_texel;                  // 1 / backdrop size in pixels
+uniform vec4 u_clip;                   // visible content area: x, y, width, height (CSS px)
+uniform vec4 u_rects[MAX_RECTS];       // panel rectangles (CSS px)
+uniform float u_radii[MAX_RECTS];      // panel corner radii (CSS px)
+uniform int u_count;
+uniform float u_blurRadius;
+uniform float u_edgeIntensity;
+uniform float u_rimIntensity;
+uniform float u_baseIntensity;
+uniform float u_edgeDistance;
+uniform float u_rimDistance;
+uniform float u_baseDistance;
+uniform float u_cornerBoost;
+uniform float u_rippleEffect;
+uniform float u_tintOpacity;
+uniform float u_highlight;
+uniform float u_shade;
+varying vec2 v_texcoord;
+
+float roundedRectDistance(vec2 coord, vec2 size, float radius) {
+  vec2 center = size * 0.5;
+  vec2 pixelCoord = coord * size;
+  vec2 toCorner = abs(pixelCoord - center) - (center - radius);
+  float outsideCorner = length(max(toCorner, 0.0));
+  float insideCorner = min(max(toCorner.x, toCorner.y), 0.0);
+  return outsideCorner + insideCorner - radius;
+}
+
+void main() {
+  vec2 p = v_texcoord * u_viewport;
+  if (p.x < u_clip.x || p.y < u_clip.y || p.x > u_clip.x + u_clip.z || p.y > u_clip.y + u_clip.w) {
+    gl_FragColor = vec4(0.0);
+    return;
+  }
+
+  vec4 rect = vec4(0.0);
+  float radius = 0.0;
+  bool found = false;
+  for (int i = 0; i < MAX_RECTS; i++) {
+    if (i >= u_count) break;
+    vec4 r = u_rects[i];
+    if (p.x >= r.x && p.y >= r.y && p.x <= r.x + r.z && p.y <= r.y + r.w) {
+      rect = r;
+      radius = u_radii[i];
+      found = true;
+      break;
+    }
+  }
+  if (!found) { gl_FragColor = vec4(0.0); return; }
+
+  vec2 size = rect.zw;
+  vec2 coord = (p - rect.xy) / size;
+  float mask = 1.0 - smoothstep(-1.0, 1.0, roundedRectDistance(coord, size, radius));
+  if (mask <= 0.0) { gl_FragColor = vec4(0.0); return; }
+
+  float minDim = min(size.x, size.y);
+  float distFromEdge = max(-roundedRectDistance(coord, size, radius), 0.0);
+  vec2 shapeNormal = normalize(coord - 0.5 + 1e-5);
+  float baseIntensity = 1.0 - exp(-distFromEdge * u_baseDistance);
+  float edgeIntensity = exp(-distFromEdge * u_edgeDistance);
+  float rimIntensity = exp(-distFromEdge * u_rimDistance);
+  vec2 refraction = shapeNormal * (baseIntensity * u_baseIntensity + edgeIntensity * u_edgeIntensity + rimIntensity * u_rimIntensity);
+  float cornerDistance = max(min(coord.x, 1.0 - coord.x), min(coord.y, 1.0 - coord.y)) * minDim;
+  refraction += shapeNormal * exp(-cornerDistance * 0.3) * u_cornerBoost;
+  vec2 perpendicular = vec2(-shapeNormal.y, shapeNormal.x);
+  refraction += perpendicular * sin(distFromEdge / minDim * 25.0) * u_rippleEffect * rimIntensity;
+
+  vec2 textureCoord = p / u_viewport + refraction;
+
+  vec4 color = vec4(0.0);
+  float sigma = max(u_blurRadius / 2.0, 0.5);
+  vec2 blurStep = u_texel * sigma;
+  float totalWeight = 0.0;
+  for (float i = -3.0; i <= 3.0; i += 1.0) {
+    for (float j = -3.0; j <= 3.0; j += 1.0) {
+      float d = length(vec2(i, j));
+      if (d > 3.0) continue;
+      float w = exp(-(d * d) / 2.0);
+      color += texture2D(u_image, textureCoord + vec2(i, j) * blurStep) * w;
+      totalWeight += w;
+    }
+  }
+  color /= totalWeight;
+
+  vec3 gradientTint = mix(vec3(1.0), vec3(0.7), coord.y);
+  color.rgb = mix(color.rgb, gradientTint, u_tintOpacity);
+  color.rgb *= 1.0 - u_shade;
+  color.rgb += rimIntensity * u_highlight * (1.0 - coord.y);
+
+  gl_FragColor = vec4(clamp(color.rgb, 0.0, 1.0), mask);
+}
+`;

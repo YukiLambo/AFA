@@ -15,6 +15,7 @@ import LiquidBackdrop from './effects/LiquidBackdrop';
 import LiquidGlass from './effects/LiquidGlass';
 import LiquidLogo from './effects/LiquidLogo';
 import IntroScene from './effects/IntroScene';
+import LiquidGlassLayer from './effects/LiquidGlassLayer';
 
 // --- FIREBASE INTEGRATION ---
 import { initializeApp } from 'firebase/app';
@@ -248,21 +249,59 @@ const DEFAULT_CHAT_GREETING = "Hi! I'm A.F.A., your financial assistant. I alrea
 const CHAT_QUICK_PROMPTS = ['How am I doing this month?', 'Am I on track for my goal?', 'Where can I cut spending?', 'How much tax can TVC save me?', 'Is my portfolio too risky?'];
 
 // --- CATEGORY COLOR MATRIX ---
+// Every category has its own vibrant colour, tuned to glow on the dark liquid-glass background
 const CATEGORY_COLORS = {
-  'Dining': '#f43f5e',
-  'Shopping': '#ec4899',
-  'Entertainment': '#a855f7',
-  'Rent': '#f59e0b',
-  'Transport': '#3b82f6',
-  'Salary': '#10b981',
-  'Capital Gain': '#059669',
+  'Dining': '#ff6b8b',
+  'Shopping': '#c084fc',
+  'Entertainment': '#ff4fd8',
+  'Rent': '#ffd166',
+  'Transport': '#4f8cff',
+  'Salary': '#2dd4bf',
+  'Capital Gain': '#a3e635',
   'Dividend': '#34d399',
-  'Freelance': '#a7f3d0',
-  'Interest': '#6ee7b7',
-  'Gift': '#fbbf24',
+  'Freelance': '#38bdf8',
+  'Interest': '#93c5fd',
+  'Gift': '#f9a8d4',
   'Investment': '#00f2fe',
-  'Utilities': '#6366f1',
-  'Other': '#64748b'
+  'Utilities': '#8b5cf6',
+  'Other': '#94a3b8'
+};
+
+// Palette for charts whose items are not categories (payment methods, asset classes...)
+// Dashboard blocks that get the liquid-glass treatment
+const GLASS_PANEL_SELECTOR = '.afa-content [class~="bg-[#161b22]"]:not(.absolute):not(.fixed)';
+
+const CHART_PALETTE = ['#00f2fe', '#8b5cf6', '#ff4fd8', '#2dd4bf', '#ffd166', '#4f8cff', '#ff6b8b', '#a3e635', '#c084fc', '#38bdf8'];
+const colorFor = (name, index) => CATEGORY_COLORS[name] || CHART_PALETTE[index % CHART_PALETTE.length];
+
+// Glowing vertical gradients for bars: url(#afaBar0) ... url(#afaBar9), plus the portfolio bars.
+// A plain <defs> element (not a component): Recharts only renders <defs> it finds directly in a chart.
+const CHART_GRADIENT_DEFS = (
+  <defs>
+    {CHART_PALETTE.map((c, i) => (
+      <linearGradient key={c} id={`afaBar${i}`} x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor={c} stopOpacity={0.95} />
+        <stop offset="100%" stopColor={c} stopOpacity={0.25} />
+      </linearGradient>
+    ))}
+    <linearGradient id="afaBarPortfolio" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stopColor="#00f2fe" stopOpacity={0.95} />
+      <stop offset="100%" stopColor="#7c5cff" stopOpacity={0.45} />
+    </linearGradient>
+  </defs>
+);
+
+// Pie labels drawn in their slice's colour
+const renderPieLabel = ({ cx, cy, midAngle, outerRadius, percent, name, index }) => {
+  const angle = (-midAngle * Math.PI) / 180;
+  const r = outerRadius + 14;
+  const x = cx + r * Math.cos(angle);
+  const y = cy + r * Math.sin(angle);
+  return (
+    <text x={x} y={y} fill={colorFor(name, index)} fontSize={10} fontWeight={700} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+      {`${name} ${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
 };
 
 // --- CUSTOM APP ICON ---
@@ -1818,12 +1857,20 @@ ${JSON.stringify(snapshot)}`;
           background-color: rgba(22, 27, 34, 0.8);
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 32px -14px rgba(0, 0, 0, 0.7);
         }
+        /* Liquid glass blocks: the WebGL layer paints the refraction underneath, CSS adds edge light */
+        .afa-glass-on .afa-fx .afa-content [class~="bg-[#161b22]"]:not(.absolute):not(.fixed) {
+          background: linear-gradient(140deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.012) 42%, rgba(0, 242, 254, 0.035));
+          border-color: rgba(160, 225, 255, 0.18) !important;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(0, 242, 254, 0.04), 0 22px 44px -20px rgba(0, 0, 0, 0.75);
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       {/* Animated liquid background (only when visual effects are on; never over the splash) */}
       {!showSplash && <LiquidBackdrop />}
+      {/* Liquid glass under every dashboard block (one WebGL pass for all of them) */}
+      {user && !showSplash && <LiquidGlassLayer selector={GLASS_PANEL_SELECTOR} clipSelector=".afa-content" />}
 
       {/* Ambient Lights */}
       <div className="fixed top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-[#00f2fe]/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
@@ -2071,7 +2118,7 @@ ${JSON.stringify(snapshot)}`;
         <div className={`afa-content flex-1 flex flex-col relative h-full overflow-y-auto overflow-x-hidden dashboard-enter ${fx.enabled ? 'bg-transparent' : 'bg-[#0d1117]'}`}>
           
           {/* HEADER (Main Content Area) */}
-          <header className={`sticky top-0 z-30 ${fx.enabled ? 'bg-[#161b22]/60' : 'bg-[#161b22]/90'} backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-3.5 shadow-sm`}>
+          <header className={`sticky top-0 z-30 ${fx.enabled ? 'bg-[#0d1117]/80' : 'bg-[#161b22]/90'} backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-3.5 shadow-sm`}>
              <div className="flex items-center gap-4">
                 <h2 className="text-base font-bold text-white tracking-wide">
                   {activeTab === 'dashboard' ? 'Dashboard' : 
@@ -2435,10 +2482,13 @@ ${JSON.stringify(snapshot)}`;
                       {paymentMethodsData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No payment data</div> : 
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={paymentMethodsData}>
+                          {CHART_GRADIENT_DEFS}
                           <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
                           <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                          <Bar dataKey="amount" fill="#93c5fd" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={72}>
+                            {paymentMethodsData.map((entry, index) => <Cell key={`pay-${index}`} fill={`url(#afaBar${index % CHART_PALETTE.length})`} />)}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>}
                     </div>
@@ -2450,10 +2500,13 @@ ${JSON.stringify(snapshot)}`;
                       {receivingMethodsData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No receiving data</div> : 
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={receivingMethodsData}>
+                          {CHART_GRADIENT_DEFS}
                           <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
                           <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                          <Bar dataKey="amount" fill="#6ee7b7" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={72}>
+                            {receivingMethodsData.map((entry, index) => <Cell key={`recv-${index}`} fill={`url(#afaBar${(index + 3) % CHART_PALETTE.length})`} />)}
+                          </Bar>
                         </BarChart>
                       </ResponsiveContainer>}
                     </div>
@@ -2467,9 +2520,9 @@ ${JSON.stringify(snapshot)}`;
                       {categoryBreakdown.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No expense data</div> : 
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={categoryBreakdown} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{fontSize: '9px', fill: '#fff'}}>
+                          <Pie data={categoryBreakdown} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3} cornerRadius={6} label={renderPieLabel} labelLine={false}>
                             {categoryBreakdown.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill || '#00f2fe'} stroke="rgba(0,0,0,0.2)" />
+                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
                             ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
@@ -2484,9 +2537,9 @@ ${JSON.stringify(snapshot)}`;
                       {incomeCategoryData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No income data</div> : 
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={incomeCategoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{fontSize: '9px', fill: '#fff'}}>
+                          <Pie data={incomeCategoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3} cornerRadius={6} label={renderPieLabel} labelLine={false}>
                             {incomeCategoryData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899'][index % 5]} stroke="rgba(0,0,0,0.2)" />
+                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
                             ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
@@ -2881,11 +2934,12 @@ ${JSON.stringify(snapshot)}`;
                     portfolioGrowth.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">{marketFeedDown ? 'Price history unavailable while the live feed is unreachable.' : 'Loading price history...'}</div> :
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={portfolioGrowth}>
+                        {CHART_GRADIENT_DEFS}
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                         <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
                         <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                         <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`HK$ ${Number(val).toLocaleString()}`, 'Value']} />
-                        <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="value" fill="url(#afaBarPortfolio)" radius={[4, 4, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>}
                   </div>
@@ -2898,9 +2952,9 @@ ${JSON.stringify(snapshot)}`;
                       {portfolio.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No portfolio data</div> :
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={portfolioDiversity} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false} style={{fontSize:'10px', fill:'#fff'}}>
+                          <Pie data={portfolioDiversity} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} cornerRadius={6} dataKey="value" label={renderPieLabel} labelLine={false}>
                             {portfolioDiversity.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.fill || ['#00f2fe', '#3b82f6', '#8b5cf6', '#ec4899'][index % 4]} stroke="rgba(0,0,0,0.2)"/>
+                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
                             ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`$${val.toLocaleString(undefined, {maximumFractionDigits:0})}`, 'Value']} />
