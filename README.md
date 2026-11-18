@@ -330,7 +330,6 @@ flowchart LR
         ├── LiquidLogo.jsx         Liquid-metal "A" logo
         ├── LiquidGlass.jsx        Glass refraction for the sidebar and login card
         ├── LiquidGlassLayer.jsx   Glass for every dashboard block in one WebGL pass
-        ├── IntroScene.jsx         Opening animation (3D cube field with the logo)
         ├── shaders.js             GLSL shaders (adapted, with attribution)
         └── gl.js                  WebGL helpers and colour presets
 ```
