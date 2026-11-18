@@ -199,7 +199,6 @@ const INTRO_CSS = `
     repeating-linear-gradient(90deg, transparent 0 var(--size), rgba(0, 200, 255, 0.85) var(--size) var(--step)),
     repeating-linear-gradient(0deg, transparent 0 var(--size), rgba(0, 200, 255, 0.85) var(--size) var(--step));
   filter: blur(calc(var(--step) * 0.06));
-  mix-blend-mode: screen;
   -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 78%);
   mask-image: radial-gradient(circle at 50% 50%, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 78%);
   opacity: 0; animation: afaGapIn 1.6s ease-out 0.9s forwards;
@@ -229,12 +228,11 @@ const INTRO_CSS = `
   from { transform: translateZ(calc(var(--amp) * -0.5)); }
   to   { transform: translateZ(calc(var(--amp) * 0.5)); }
 }
-.afa-face-top { overflow: hidden; }
 
 .afa-face { position: absolute; left: 50%; top: 50%; -webkit-backface-visibility: hidden; backface-visibility: hidden; animation: afaFaceIn 0.6s ease-out var(--d) both; }
 @keyframes afaFaceIn { from { opacity: 0; } to { opacity: 1; } }
 .afa-face-top {
-  width: 100%; height: 100%; margin: -50% 0 0 -50%;
+  width: 100%; height: 100%; margin: -50% 0 0 -50%; transform-style: flat;
   transform: translateZ(var(--h));
   background: linear-gradient(135deg, #1d3a78 0%, #0f1f45 45%, #0a1530 100%);
   box-shadow: inset 0 0 0 1px rgba(127, 200, 255, 0.22), inset 2px 2px 0 rgba(191, 252, 255, 0.18);
@@ -271,7 +269,6 @@ const INTRO_CSS = `
     repeating-linear-gradient(to bottom, rgba(127, 248, 255, 0.025) 0 1px, transparent 1px 5px),
     linear-gradient(to bottom, #0b1830 0%, #050a17 70%, #0a2f5a 92%, #39b6ff 100%);
   box-shadow: inset 0 0 0 1px rgba(191, 252, 255, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  overflow: hidden;
 }
 .afa-cube-centre .afa-wall-px, .afa-cube-centre .afa-wall-nx {
   background:
@@ -282,8 +279,8 @@ const INTRO_CSS = `
 .afa-cube-logo > * { width: 100%; height: 100%; }
 .afa-neon-stroke { stroke-dasharray: 60; stroke-dashoffset: 60; animation: afaNeonDraw 0.6s cubic-bezier(0.45, 0, 0.25, 1) var(--ld) forwards; }
 @keyframes afaNeonDraw { to { stroke-dashoffset: 0; } }
-.afa-neon-node { opacity: 0; animation: afaNeonNode 0.25s ease-out var(--ld) forwards; }
-@keyframes afaNeonNode { to { opacity: 1; } }
+.afa-neon-node { fill-opacity: 0; animation: afaNeonNode 0.25s ease-out var(--ld) forwards; }
+@keyframes afaNeonNode { to { fill-opacity: 1; } }
 
 /* Light above the centre cube and dark edges */
 .afa-intro-halo {
@@ -307,5 +304,5 @@ const INTRO_CSS = `
 .afa-intro-reduced *, .afa-intro-reduced *::before, .afa-intro-reduced *::after { animation-duration: 0.01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; }
 .afa-intro-reduced .afa-cube-bob { animation: none; }
 .afa-intro-reduced .afa-neon-stroke { stroke-dashoffset: 0; }
-.afa-intro-reduced .afa-neon-node { opacity: 1; }
+.afa-intro-reduced .afa-neon-node { fill-opacity: 1; }
 `;
