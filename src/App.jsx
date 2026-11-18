@@ -245,6 +245,18 @@ const fetchNewsFeed = async (feed) => {
   }
 };
 
+// Company headlines for Stock Analysis: Google News search RSS (via rss2json), last ~30 days
+const fetchCompanyNews = async (query) => {
+  if (!query) return [];
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(`"${query}" stock`)}+when:30d&hl=en-HK&gl=HK&ceid=HK:en`;
+  const items = await fetchNewsFeed({ source: 'Google News', url });
+  // Google titles end with " - Publisher": keep the publisher as the source
+  return items.map(n => {
+    const m = n.title.match(/^(.*)\s+-\s+([^-]{2,60})$/);
+    return m ? { ...n, title: m[1], source: m[2] } : n;
+  });
+};
+
 const formatTimeAgo = (timestamp) => {
   if (!timestamp) return '';
   const mins = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
@@ -593,7 +605,8 @@ export default function App() {
   const [portfolioView, setPortfolioView] = useState('real');
   const [showAllRecs, setShowAllRecs] = useState(false);
   const [analysisSymbol, setAnalysisSymbol] = useState('0700.HK');
-  const [tradePreset, setTradePreset] = useState(null); // { symbol, at } handed from Stock Analysis to the simulator
+  const [tradePreset, setTradePreset] = useState(null);
+  const [watchlist, setWatchlist] = useState([]); // [{ symbol, name }] saved on the profile // { symbol, at } handed from Stock Analysis to the simulator
   const [paperAccount, setPaperAccount] = useState(null);
   // Other assets (bonds, crypto, deposits, gold, property...) + live crypto prices in HKD
   const [otherAssets, setOtherAssets] = useState([]);
@@ -738,6 +751,7 @@ export default function App() {
       setPortfolioDocs([]);
       setOtherAssets([]);
       setPaperAccount(null);
+      setWatchlist([]);
       setPortfolioView('real');
       setLiveQuotes({});
       setPortfolioHistory([]);
@@ -762,6 +776,7 @@ export default function App() {
         if (!settingsLoadedRef.current) {
           const saved = data.settings || {};
           setPaperAccount(data.paperAccount && typeof data.paperAccount === 'object' ? data.paperAccount : null);
+          setWatchlist(Array.isArray(data.watchlist) ? data.watchlist.filter(w => w && w.symbol) : []);
           if (Array.isArray(data.debts)) {
             setDebts(data.debts.map(normalizeDebt));
           } else if (Number(data.debtAmount) > 0) {
@@ -948,6 +963,13 @@ export default function App() {
     setPaperAccount(next);
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
     await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { paperAccount: next }, { merge: true });
+  };
+
+  const handleWatchlistChange = async (next) => {
+    setWatchlist(next);
+    if (!user) return;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+    try { await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { watchlist: next }, { merge: true }); } catch (err) { console.error('Watchlist save failed', err); }
   };
 
   // Real 30-day portfolio history from daily closing prices of the current holdings
@@ -3341,6 +3363,7 @@ ${JSON.stringify(snapshot)}`;
 
                 {portfolioView === 'analysis' && (
                   <StockAnalysis initialSymbol={analysisSymbol} fetchQuote={fetchLiveStockQuote} fetchHistory={fetchOhlcHistory} searchSymbols={searchMarketSymbols}
+                    watchlist={watchlist} onWatchlistChange={handleWatchlistChange} fetchNews={fetchCompanyNews} generalNews={newsFeed}
                     onTrade={(sym) => { setTradePreset({ symbol: sym, at: Date.now() }); setPortfolioView('simulation'); }} />
                 )}
 

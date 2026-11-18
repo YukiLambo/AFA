@@ -313,9 +313,10 @@ export function probTouch(S, T, nu, sigma, days) {
  *  - Take-profit: the price that maximises expected profit per share over the horizon (60 trading days),
  *        E(T) = P(hit T) × (T − entry) − P(hit stop) × (entry − stop) + P(neither) × (expected end − entry)
  *    searched between +1 ATR and the 99th-percentile 60-day move
- *  - Signal from a composite: technical score (40%), valuation gap (40%), 3-month momentum (20%)
+ *  - Signal from a composite: technical score (35%), valuation gap (35%), 3-month momentum (15%), company
+ *    news sentiment (15%); missing parts are re-weighted, and a severe news event caps the signal at Hold
  */
-export function tradePlan({ rows, price, fair = null, review = null, forecast = null, horizon = 60 }) {
+export function tradePlan({ rows, price, fair = null, review = null, forecast = null, news = null, horizon = 60 }) {
   if (!rows || rows.length < 60 || !(price > 0)) return null;
   const closes = rows.map(r => r.close);
   const A = atr(rows).at(-1) || price * 0.02;
@@ -369,7 +370,14 @@ export function tradePlan({ rows, price, fair = null, review = null, forecast = 
   const val = fair ? Math.max(-1, Math.min(1, (fair - price) / price / 0.3)) : 0;
   const mom3 = closes.length > 63 ? closes.at(-1) / closes.at(-64) - 1 : 0;
   const momentum = Math.max(-1, Math.min(1, mom3 / 0.15));
-  const composite = fair ? 0.4 * tech + 0.4 * val + 0.2 * momentum : 0.7 * tech + 0.3 * momentum;
+  // Weights: technical 35%, valuation 35%, momentum 15%, company news 15% (re-weighted when a part is missing)
+  const newsScore = news && news.score !== null && news.count >= 2 ? news.score : null;
+  const parts = [[tech, 0.35], [fair ? val : null, 0.35], [momentum, 0.15], [newsScore, 0.15]].filter(([v]) => v !== null);
+  const wTotal = parts.reduce((s, [, w]) => s + w, 0);
+  let composite = parts.reduce((s, [v, w]) => s + v * w, 0) / wTotal;
+  // A serious event in the last two weeks (fraud, trading halt, profit warning...) rules out a buy signal
+  const severeNews = news?.severe?.length ? news.severe : [];
+  if (severeNews.length) composite = Math.min(composite, 0.11);
   let signal;
   if (composite >= 0.35 && best.ev > 0) signal = 'Buy';
   else if (composite >= 0.12) signal = 'Accumulate';
@@ -395,6 +403,7 @@ export function tradePlan({ rows, price, fair = null, review = null, forecast = 
     evPerShare: best.ev, riskReward: risk > 0 ? reward / risk : null,
     support, resistance, supports: supportsBelow.slice(0, 3), resistances: resistAbove.slice(0, 3),
     buyBelow, sellAbove, sellZoneLow, sellZoneHigh,
-    parts: { tech, val, momentum }
+    parts: { tech, val, momentum, news: newsScore }, severeNews,
+    weights: parts.map(([, w]) => w / wTotal)
   };
 }

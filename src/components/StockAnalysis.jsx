@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Cell, ReferenceLine, ReferenceArea } from 'recharts';
-import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair } from 'lucide-react';
+import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
+import { aggregateNews, companySearchName } from '../lib/newsSentiment';
 import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan } from '../lib/indicators';
 
 // Stock analysis for the simulator: live quote, risk statistics, five technical indicators with a
@@ -39,6 +40,14 @@ function Candle(props) {
   );
 }
 
+const ago = (ts) => {
+  if (!ts) return '';
+  const m = Math.round((Date.now() - ts) / 60000);
+  if (m < 60) return `${Math.max(1, m)}m ago`;
+  const h = Math.round(m / 60);
+  return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+};
+
 function nextTradingDays(lastDate, n) {
   const out = [];
   const d = new Date(`${lastDate}T00:00:00`);
@@ -49,7 +58,7 @@ function nextTradingDays(lastDate, n) {
   return out;
 }
 
-export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, fetchHistory, searchSymbols, onTrade }) {
+export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, fetchHistory, searchSymbols, onTrade, watchlist = [], onWatchlistChange, fetchNews, generalNews = [] }) {
   const [symbol, setSymbol] = useState(initialSymbol);
   useEffect(() => { if (initialSymbol) setSymbol(initialSymbol); }, [initialSymbol]);
   const [quote, setQuote] = useState(null);
@@ -65,6 +74,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
   const [showForecast, setShowForecast] = useState(true);
   const [showPlan, setShowPlan] = useState(true);
   const [planLevels, setPlanLevels] = useState(null);
+  const [news, setNews] = useState({ status: 'idle', items: [] });
+  const [watchQuotes, setWatchQuotes] = useState({});
   const [val, setVal] = useState({ eps: '', growthPct: 8, discountPct: 9, terminalPe: 15, fairPe: 15, dps: '', divGrowthPct: 3 });
 
   // Load quote + ~2 years of daily candles
@@ -84,6 +95,39 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
     })();
     return () => { cancelled = true; };
   }, [symbol]);
+
+  // Company news (Google News search via RSS) plus matching headlines from the general feed
+  useEffect(() => {
+    if (!quote?.symbol) return undefined;
+    let cancelled = false;
+    const name = companySearchName(quote.name, quote.symbol);
+    setNews({ status: 'loading', items: [] });
+    (async () => {
+      const found = fetchNews ? await fetchNews(name) : [];
+      const key = name.toLowerCase().split(' ')[0];
+      const fromFeed = generalNews.filter(n => key.length > 2 && `${n.title} ${n.summary}`.toLowerCase().includes(key));
+      const seen = new Set();
+      const merged = [...found, ...fromFeed].filter(n => { const k = n.title.toLowerCase().slice(0, 60); if (seen.has(k)) return false; seen.add(k); return true; });
+      if (!cancelled) setNews({ status: merged.length ? 'ok' : 'none', items: merged.slice(0, 25), query: name });
+    })();
+    return () => { cancelled = true; };
+  }, [quote?.symbol]);
+
+  // Watchlist prices (every 60 s)
+  const watchKey = watchlist.map(w => w.symbol).join(',');
+  useEffect(() => {
+    if (!watchKey) return undefined;
+    const load = async () => {
+      const list = watchKey.split(',');
+      const got = await Promise.all(list.map(sym => fetchQuote(sym)));
+      const next = {};
+      got.forEach((q, i) => { if (q?.price) next[list[i]] = q; });
+      setWatchQuotes(prev => ({ ...prev, ...next }));
+    };
+    load();
+    const t = setInterval(() => { if (!document.hidden) load(); }, 60000);
+    return () => clearInterval(t);
+  }, [watchKey]);
 
   useEffect(() => {
     const q = query.trim();
@@ -160,7 +204,13 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
 
   const price = quote?.price;
   // Buy / hold / sell plan from indicators + valuation + volatility (see tradePlan in lib/indicators.js)
-  const plan = useMemo(() => (analysis && quote ? tradePlan({ rows, price: quote.price, fair: valuation.fair, review: analysis.review, forecast: analysis.forecast }) : null), [analysis, rows, quote, valuation.fair]);
+  const newsSummary = useMemo(() => aggregateNews(news.items), [news.items]);
+  const plan = useMemo(() => (analysis && quote ? tradePlan({ rows, price: quote.price, fair: valuation.fair, review: analysis.review, forecast: analysis.forecast, news: news.status === 'ok' ? newsSummary : null }) : null), [analysis, rows, quote, valuation.fair, newsSummary, news.status]);
+  const inWatchlist = quote ? watchlist.some(w => w.symbol === quote.symbol) : false;
+  const toggleWatch = () => {
+    if (!quote || !onWatchlistChange) return;
+    onWatchlistChange(inWatchlist ? watchlist.filter(w => w.symbol !== quote.symbol) : [...watchlist, { symbol: quote.symbol, name: quote.name }].slice(-20));
+  };
   useEffect(() => { setPlanLevels(plan ? [plan.stop, plan.target, plan.entryLow] : null); }, [plan]);
   const cur = quote?.currency === 'USD' ? 'US$' : 'HK$';
   const mos = valuation.fair && price ? (valuation.fair - price) / valuation.fair : null;
@@ -179,6 +229,11 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
             <div className="flex items-baseline gap-2 flex-wrap">
               <h3 className="text-lg font-black text-white">{quote?.symbol || symbol}</h3>
               <span className="text-xs text-slate-400 truncate">{quote?.name}</span>
+              {quote && onWatchlistChange && (
+                <button onClick={toggleWatch} aria-pressed={inWatchlist} title={inWatchlist ? 'Remove from watchlist' : 'Add to watchlist'} className={`ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border cursor-pointer transition-colors ${inWatchlist ? 'border-amber-400/50 text-amber-300 bg-amber-400/10' : 'border-slate-700 text-slate-400 hover:text-white'}`}>
+                  <Star className={`w-3 h-3 ${inWatchlist ? 'fill-amber-300' : ''}`} /> {inWatchlist ? 'Watching' : 'Watch'}
+                </button>
+              )}
             </div>
             {quote && (
               <div className="flex items-baseline gap-2">
@@ -210,6 +265,29 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
         </div>
       </div>
 
+      {/* Watchlist */}
+      {onWatchlistChange && (
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mt-1">
+          <span className="text-[10px] font-mono uppercase text-slate-500 shrink-0 flex items-center gap-1"><Star className="w-3 h-3" /> Watchlist</span>
+          {watchlist.length === 0 && <span className="text-[11px] text-slate-500">Press <span className="text-slate-300">Watch</span> next to a stock name to keep it here.</span>}
+          {watchlist.map(w => {
+            const q = watchQuotes[w.symbol];
+            const active = (quote?.symbol || symbol) === w.symbol;
+            return (
+              <div key={w.symbol} className={`shrink-0 flex items-center rounded-xl border transition-colors ${active ? 'border-[#00f2fe]/50 bg-[#00f2fe]/10' : 'border-slate-800 bg-[#161b22] hover:border-slate-600'}`}>
+                <button onClick={() => setSymbol(w.symbol)} className="pl-3 pr-2 py-1.5 text-left cursor-pointer">
+                  <div className="text-[11px] font-bold text-white leading-tight">{w.symbol}</div>
+                  <div className="text-[10px] font-mono leading-tight">
+                    {q ? <><span className="text-slate-300">{fmt(q.price, q.price < 1 ? 3 : 2)}</span> <span className={q.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{q.changePct >= 0 ? '+' : ''}{fmt(q.changePct)}%</span></> : <span className="text-slate-500 truncate max-w-[90px] inline-block align-bottom">{w.name}</span>}
+                  </div>
+                </button>
+                <button onClick={() => onWatchlistChange(watchlist.filter(x => x.symbol !== w.symbol))} aria-label={`Remove ${w.symbol} from watchlist`} className="pr-2 text-slate-600 hover:text-rose-400 cursor-pointer"><XIcon className="w-3 h-3" /></button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {status === 'loading' && <div className={`${card} text-center text-xs text-slate-400 py-10`}><Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" /> Loading prices and history…</div>}
       {status === 'error' && <div className={`${card} text-center text-xs text-amber-400 py-10`}>No live quote for {symbol} right now. Check the code or try again shortly.</div>}
       {status === 'nodata' && <div className={`${card} text-center text-xs text-amber-400 py-10`}>Not enough price history for {quote?.symbol} to calculate indicators (need at least 35 trading days).</div>}
@@ -219,9 +297,16 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
           {/* Key statistics */}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             <div className={card}>
-              <div className={label}>Last session ({lastRow.date})</div>
-              <div className="text-sm font-bold text-white mt-1 font-mono">O {fmt(lastRow.open)} · C {fmt(lastRow.close)}</div>
-              <div className="text-[10px] text-slate-500 mt-1 font-mono">H {fmt(lastRow.high)} · L {fmt(lastRow.low)} · range {((lastRow.high - lastRow.low) / lastRow.low * 100).toFixed(1)}%</div>
+              <div className={label}>Last session · {lastRow.date}</div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-1.5">
+                {[['Open', lastRow.open, 'text-white'], ['Close', lastRow.close, lastRow.close >= lastRow.open ? 'text-emerald-400' : 'text-rose-400'], ['High', lastRow.high, 'text-white'], ['Low', lastRow.low, 'text-white']].map(([k, v, c]) => (
+                  <div key={k}>
+                    <div className="text-[9px] font-mono uppercase text-slate-500 leading-none">{k}</div>
+                    <div className={`text-xs font-mono font-bold ${c}`}>{fmt(v)}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">Day range {((lastRow.high - lastRow.low) / lastRow.low * 100).toFixed(1)}%</div>
             </div>
             <div className={card}>
               <div className={label}>Volume</div>
@@ -261,30 +346,56 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
 
           {/* Trade plan */}
           {plan && (() => {
-            const sigTone = { Buy: 'from-emerald-500 to-teal-400 text-[#0d1117]', Accumulate: 'from-teal-500 to-cyan-400 text-[#0d1117]', Hold: 'from-amber-400 to-yellow-300 text-[#0d1117]', Reduce: 'from-orange-500 to-amber-400 text-[#0d1117]', Sell: 'from-rose-600 to-rose-400 text-white' }[plan.signal];
+            // Restrained, terminal-style rating badge: tinted outline + dot, no bright fill
+            const sigTone = {
+              Buy: { box: 'border-emerald-500/40 bg-emerald-500/[0.07] text-emerald-300', dot: '#16c784' },
+              Accumulate: { box: 'border-teal-400/40 bg-teal-400/[0.07] text-teal-200', dot: '#2dd4bf' },
+              Hold: { box: 'border-slate-500/50 bg-slate-400/[0.06] text-slate-100', dot: '#94a3b8' },
+              Reduce: { box: 'border-orange-400/40 bg-orange-400/[0.07] text-orange-200', dot: '#fb923c' },
+              Sell: { box: 'border-rose-500/40 bg-rose-500/[0.07] text-rose-300', dot: '#ea3943' }
+            }[plan.signal];
+            const scale = ['Sell', 'Reduce', 'Hold', 'Accumulate', 'Buy'];
             const p2 = (v) => `${cur}${fmt(v, v < 1 ? 3 : 2)}`;
             const explain = {
-              Buy: `Indicators, valuation and momentum line up. Buy in the entry zone; protect the position with the stop-loss.`,
+              Buy: `Indicators, valuation, momentum and news line up. Buy in the entry zone; protect the position with the stop-loss.`,
               Accumulate: `Leaning positive. Build a position gradually, ideally on dips into the entry zone rather than chasing.`,
               Hold: `Mixed signals. Holders can keep the position with the stop-loss in place; new buyers can wait for a better entry.`,
               Reduce: `Leaning negative. Consider trimming into strength near resistance and tightening the stop-loss.`,
-              Sell: `Indicators, valuation and momentum point down. Holders should consider selling; avoid new buying.`
+              Sell: `Indicators, valuation, momentum and news point down. Holders should consider selling; avoid new buying.`
             }[plan.signal];
             return (
               <div className={card}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                   <h4 className="text-sm font-bold text-white flex items-center gap-2"><Crosshair className="w-4 h-4 text-[#00f2fe]" /> Trade plan · buy, hold or sell</h4>
-                  <span className="text-[10px] text-slate-500">Combines technical score (40%), valuation gap (40%) and 3-month momentum (20%) · 60-trading-day horizon</span>
+                  <span className="text-[10px] text-slate-500">Technical 35% · valuation 35% · 3-month momentum 15% · company news 15% · 60-trading-day horizon</span>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                   <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800 flex flex-col justify-between">
                     <div>
                       <div className={label}>Signal</div>
-                      <div className={`inline-block mt-2 px-4 py-1.5 rounded-xl bg-gradient-to-r ${sigTone} text-xl font-black uppercase tracking-wider`}>{plan.signal}</div>
+                      <div className={`inline-flex items-center gap-2.5 mt-2 px-3.5 py-1.5 rounded-lg border ${sigTone.box}`}>
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: sigTone.dot, boxShadow: `0 0 8px ${sigTone.dot}` }} />
+                        <span className="text-base font-bold uppercase tracking-[0.18em]">{plan.signal}</span>
+                      </div>
+                      {/* Where the rating sits on the five-step scale */}
+                      <div className="flex gap-1 mt-3">
+                        {scale.map(st => (
+                          <div key={st} className="flex-1">
+                            <div className="h-1 rounded-full" style={{ backgroundColor: st === plan.signal ? sigTone.dot : '#21262d' }} />
+                            <div className={`text-[8px] font-mono uppercase mt-1 text-center ${st === plan.signal ? 'text-slate-200' : 'text-slate-600'}`}>{st}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-500 mt-1">Composite {plan.composite >= 0 ? '+' : ''}{(plan.composite * 100).toFixed(0)} / 100</div>
                       <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">{explain}</p>
                     </div>
                     <div className="mt-3 space-y-1 text-[10px] font-mono">
-                      {[['Technical', plan.parts.tech], ['Valuation', valuation.fair ? plan.parts.val : null], ['Momentum', plan.parts.momentum]].map(([k, v]) => (
+                      {plan.severeNews.length > 0 && (
+                        <div className="mb-2 p-2 rounded-lg border border-rose-500/30 bg-rose-500/10 text-[10px] text-rose-300 font-sans leading-relaxed flex gap-1.5">
+                          <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> Serious news ({plan.severeNews[0].words.join(', ')}) in the last two weeks: buy signals are switched off until it clears.
+                        </div>
+                      )}
+                      {[['Technical', plan.parts.tech], ['Valuation', valuation.fair ? plan.parts.val : null], ['Momentum', plan.parts.momentum], ['News', plan.parts.news]].map(([k, v]) => (
                         <div key={k} className="flex items-center gap-2">
                           <span className="w-16 text-slate-500">{k}</span>
                           <div className="flex-1 h-1.5 rounded-full bg-slate-800 relative overflow-hidden">
@@ -348,6 +459,43 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
               </div>
             );
           })()}
+
+          {/* Company news and its sentiment (feeds the trade plan) */}
+          <div className={card}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2"><Newspaper className="w-4 h-4 text-[#00f2fe]" /> Company news &amp; sentiment</h4>
+              <span className="text-[10px] text-slate-500">{news.query ? `Headlines for "${news.query}" · ` : ''}scored with a finance word list, recent news weighted more (3-day half-life)</span>
+            </div>
+            {news.status === 'loading' && <div className="text-xs text-slate-400 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Looking for recent news…</div>}
+            {news.status === 'none' && <div className="text-xs text-slate-500">No recent company news found, so news is left out of the trade plan.</div>}
+            {news.status === 'ok' && (
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
+                  <div className={label}>News sentiment</div>
+                  <div className={`text-lg font-black mt-1 ${newsSummary.score > 0.15 ? 'text-emerald-400' : newsSummary.score < -0.15 ? 'text-rose-400' : 'text-slate-200'}`}>
+                    {newsSummary.score > 0.15 ? 'Positive' : newsSummary.score < -0.15 ? 'Negative' : 'Neutral'}
+                  </div>
+                  <div className="h-1.5 rounded-full bg-slate-800 relative overflow-hidden mt-2">
+                    <div className="absolute top-0 h-full" style={{ left: newsSummary.score >= 0 ? '50%' : `${50 + newsSummary.score * 50}%`, width: `${Math.abs(newsSummary.score) * 50}%`, backgroundColor: newsSummary.score >= 0 ? GREEN : RED }} />
+                    <div className="absolute left-1/2 top-0 h-full w-px bg-slate-600" />
+                  </div>
+                  <div className="text-[10px] font-mono text-slate-500 mt-2">{newsSummary.count} headlines · <span className="text-emerald-400">{newsSummary.positive} positive</span> · <span className="text-rose-400">{newsSummary.negative} negative</span></div>
+                  {newsSummary.count < 2 && <div className="text-[10px] text-slate-500 mt-1">Too few headlines to count in the plan.</div>}
+                </div>
+                <ul className="lg:col-span-3 divide-y divide-slate-800/70">
+                  {newsSummary.scored.slice(0, 6).map((n, i) => (
+                    <li key={n.id || i} className="py-2 flex items-start gap-3">
+                      <span className={`shrink-0 mt-0.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${n.sentiment.label === 'Positive' ? 'border-emerald-500/30 text-emerald-300' : n.sentiment.label === 'Negative' ? 'border-rose-500/30 text-rose-300' : 'border-slate-600 text-slate-400'}`}>{n.sentiment.label}</span>
+                      <div className="min-w-0 flex-1">
+                        <a href={n.url} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-200 hover:text-white hover:underline leading-snug inline-flex gap-1">{n.title}<ExternalLink className="w-3 h-3 shrink-0 mt-0.5 text-slate-500" /></a>
+                        <div className="text-[10px] text-slate-500 font-mono">{n.source}{n.publishedAt ? ` · ${ago(n.publishedAt)}` : ''}{n.sentiment.severe.length ? <span className="text-rose-400"> · flagged: {n.sentiment.severe.join(', ')}</span> : ''}</div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
 
           {/* Indicator verdicts */}
           <div className={card}>
