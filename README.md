@@ -57,8 +57,13 @@ Existing tools are fragmented and rarely reflect Hong Kong's tax rules, MPF or l
 |---|---|---|
 | **Financial Health Index** | A 0–100 score with savings rate and rent burden | 50/30/20 budgeting (Warren & Tyagi, 2005); rent-burden affordability (Quigley & Raphael, 2004) |
 | **Dual Ledger + Analytics** | Income/expense ledger, cash-flow charts, flagged outliers, weekend-spending ratio | Statistical anomaly detection (Gathergood, 2012); weekend impulse spending (Vohs & Faber, 2007) |
+| **Quick recorder** | Bottom-sheet recorder: 38 icon categories, a built-in keypad with + / − on phones (no phone keyboard needed) and a normal amount field with Enter-to-save on computers, account, date and note chips, and "Save & next" for logging several records in a row | Low-friction expense tracking increases logging consistency |
+| **Repeating transactions** | Any record can repeat daily, weekly, every 2 weeks, monthly or yearly, with an optional end date; A.F.A. records each due date automatically and the user can pause or stop it | Automation of recurring cash flows (salary, rent, transport) |
+| **Personal Action Plan** | Analytics scores five areas (spending, safety net, debt, investing, goal) and ranks up to 20 concrete recommendations with HK$ amounts, step-by-step actions and a button to the right page; tailored by age, risk profile, goal, income and dependants | 50/30/20 rule; emergency-fund sizing; debt avalanche; age- and risk-based allocation; HK TVC tax rules |
 | **Budget alerts** | Warnings when weekly spending passes the user's limit, and a confirmation when the savings target is met | Real-time nudges (Lukas et al., 2023) |
 | **Investments** | Holdings with **live HK and US prices** (auto-refresh every 30 s), a 30-day value history from real closing prices, and allocation | Mark-to-market valuation; diversification |
+| **Simulated trading** | Paper-trading account with HK$100k–1M of virtual cash: search any HK/US stock, buy and sell at live prices with a 0.1% simulated fee, and track equity, realised and unrealised P&L and trade history, separate from real holdings | Learning by practice without financial risk |
+| **Other assets & net worth** | Bonds (coupon, maturity), crypto with live CoinGecko prices, deposits, funds, gold, property, insurance cash value and MPF; a total net worth (cash + stocks + other assets − debts) and allocation bar | Whole-balance-sheet view of household wealth |
 | **Live stock search** | Search **any** HK or US stock by ticker or company name (`700`, `AAPL`, `tencent`) and add it in one click | — |
 | **Live news** | Headlines from Yahoo Finance, SCMP, CNBC and RTHK, refreshed every 5 minutes; stories about the user's holdings are tagged | — |
 | **Strategic Wealth Modeler** | Projects wealth from starting capital, monthly deposit, return and horizon | Time value of money, monthly compounding (Bodie, Kane & Marcus, 2014) |
@@ -208,6 +213,11 @@ All calculations run in the browser on the user's own data, recomputed with Reac
 | **Weekend ratio** | Saturday and Sunday spending ÷ total spending (alert above 50% and HK$1,000) |
 | **Wealth projection** | Monthly compounding: *B*ₜ₊₁ = (*B*ₜ + deposit) × (1 + *r*/12), tracked against total contributed |
 | **Debt payoff** | Month by month for every debt: add interest (balance × APR/12), pay each minimum, then send the extra payment plus any freed-up minimums to the target debt (Avalanche: highest APR first; Snowball: smallest balance first). Flags plans whose payments never beat the interest |
+| **Repeating transactions** | Each rule stores its next date; at login every due date up to today is written as a normal transaction with the id `ruleId_date` (so it can never be recorded twice). Monthly and yearly rules keep their original day, using the last day of shorter months |
+| **Monthly averages (Action Plan)** | Last 90 days. A category that occurs about once a month (rent, salary) is averaged over the calendar months it appears in; everyday spending is averaged over the actual time span |
+| **Emergency fund** | Liquid cash (bank, cash, Octopus, deposits) ÷ monthly essential spending; target 3 months, 6 with dependants or mainly freelance income |
+| **Target allocation** | Growth share (stocks, funds, crypto) of 35% / 60% / 80% for conservative / moderate / aggressive, minus 10 points at 50 and again at 60; flagged when off by more than 15 points. Crypto cap 2% / 5% / 10% |
+| **Simulated trade** | Buy: cash −= shares × price × FX × 1.001; average cost re-weighted. Sell: realised P&L = (price − avg cost) × shares × FX − fee |
 | **Mandatory MPF** | 5% of income between HK$7,100 and HK$30,000 (HK$1,500 maximum) |
 | **TVC tax saving** | Salaries tax without TVC minus salaries tax with TVC (deduction capped at HK$60,000; mandatory MPF deduction capped at HK$18,000) |
 | **Salaries tax** | The lower of: progressive (2 / 6 / 10 / 14% on successive HK$50,000 bands, then 17%, after the HK$132,000 basic allowance) or the standard rate (15% on the first HK$5M of net income, 16% above) |
@@ -323,6 +333,12 @@ flowchart LR
 └── src/
     ├── main.jsx                   React entry, wraps the app in <FxProvider>
     ├── App.jsx                    Application: UI, finance engine, data sync, live feeds, AI chat
+    ├── components/
+    │   ├── TransactionComposer.jsx  Quick recorder: categories, keypad, repeat options
+    │   ├── PaperTrading.jsx         Simulated trading account
+    │   └── OtherAssets.jsx          Bonds, crypto, deposits, property... with live crypto prices
+    ├── lib/
+    │   └── insights.js              Scores and ranked recommendations (pure functions)
     ├── firebase.js                Firebase initialisation (Auth + Firestore)
     └── effects/
         ├── FxContext.jsx          Effects on/off state, WebGL and reduced-motion detection

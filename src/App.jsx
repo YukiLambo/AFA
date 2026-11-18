@@ -4,7 +4,7 @@ import {
   Send, ShieldCheck, AlertCircle, User, LogOut, Sliders, Target, Compass, CreditCard, PiggyBank,
   RefreshCw, Globe, ArrowUpRight, ArrowDownRight, CheckCircle2, Loader2, AlertTriangle, Bell,
   Download, ShieldAlert, Newspaper, Filter, Search, Zap, ExternalLink, Activity, Edit2, Save,
-  X, ChevronRight, DollarSign, Settings, Sparkles
+  X, ChevronRight, DollarSign, Settings, Sparkles, FlaskConical, Lightbulb, ListChecks, Landmark
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -15,6 +15,10 @@ import LiquidBackdrop from './effects/LiquidBackdrop';
 import LiquidGlass from './effects/LiquidGlass';
 import LiquidLogo from './effects/LiquidLogo';
 import LiquidGlassLayer from './effects/LiquidGlassLayer';
+import PaperTrading from './components/PaperTrading';
+import OtherAssets, { assetValueHkd, assetType } from './components/OtherAssets';
+import { buildInsights } from './lib/insights';
+import TransactionComposer, { categoryIcon, nextOccurrence, todayLocal, repeatLabel } from './components/TransactionComposer';
 
 // --- FIREBASE INTEGRATION ---
 import { initializeApp } from 'firebase/app';
@@ -340,12 +344,44 @@ const CATEGORY_COLORS = {
   'Gift': '#f9a8d4',
   'Investment': '#00f2fe',
   'Utilities': '#8b5cf6',
-  'Other': '#94a3b8'
+  'Other': '#94a3b8',
+  // Added with the new recorder
+  'Groceries': '#fb923c',
+  'Coffee & Snacks': '#f59e0b',
+  'Clothing': '#e879f9',
+  'Phone & Internet': '#60a5fa',
+  'Subscriptions': '#f472b6',
+  'Health': '#4ade80',
+  'Beauty': '#fda4af',
+  'Fitness': '#22d3ee',
+  'Education': '#818cf8',
+  'Travel': '#06b6d4',
+  'Car': '#3b82f6',
+  'Social': '#fb7185',
+  'Gifts Given': '#f9a8d4',
+  'Insurance': '#a78bfa',
+  'Pets': '#facc15',
+  'Children': '#fcd34d',
+  'Fees & Tax': '#cbd5e1',
+  'Bonus': '#5eead4',
+  'Part Time': '#67e8f9',
+  'Allowance': '#86efac',
+  'Scholarship': '#a5b4fc',
+  'Red Packet': '#f87171',
+  'Refund': '#bef264',
+  // Other asset types (Investments page)
+  'Bond': '#a78bfa', 'Crypto': '#f7931a', 'Cash & Deposits': '#34d399', 'Fund': '#38bdf8', 'Gold & Metals': '#facc15',
+  'Property': '#fb7185', 'Insurance Savings': '#818cf8', 'MPF Balance': '#2dd4bf'
 };
 
 // Palette for charts whose items are not categories (payment methods, asset classes...)
 // Dashboard blocks that get the liquid-glass treatment
 const GLASS_PANEL_SELECTOR = '.afa-content [class~="bg-[#161b22]"]:not(.absolute):not(.fixed)';
+
+const ALLOCATION_COLORS = {
+  'Stocks': '#00f2fe', 'Funds': '#38bdf8', 'Crypto': '#f7931a', 'Bonds': '#a78bfa', 'Cash & Deposits': '#34d399',
+  'Gold': '#facc15', 'Property': '#fb7185', 'Insurance, MPF & Other': '#94a3b8'
+};
 
 const CHART_PALETTE = ['#00f2fe', '#8b5cf6', '#ff4fd8', '#2dd4bf', '#ffd166', '#4f8cff', '#ff6b8b', '#a3e635', '#c084fc', '#38bdf8'];
 const colorFor = (name, index) => CATEGORY_COLORS[name] || CHART_PALETTE[index % CHART_PALETTE.length];
@@ -531,6 +567,14 @@ export default function App() {
   const portfolioDocsRef = useRef([]);
   portfolioDocsRef.current = portfolioDocs;
   const [portfolioHistory, setPortfolioHistory] = useState([]);
+  // Investments page: real holdings or the simulated (paper) trading account
+  const [portfolioView, setPortfolioView] = useState('real');
+  const [showAllRecs, setShowAllRecs] = useState(false);
+  const [paperAccount, setPaperAccount] = useState(null);
+  // Other assets (bonds, crypto, deposits, gold, property...) + live crypto prices in HKD
+  const [otherAssets, setOtherAssets] = useState([]);
+  const [cryptoPrices, setCryptoPrices] = useState({});
+  const [cryptoStatus, setCryptoStatus] = useState('idle');
   const [marketFeedDown, setMarketFeedDown] = useState(false);
 
   // Live market search (top search bar)
@@ -633,7 +677,9 @@ export default function App() {
 
   // Modal Controls
   const [showAddTxModal, setShowAddTxModal] = useState(false);
-  const [newTx, setNewTx] = useState({ description: '', amount: '', category: 'Dining', type: 'expense', date: new Date().toISOString().split('T')[0], account: 'Bank Account' });
+  // Repeating transactions: rules in users/{uid}/recurring, each one writes a transaction on its due dates
+  const [recurringRules, setRecurringRules] = useState([]);
+  const recurringRunRef = useRef(new Set());
 
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [newStock, setNewStock] = useState({ symbol: '', name: '', shares: '', buyPrice: '', currentPrice: '', currency: 'HKD', category: 'HK Equity' });
@@ -662,7 +708,12 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setTransactions([]);
+      setRecurringRules([]);
+      recurringRunRef.current = new Set();
       setPortfolioDocs([]);
+      setOtherAssets([]);
+      setPaperAccount(null);
+      setPortfolioView('real');
       setLiveQuotes({});
       setPortfolioHistory([]);
       settingsLoadedRef.current = false;
@@ -685,6 +736,7 @@ export default function App() {
         // Restore everything the user typed last time (runs once per login)
         if (!settingsLoadedRef.current) {
           const saved = data.settings || {};
+          setPaperAccount(data.paperAccount && typeof data.paperAccount === 'object' ? data.paperAccount : null);
           if (Array.isArray(data.debts)) {
             setDebts(data.debts.map(normalizeDebt));
           } else if (Number(data.debtAmount) > 0) {
@@ -729,6 +781,14 @@ export default function App() {
       setTransactions(txs);
     }, (err) => console.error("TX sync error:", err));
 
+    // Sync repeating-transaction rules
+    const unsubRecurring = onSnapshot(getCollectionPath(user.uid, 'recurring'), (snapshot) => {
+      const rules = [];
+      snapshot.forEach(d => rules.push({ id: d.id, ...d.data() }));
+      rules.sort((a, b) => String(a.nextDate).localeCompare(String(b.nextDate)));
+      setRecurringRules(rules);
+    }, (err) => console.error("Recurring sync error:", err));
+
     // Sync Portfolio
     const portRef = getCollectionPath(user.uid, 'portfolio');
     const unsubPort = onSnapshot(portRef, (snapshot) => {
@@ -737,10 +797,20 @@ export default function App() {
       setPortfolioDocs(ports);
     }, (err) => console.error("Portfolio sync error:", err));
 
+    // Sync other assets
+    const unsubAssets = onSnapshot(getCollectionPath(user.uid, 'assets'), (snapshot) => {
+      const list = [];
+      snapshot.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+      setOtherAssets(list);
+    }, (err) => console.error("Assets sync error:", err));
+
     return () => {
       unsubProfile();
       unsubTx();
+      unsubRecurring();
       unsubPort();
+      unsubAssets();
     };
   }, [user]);
 
@@ -798,6 +868,46 @@ export default function App() {
     const timer = setInterval(() => { if (!document.hidden) refreshQuotes(); }, QUOTE_REFRESH_MS);
     return () => clearInterval(timer);
   }, [user, holdingsKey]);
+
+  // --- LIVE CRYPTO PRICES (CoinGecko, free and CORS-enabled) for the coins the user holds ---
+  const coinKey = useMemo(() => [...new Set(otherAssets.filter(a => a.type === 'crypto' && a.coin).map(a => a.coin))].sort().join(','), [otherAssets]);
+  const fetchCryptoPrices = async (ids) => {
+    if (!ids) return;
+    setCryptoStatus(prev => (prev === 'ok' ? 'ok' : 'loading'));
+    try {
+      const res = await fetchWithTimeout(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=hkd,usd&include_24hr_change=true`, 8000);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      const next = {};
+      Object.entries(json).forEach(([id, v]) => { if (v?.hkd) next[id] = { hkd: v.hkd, usd: v.usd, change24h: v.hkd_24h_change ?? v.usd_24h_change ?? 0 }; });
+      setCryptoPrices(prev => ({ ...prev, ...next }));
+      setCryptoStatus('ok');
+    } catch (err) {
+      console.warn('Crypto price feed unavailable', err);
+      setCryptoStatus('down');
+    }
+  };
+  useEffect(() => {
+    if (!user) return undefined;
+    // Always know BTC/ETH so the "add crypto" form can show a live value straight away
+    const ids = [...new Set(['bitcoin', 'ethereum', ...coinKey.split(',').filter(Boolean)])].join(',');
+    fetchCryptoPrices(ids);
+    const timer = setInterval(() => { if (!document.hidden) fetchCryptoPrices(ids); }, 60000);
+    return () => clearInterval(timer);
+  }, [user, coinKey]);
+
+  const assetsPath = (id) => doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'afa-default', 'users', user.uid, 'assets', id);
+  const handleAddAsset = async (data) => { if (user) await addDoc(getCollectionPath(user.uid, 'assets'), data); };
+  const handleUpdateAsset = async (id, data) => { if (user) await updateDoc(assetsPath(id), data); };
+  const handleDeleteAsset = async (id) => { if (user) { try { await deleteDoc(assetsPath(id)); } catch (err) { console.error(err); } } };
+
+  // Simulated trading account lives on the profile document
+  const handleSavePaperAccount = async (next) => {
+    if (!user) return;
+    setPaperAccount(next);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+    await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { paperAccount: next }, { merge: true });
+  };
 
   // Real 30-day portfolio history from daily closing prices of the current holdings
   const historyCodesKey = useMemo(() => portfolioDocs.map(p => `${p.symbol}:${p.shares}:${liveQuotes[p.symbol]?.historyCode || ''}`).join('|'), [portfolioDocs, liveQuotes]);
@@ -1036,22 +1146,69 @@ export default function App() {
     }));
   };
 
-  const handleAddTransaction = async (e) => {
-    e.preventDefault();
-    if (!newTx.description || !newTx.amount || !user) return;
-    try {
-      const txRef = getCollectionPath(user.uid, 'transactions');
-      await addDoc(txRef, { 
-        ...newTx, 
-        amount: parseFloat(newTx.amount) 
-      });
-    } catch (error) {
-      console.error("Error adding transaction:", error);
-      alert("Failed to add transaction. Check permissions.");
-    } finally {
-      setNewTx({ description: '', amount: '', category: 'Dining', type: 'expense', date: new Date().toISOString().split('T')[0], account: 'Bank Account' });
-      setShowAddTxModal(false);
+  // Called by the recorder. A one-off writes a transaction; a repeating one writes a rule, and the
+  // effect below records every due date (the first one included) as a normal transaction.
+  const handleComposerSave = async ({ tx, repeat }) => {
+    if (!user) throw new Error('Not signed in');
+    if (repeat.frequency === 'none') {
+      await addDoc(getCollectionPath(user.uid, 'transactions'), tx);
+      return;
     }
+    await addDoc(getCollectionPath(user.uid, 'recurring'), {
+      template: tx,
+      frequency: repeat.frequency,
+      anchorDay: Number(tx.date.slice(8, 10)),
+      startDate: tx.date,
+      nextDate: tx.date,
+      endDate: repeat.endDate || '',
+      active: true,
+      createdAt: new Date().toISOString()
+    });
+  };
+
+  // Catch up every active rule whose next date has arrived. Transaction ids are `${ruleId}_${date}`, so
+  // running this twice (two tabs, a quick reload) can never record the same day twice.
+  useEffect(() => {
+    if (!user || recurringRules.length === 0) return;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+    const today = todayLocal();
+    recurringRules.forEach(rule => {
+      if (!rule.active || !rule.nextDate || rule.nextDate > today) return;
+      const runKey = `${rule.id}:${rule.nextDate}`;
+      if (recurringRunRef.current.has(runKey)) return;
+      recurringRunRef.current.add(runKey);
+      const writes = [];
+      let date = rule.nextDate;
+      let finished = false;
+      for (let i = 0; i < 400 && date <= today; i++) {
+        if (rule.endDate && date > rule.endDate) { finished = true; break; }
+        writes.push(setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'transactions', `${rule.id}_${date}`), { ...rule.template, date, recurringId: rule.id }));
+        date = nextOccurrence(date, rule.frequency, rule.anchorDay);
+      }
+      if (rule.endDate && date > rule.endDate) finished = true;
+      Promise.all(writes)
+        .then(() => updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'recurring', rule.id), { nextDate: date, lastRun: today, ...(finished ? { active: false } : {}) }))
+        .catch(err => { console.error('Recurring run failed', err); recurringRunRef.current.delete(runKey); });
+    });
+  }, [user, recurringRules]);
+
+  const handleToggleRecurring = async (rule) => {
+    if (!user) return;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+    const patch = { active: !rule.active };
+    // Resuming skips the dates missed while paused instead of back-filling them
+    if (!rule.active) {
+      let next = rule.nextDate || todayLocal();
+      for (let i = 0; i < 1000 && next < todayLocal(); i++) next = nextOccurrence(next, rule.frequency, rule.anchorDay);
+      patch.nextDate = next;
+    }
+    try { await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'recurring', rule.id), patch); } catch (err) { console.error(err); }
+  };
+
+  const handleDeleteRecurring = async (rule) => {
+    if (!user) return;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+    try { await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'recurring', rule.id)); } catch (err) { console.error(err); }
   };
 
   const handleDeleteTransaction = async (id) => {
@@ -1175,7 +1332,13 @@ export default function App() {
         gender: userProfile.gender || 'Female',
         phone: userProfile.phone || '',
         birthday: userProfile.birthday || '',
-        homeAddress: userProfile.homeAddress || ''
+        homeAddress: userProfile.homeAddress || '',
+        monthlyIncome: String(userProfile.monthlyIncome || ''),
+        dependants: Number(userProfile.dependants) || 0,
+        goal: userProfile.goal || '',
+        targetAmount: String(userProfile.targetAmount || ''),
+        goalYears: Number(userProfile.goalYears) || 0,
+        riskTolerance: userProfile.riskTolerance || ''
       }, { merge: true });
     } catch (error) {
       console.error("Error saving profile:", error);
@@ -1544,6 +1707,40 @@ export default function App() {
     return { mandatory, annualTvc, estimatedTaxSaved };
   }, [mpfIncome, tvcMonthly]);
 
+  // --- COMPLETE BALANCE SHEET: ledger cash + stocks + other assets − debts ---
+  const liquidCash = useMemo(() => accountBalances.filter(a => ['Bank Account', 'Cash', 'Octopus'].includes(a.name)).reduce((sum, a) => sum + Math.max(0, a.value), 0), [accountBalances]);
+  const otherAssetsValued = useMemo(() => otherAssets.map(a => ({ ...a, valueHkd: assetValueHkd(a, cryptoPrices, DEFAULT_USD_HKD_RATE) })), [otherAssets, cryptoPrices]);
+  const otherAssetsTotal = useMemo(() => otherAssetsValued.reduce((sum, a) => sum + a.valueHkd, 0), [otherAssetsValued]);
+  const creditCardOwed = Math.max(0, -(accountBalances.find(a => a.name === 'Credit Card')?.value || 0));
+  const netWorth = liquidCash + portfolioTotalValue + otherAssetsTotal - debtAmount - creditCardOwed;
+  // Diversity chart: stock categories plus each kind of other asset
+  const diversityData = useMemo(() => {
+    const byType = {};
+    otherAssetsValued.forEach(a => { const label = assetType(a.type).label; byType[label] = (byType[label] || 0) + a.valueHkd; });
+    return [...portfolioDiversity, ...Object.entries(byType).map(([name, value]) => ({ name, value }))].filter(d => d.value > 0);
+  }, [portfolioDiversity, otherAssetsValued]);
+
+  // --- PERSONAL REVIEW: scores + ranked recommendations from everything above (src/lib/insights.js) ---
+  const insights = useMemo(() => {
+    const income = Number(mpfIncome) || Number(userProfile.monthlyIncome) || 0;
+    const mpfDeduction = Math.min(18000, (income >= 30000 ? 1500 : income >= 7100 ? income * 0.05 : 0) * 12);
+    const savedAtMax = Math.round(calcHKSalariesTax(income * 12, mpfDeduction) - calcHKSalariesTax(income * 12, mpfDeduction + 60000));
+    const paperEquity = paperAccount ? paperAccount.cash + (paperAccount.holdings || []).reduce((sum, h) => sum + h.shares * (h.lastPrice || h.avgCost) * (h.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1), 0) : 0;
+    return buildInsights({
+      profile: userProfile,
+      transactions,
+      recurringRules,
+      liquidCash,
+      stocks: portfolio.map(h => ({ symbol: h.symbol, valueHkd: h.shares * h.currentPrice * (h.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1) })),
+      assets: otherAssetsValued,
+      debts,
+      debtPlan: debtPayoffTrajectory,
+      weeklySpent: weeklySpentTotal,
+      tax: { tvcMonthly: Number(tvcMonthly) || 0, savedNow: mpfCalc.estimatedTaxSaved, savedAtMax },
+      paper: paperAccount ? { equity: paperEquity, startingCash: paperAccount.startingCash, trades: (paperAccount.trades || []).length } : null
+    });
+  }, [userProfile, transactions, recurringRules, liquidCash, portfolio, otherAssetsValued, debts, debtPayoffTrajectory, weeklySpentTotal, tvcMonthly, mpfIncome, mpfCalc, paperAccount]);
+
   // --- EVERYTHING THE ASSISTANT KNOWS ABOUT THIS USER (rebuilt from live data on every message) ---
   const buildFinancialSnapshot = () => {
     const now = new Date();
@@ -1580,7 +1777,16 @@ export default function App() {
         holdings: portfolio.map(p => ({ symbol: p.symbol, name: p.name, shares: p.shares, price: p.currentPrice, currency: p.currency, category: p.category, dayChangePct: p.dayChangePct }))
       },
       debt: { debts: debts.map(d => ({ name: d.name, type: d.type, balanceHKD: Number(d.balance) || 0, aprPct: Number(d.apr) || 0, minPaymentHKD: Number(d.minPay) || 0 })), extraMonthlyHKD: Number(debtExtra) || 0, debtFreeDate: debtPayoffTrajectory.debtFreeLabel, balanceHKD: Number(debtAmount) || 0, aprPct: Number(debtRate) || 0, monthlyPaymentHKD: Number(debtMinPay) || 0, strategy: debtStrategy, monthsToClear: debtPayoffTrajectory.totalMonths, totalInterestHKD: debtPayoffTrajectory.totalInterest },
-      mpf: { mandatoryMonthlyHKD: Math.round(mpfCalc.mandatory), tvcAnnualHKD: mpfCalc.annualTvc, estimatedTaxSavedHKD: mpfCalc.estimatedTaxSaved }
+      mpf: { mandatoryMonthlyHKD: Math.round(mpfCalc.mandatory), tvcAnnualHKD: mpfCalc.annualTvc, estimatedTaxSavedHKD: mpfCalc.estimatedTaxSaved },
+      netWorthHKD: Math.round(netWorth),
+      otherAssets: otherAssetsValued.map(a => ({ type: assetType(a.type).label, name: a.name, valueHKD: Math.round(a.valueHkd), ratePct: a.rate || undefined, maturity: a.maturity || undefined })),
+      simulatedTrading: paperAccount ? { startingCashHKD: paperAccount.startingCash, cashHKD: Math.round(paperAccount.cash), positions: (paperAccount.holdings || []).length, trades: (paperAccount.trades || []).length, realizedPnlHKD: Math.round(paperAccount.realizedPnl || 0) } : null,
+      // The same ranked plan shown on the Analytics page, so chat advice matches it
+      personalPlan: {
+        score: insights.overall,
+        pillars: insights.pillars.map(pl => `${pl.label} ${pl.score}/100 (${pl.note})`),
+        recommendations: insights.recommendations.slice(0, 6).map(r => ({ priority: r.priority, title: r.title, finding: r.finding, actions: r.actions }))
+      }
     };
   };
 
@@ -1597,6 +1803,7 @@ export default function App() {
     let topic = '';
     if (/^(hi|hello|hey|yo|good (morning|afternoon|evening))\b/.test(q) && q.length < 25) topic = 'greeting';
     else if ((/^(thanks|thank you|thx|great|cool|got it)\b/.test(q) || /^(ok|okay)[.!]?$/.test(q)) && !has('more', 'explain', 'why', 'how')) topic = 'thanks';
+    else if (has('what should i do', 'recommend', 'action plan', 'next step', 'priority', 'priorities', 'plan for me')) topic = 'plan';
     else if (has('goal', 'on track', 'target', 'down payment', 'how long', 'when can i')) topic = 'goal';
     else if (has('afford', 'can i buy', 'should i buy') && !has('stock', 'share')) topic = 'afford';
     else if (has('tax', 'mpf', 'tvc', 'retire', 'pension')) topic = 'tax';
@@ -1629,6 +1836,14 @@ export default function App() {
 
       case 'thanks':
         return `Anytime, ${s.firstName}. Want me to check anything else — maybe whether you're on track for your goal?`;
+
+      case 'plan': {
+        const recs = s.personalPlan.recommendations.slice(0, 3);
+        if (recs.length === 0) return `Your finances look healthy right now, ${s.firstName} (score ${s.personalPlan.score}/100). Keep saving and investing automatically, and check the Analytics page after you record more.`;
+        return `Here are your top priorities, ${s.firstName} (overall score ${s.personalPlan.score}/100):\n\n` +
+          recs.map((r, i) => `${i + 1}. ${r.title}\n   ${r.finding}\n   First step: ${r.actions[0]}`).join('\n\n') +
+          `\n\nThe full plan with every step is on the Analytics page. Which one would you like to dig into?`;
+      }
 
       case 'goal': {
         if (!s.targetAmountHKD) return `You haven't set a target amount yet, ${s.firstName}. Add one on the Dashboard goal card and I can tell you how long it will take at your current pace.`;
@@ -2733,13 +2948,47 @@ ${JSON.stringify(snapshot)}`;
                   </div>
                 </div>
 
+                {/* Repeating transactions */}
+                <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
+                  <div className="px-5 py-3 bg-[#0d1117] border-b border-slate-800 flex justify-between items-center">
+                    <span className="text-xs font-mono uppercase text-[#00f2fe] flex items-center gap-2"><RefreshCw className="w-3.5 h-3.5" /> Repeating Transactions</span>
+                    <span className="text-[10px] text-slate-500 font-mono">{recurringRules.filter(r => r.active).length} active</span>
+                  </div>
+                  {recurringRules.length === 0 ? (
+                    <p className="px-5 py-5 text-xs text-slate-500">Nothing repeats yet. When you add a record, tap <span className="text-slate-300 font-semibold">Repeat</span> to log it automatically every week, month or year (e.g. your salary or a weekly Octopus top-up).</p>
+                  ) : (
+                    <ul className="divide-y divide-slate-800/60">
+                      {recurringRules.map(rule => {
+                        const t = rule.template || {};
+                        const Icon = categoryIcon(t.category);
+                        const color = CATEGORY_COLORS[t.category] || '#94a3b8';
+                        return (
+                          <li key={rule.id} className={`flex items-center gap-3 px-5 py-3 ${rule.active ? '' : 'opacity-50'}`}>
+                            <span className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${color}22`, color }}><Icon className="w-4 h-4" /></span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold text-white truncate">{t.description}</div>
+                              <div className="text-[11px] text-slate-500 font-mono">
+                                {repeatLabel(rule.frequency)} · {t.account || 'Bank Account'} · {rule.active ? `next ${rule.nextDate}` : (rule.endDate && rule.nextDate > rule.endDate ? 'ended' : 'paused')}{rule.endDate ? ` · until ${rule.endDate}` : ''}
+                              </div>
+                            </div>
+                            <span className={`font-mono font-bold text-sm whitespace-nowrap ${t.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>{t.type === 'income' ? '+' : '-'} ${Number(t.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <button onClick={() => handleToggleRecurring(rule)} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg border border-slate-700 text-slate-300 hover:text-white cursor-pointer">{rule.active ? 'Pause' : 'Resume'}</button>
+                            <button onClick={() => handleDeleteRecurring(rule)} aria-label="Stop repeating" title="Stop repeating (past records stay)" className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
                 <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
                   <div className="px-5 py-3 bg-[#0d1117] border-b border-slate-800 flex justify-between items-center">
                     <span className="text-xs font-mono uppercase text-[#00f2fe]">Transaction History Log</span>
                     <span className="text-[10px] text-slate-500 font-mono">{filteredTransactions.length} Records</span>
                   </div>
 
-                  <table className="w-full text-left text-sm text-slate-300">
+                  <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm text-slate-300 min-w-[640px]">
                     <thead className="bg-[#161b22] border-b border-slate-800 text-slate-500 uppercase text-[10px] font-mono">
                       <tr>
                         <th className="py-3 px-5">Date</th>
@@ -2759,7 +3008,9 @@ ${JSON.stringify(snapshot)}`;
                       {filteredTransactions.map(tx => (
                         <tr key={tx.id} className="hover:bg-slate-800/20 transition-colors">
                           <td className="py-3 px-5 text-xs font-mono text-slate-500">{tx.date}</td>
-                          <td className="py-3 px-5 font-semibold text-white">{tx.description}</td>
+                          <td className="py-3 px-5 font-semibold text-white">
+                            <span className="inline-flex items-center gap-1.5">{tx.description}{tx.recurringId && <RefreshCw className="w-3 h-3 text-[#00f2fe]/70" aria-label="Repeating" />}</span>
+                          </td>
                           <td className="py-3 px-5 text-xs text-slate-400">{tx.account || 'Bank Account'}</td>
                           <td className="py-3 px-5">
                             <span 
@@ -2779,6 +3030,7 @@ ${JSON.stringify(snapshot)}`;
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
 
               </div>
@@ -2787,6 +3039,108 @@ ${JSON.stringify(snapshot)}`;
             {/* REPORT / ANALYTICS TAB */}
             {activeTab === 'report' && (
               <div className="space-y-6 anim-slide-in">
+                {/* PERSONAL ACTION PLAN (src/lib/insights.js) */}
+                <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800/80 shadow-md space-y-6">
+                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-base font-bold text-white flex items-center gap-2"><Lightbulb className="w-4 h-4 text-[#00f2fe]" /> Your Personal Action Plan</h2>
+                      <p className="text-xs text-slate-400 mt-0.5">Built from your profile, your last 90 days of transactions, your assets and your debts. Updates as you record.</p>
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {[
+                          insights.snapshot.age ? `Age ${insights.snapshot.age}` : 'Age not set',
+                          `${insights.snapshot.risk.label} risk${insights.snapshot.risk.unset ? ' (assumed)' : ''}`,
+                          userProfile.goal || 'No goal set',
+                          insights.snapshot.income > 0 ? `HK$${Math.round(insights.snapshot.income).toLocaleString()}/month income` : 'Income not set',
+                          `${insights.snapshot.dependants} dependant${insights.snapshot.dependants === 1 ? '' : 's'}`
+                        ].map(t => <span key={t} className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#0d1117] border border-slate-800 text-slate-300">{t}</span>)}
+                        <button onClick={() => setShowProfileModal(true)} className="text-[10px] font-mono px-2.5 py-1 rounded-full text-[#00f2fe] hover:underline cursor-pointer">Edit profile →</button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="relative w-20 h-20">
+                        <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                          <circle cx="18" cy="18" r="15.9" fill="none" stroke="#21262d" strokeWidth="3" />
+                          <circle cx="18" cy="18" r="15.9" fill="none" stroke={insights.overall >= 70 ? '#16c784' : insights.overall >= 45 ? '#ffd166' : '#ea3943'} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${insights.overall} 100`} pathLength="100" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-xl font-black text-white">{insights.overall}</span><span className="text-[8px] font-mono text-slate-500 uppercase">score</span></div>
+                      </div>
+                      <div className="space-y-1.5 w-44">
+                        {insights.pillars.map(pl => (
+                          <div key={pl.id} title={pl.note}>
+                            <div className="flex justify-between text-[10px] font-mono"><span className="text-slate-400">{pl.label}</span><span className="text-slate-300">{pl.score}</span></div>
+                            <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${pl.score}%`, backgroundColor: pl.score >= 70 ? '#16c784' : pl.score >= 45 ? '#ffd166' : '#ea3943' }} /></div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {[
+                      ['Monthly spending', `HK$${Math.round(insights.snapshot.expense).toLocaleString()}`, insights.snapshot.income > 0 ? `${Math.round((insights.snapshot.expense / insights.snapshot.income) * 100)}% of income` : ''],
+                      ['Savings rate', `${Math.round(insights.snapshot.savingsRate)}%`, 'benchmark 20%'],
+                      ['Needs / wants', insights.snapshot.income > 0 ? `${Math.round((insights.snapshot.needs / insights.snapshot.income) * 100)}% / ${Math.round((insights.snapshot.wants / insights.snapshot.income) * 100)}%` : '—', 'benchmark 50% / 30%'],
+                      ['Emergency fund', `${insights.snapshot.emergencyMonths.toFixed(1)} mo`, `target ${insights.snapshot.emergencyTargetMonths} months`],
+                      ['Net worth', `${netWorth < 0 ? '−' : ''}HK$${Math.abs(Math.round(netWorth)).toLocaleString()}`, insights.snapshot.debtTotal > 0 ? `after HK$${Math.round(insights.snapshot.debtTotal).toLocaleString()} debt` : 'no debt']
+                    ].map(([k, v, sub]) => (
+                      <div key={k} className="p-3 rounded-2xl bg-[#0d1117] border border-slate-800">
+                        <div className="text-[10px] font-mono uppercase text-slate-500">{k}</div>
+                        <div className="text-lg font-bold text-white mt-0.5">{v}</div>
+                        <div className="text-[10px] text-slate-500">{sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-mono uppercase text-[#00f2fe] flex items-center gap-2"><ListChecks className="w-3.5 h-3.5" /> What to do next · {insights.recommendations.length} recommendation{insights.recommendations.length === 1 ? '' : 's'}</h3>
+                      {insights.recommendations.length > 4 && (
+                        <button onClick={() => setShowAllRecs(v => !v)} className="text-[10px] font-mono text-[#00f2fe] hover:underline cursor-pointer">{showAllRecs ? 'Show top 4' : `Show all ${insights.recommendations.length}`}</button>
+                      )}
+                    </div>
+                    {insights.recommendations.length === 0 && (
+                      <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> Everything looks healthy. Keep your saving and investing on autopilot.</div>
+                    )}
+                    {(showAllRecs ? insights.recommendations : insights.recommendations.slice(0, 4)).map((rec, idx) => {
+                      const tone = rec.priority === 'high' ? { badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30', bar: '#ea3943' } : rec.priority === 'medium' ? { badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30', bar: '#ffd166' } : { badge: 'bg-sky-500/15 text-sky-300 border-sky-500/30', bar: '#38bdf8' };
+                      const go = () => {
+                        if (rec.cta?.action === 'record') setShowAddTxModal(true);
+                        else if (rec.cta?.action === 'budget') setShowBudgetModal(true);
+                        else if (rec.cta?.action === 'profile') setShowProfileModal(true);
+                        else if (rec.cta?.tab) { if (rec.cta.view) setPortfolioView(rec.cta.view); setActiveTab(rec.cta.tab); }
+                      };
+                      return (
+                        <div key={rec.id} className="relative p-4 pl-5 rounded-2xl bg-[#0d1117] border border-slate-800 overflow-hidden">
+                          <span className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: tone.bar }} />
+                          <div className="flex flex-col md:flex-row md:items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <span className="text-[10px] font-mono text-slate-500">#{idx + 1}</span>
+                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${tone.badge}`}>{rec.priority}</span>
+                                <span className="text-[10px] font-mono uppercase text-slate-500">{rec.area}</span>
+                              </div>
+                              <h4 className="text-sm font-bold text-white">{rec.title}</h4>
+                              <p className="text-xs text-slate-400 mt-1 leading-relaxed">{rec.finding}</p>
+                              <ol className="mt-2 space-y-1">
+                                {rec.actions.map((a, i) => (
+                                  <li key={i} className="text-xs text-slate-200 flex gap-2"><span className="text-[#00f2fe] font-mono shrink-0">{i + 1}.</span><span>{a}</span></li>
+                                ))}
+                              </ol>
+                              {rec.impact && <p className="text-[11px] text-emerald-400 mt-2 font-medium">{rec.impact}</p>}
+                            </div>
+                            {rec.cta && (
+                              <button onClick={go} className="shrink-0 self-start text-[10px] font-bold uppercase tracking-wider px-3 py-2 rounded-xl border border-[#00f2fe]/30 bg-[#00f2fe]/10 text-[#00f2fe] hover:bg-[#00f2fe]/20 cursor-pointer flex items-center gap-1">
+                                {rec.cta.label} <ChevronRight className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-slate-600 leading-relaxed">Rules of thumb used: 50/30/20 budgeting, a 3–6 month emergency fund, housing ≤ 30% of income, paying debts above ~10% APR before investing, and a growth-asset share matched to your risk profile and age. Educational guidance, not regulated financial advice.</p>
+                </div>
+
                 <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800/80 shadow-md space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
@@ -2923,6 +3277,63 @@ ${JSON.stringify(snapshot)}`;
             {/* STOCK PORTFOLIO TAB */}
             {activeTab === 'portfolio' && (
               <div className="space-y-6 anim-slide-in">
+                {/* Real portfolio or simulated trading */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex p-1 rounded-2xl bg-[#161b22] border border-slate-800/80 self-start">
+                    {[['real', 'My Assets', Wallet], ['simulation', 'Simulated Trading', FlaskConical]].map(([id, label, Icon]) => (
+                      <button key={id} onClick={() => setPortfolioView(id)} className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wide flex items-center gap-2 cursor-pointer transition-all ${portfolioView === id ? 'bg-[#00f2fe] text-[#0d1117]' : 'text-slate-400 hover:text-white'}`}>
+                        <Icon className="w-3.5 h-3.5" /> {label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-500">{portfolioView === 'real' ? 'Your real holdings and other assets, with live prices.' : 'Virtual money only. Your real assets are not affected.'}</p>
+                </div>
+
+                {portfolioView === 'simulation' && (
+                  <PaperTrading account={paperAccount} onChange={handleSavePaperAccount} fetchQuote={fetchLiveStockQuote} searchSymbols={searchMarketSymbols} usdHkd={DEFAULT_USD_HKD_RATE} />
+                )}
+
+                {portfolioView === 'real' && (<>
+                {/* Net worth across everything the user owns and owes */}
+                <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                      <span className="text-xs font-mono uppercase text-slate-500">Total Net Worth</span>
+                      <div className={`text-3xl font-black mt-1 ${netWorth >= 0 ? 'text-white' : 'text-rose-400'}`}>{netWorth < 0 ? '−' : ''}HK${Math.abs(Math.round(netWorth)).toLocaleString()}</div>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Cash in your ledger + stocks + other assets − debts</p>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                      {[['Cash', liquidCash, 'text-emerald-300'], ['Stocks', portfolioTotalValue, 'text-[#00f2fe]'], ['Other assets', otherAssetsTotal, 'text-violet-300'], ['Debts', -(debtAmount + creditCardOwed), 'text-rose-300']].map(([k, v, c]) => (
+                        <div key={k} className="px-3 py-2 rounded-xl bg-[#0d1117] border border-slate-800">
+                          <div className="text-[10px] font-mono uppercase text-slate-500">{k}</div>
+                          <div className={`font-bold font-mono ${c}`}>{v < 0 ? '−' : ''}HK${Math.abs(Math.round(v)).toLocaleString()}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {insights.snapshot.allocation.length > 0 && (
+                    <div className="mt-4">
+                      <div className="flex h-2.5 rounded-full overflow-hidden bg-slate-800">
+                        {insights.snapshot.allocation.map((a, i) => {
+                          const total = insights.snapshot.allocation.reduce((sum, x) => sum + x.value, 0);
+                          return <div key={a.name} style={{ width: `${(a.value / total) * 100}%`, backgroundColor: ALLOCATION_COLORS[a.name] || CHART_PALETTE[i % CHART_PALETTE.length] }} title={`${a.name}: HK$${Math.round(a.value).toLocaleString()}`} />;
+                        })}
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                        {insights.snapshot.allocation.map((a, i) => {
+                          const total = insights.snapshot.allocation.reduce((sum, x) => sum + x.value, 0);
+                          return (
+                            <span key={a.name} className="text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: ALLOCATION_COLORS[a.name] || CHART_PALETTE[i % CHART_PALETTE.length] }} />
+                              {a.name} {((a.value / total) * 100).toFixed(0)}%
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                     <span className="text-xs font-mono uppercase text-slate-500">Total Market Valuation</span>
@@ -2942,7 +3353,7 @@ ${JSON.stringify(snapshot)}`;
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                   <div>
-                    <h3 className="font-bold text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-[#00f2fe]"/> Equity & Fund Holdings</h3>
+                    <h3 className="font-bold text-white flex items-center gap-2"><TrendingUp className="w-4 h-4 text-[#00f2fe]"/> Stocks & ETFs</h3>
                     <p className="text-[11px] text-slate-400 mt-0.5">
                       {marketFeedDown ? 'Live price feed unreachable right now — showing your last saved prices.' : lastMarketSyncTime ? `Live prices • auto-refresh every 30s • updated ${lastMarketSyncTime} (FX USD/HKD = 7.82)` : 'Connecting to live price feed...'}
                     </p>
@@ -2959,7 +3370,7 @@ ${JSON.stringify(snapshot)}`;
                     </button>
 
                     <button onClick={() => setShowAddStockModal(true)} className="bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-md cursor-pointer">
-                      <Plus className="w-4 h-4" /> Add Asset
+                      <Plus className="w-4 h-4" /> Add Stock
                     </button>
                   </div>
                 </div>
@@ -3029,6 +3440,16 @@ ${JSON.stringify(snapshot)}`;
                   </table>
                 </div>
 
+                <OtherAssets
+                  assets={otherAssets}
+                  cryptoPrices={cryptoPrices}
+                  cryptoStatus={cryptoStatus}
+                  usdHkd={DEFAULT_USD_HKD_RATE}
+                  onAdd={handleAddAsset}
+                  onUpdate={handleUpdateAsset}
+                  onDelete={handleDeleteAsset}
+                />
+
                 {/* NEW: Portfolio Dashboard Enhancements */}
                 <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md mb-6">
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-1">Portfolio Growth</h3>
@@ -3058,11 +3479,11 @@ ${JSON.stringify(snapshot)}`;
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                     <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-4">Portfolio Diversity</h3>
                     <div className="h-56 w-full">
-                      {portfolio.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No portfolio data</div> :
+                      {diversityData.length === 0 ? <div className="text-xs text-slate-500 h-full flex items-center justify-center">No portfolio data</div> :
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
-                          <Pie data={portfolioDiversity} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} cornerRadius={6} dataKey="value" label={renderPieLabel} labelLine={false}>
-                            {portfolioDiversity.map((entry, index) => (
+                          <Pie data={diversityData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} cornerRadius={6} dataKey="value" label={renderPieLabel} labelLine={false}>
+                            {diversityData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
                             ))}
                           </Pie>
@@ -3086,6 +3507,8 @@ ${JSON.stringify(snapshot)}`;
                     </div>
                   </div>
                 </div>
+
+                </>)}
 
                 {/* LIVE MARKET NEWS */}
                 <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800/80 shadow-md space-y-6">
@@ -3666,60 +4089,23 @@ ${JSON.stringify(snapshot)}`;
         </div>
       )}
 
-      {showAddTxModal && (
-        <div className="fixed inset-0 z-50 bg-[#0d1117]/80 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
-          <div className="glass-panel rounded-3xl p-6 sm:p-8 max-w-md w-full relative border border-slate-700/50">
-            <h3 className="text-base font-bold tracking-wider uppercase text-white mb-5">Log Transaction</h3>
-            <form onSubmit={handleAddTransaction} className="space-y-4">
-              <input type="text" required placeholder="Description" value={newTx.description || ''} onChange={e => setNewTx({ ...newTx, description: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-              <input type="number" required placeholder="Amount" value={newTx.amount || ''} onChange={e => setNewTx({ ...newTx, amount: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
-              <input type="date" required value={newTx.date || ''} onChange={e => setNewTx({ ...newTx, date: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono" />
-              <select value={newTx.account || ''} onChange={e => setNewTx({ ...newTx, account: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
-                <option value="Bank Account">Bank Account</option>
-                <option value="Cash">Cash</option>
-                <option value="Octopus">Octopus</option>
-                <option value="Credit Card">Credit Card</option>
-                <option value="Crypto">Crypto Wallet</option>
-              </select>
-              <select value={newTx.type} onChange={e => {
-                  const newType = e.target.value;
-                  setNewTx({ ...newTx, type: newType, category: newType === 'income' ? 'Salary' : 'Dining' });
-                }} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
-                <option value="expense">Expense / Outflow</option>
-                <option value="income">Income / Inflow</option>
-              </select>
-              <select value={newTx.category} onChange={e => setNewTx({ ...newTx, category: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-[#161b22]">
-                {newTx.type === 'expense' ? (
-                  <>
-                    <option value="Dining">Dining</option>
-                    <option value="Shopping">Shopping</option>
-                    <option value="Entertainment">Entertainment</option>
-                    <option value="Rent">Rent</option>
-                    <option value="Transport">Transport</option>
-                    <option value="Utilities">Utilities</option>
-                    <option value="Investment">Investment Deposit</option>
-                    <option value="Other">Other</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="Salary">Salary</option>
-                    <option value="Capital Gain">Capital Gain</option>
-                    <option value="Dividend">Dividend</option>
-                    <option value="Freelance">Freelance</option>
-                    <option value="Interest">Interest</option>
-                    <option value="Gift">Gift</option>
-                    <option value="Other">Other</option>
-                  </>
-                )}
-              </select>
-              <div className="flex justify-end gap-2 pt-3">
-                <button type="button" onClick={() => setShowAddTxModal(false)} className="px-4 py-2 text-xs text-slate-400 bg-white/5 rounded-xl cursor-pointer hover:bg-white/10">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-xs font-bold uppercase bg-[#00f2fe] text-[#0d1117] rounded-xl cursor-pointer hover:bg-cyan-400">Save Record</button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Quick "+" for recording on phones */}
+      {user && !showSplash && !showAddTxModal && (
+        <button
+          onClick={() => setShowAddTxModal(true)}
+          aria-label="Record a transaction"
+          className="md:hidden fixed z-40 right-5 bottom-[max(1.25rem,env(safe-area-inset-bottom))] w-14 h-14 rounded-full bg-[#00f2fe] text-[#0d1117] shadow-[0_0_24px_rgba(0,242,254,0.45)] flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
       )}
+
+      <TransactionComposer
+        open={showAddTxModal}
+        onClose={() => setShowAddTxModal(false)}
+        onSave={handleComposerSave}
+        colorFor={(id) => colorFor(id, 0)}
+      />
 
       {showAddStockModal && (
         <div className="fixed inset-0 z-50 bg-[#0d1117]/80 backdrop-blur-md flex items-center justify-center p-4 anim-slide-in">
@@ -3847,6 +4233,47 @@ ${JSON.stringify(snapshot)}`;
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Home address</label>
                 <input type="text" placeholder="Harbour City, Tsim Sha Tsui, Hong Kong" value={userProfile.homeAddress || ''} onChange={e => setUserProfile({...userProfile, homeAddress: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+              </div>
+
+              {/* Financial profile: drives the Personal Action Plan in Analytics */}
+              <div className="pt-3 border-t border-slate-800">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#00f2fe] mb-1">Financial profile</h4>
+                <p className="text-[10px] text-slate-500 mb-3">Used to tailor your analysis and recommendations.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Monthly income (HKD)</label>
+                    <input type="number" min="0" value={userProfile.monthlyIncome || ''} onChange={e => setUserProfile({...userProfile, monthlyIncome: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Dependants</label>
+                    <input type="number" min="0" max="20" value={userProfile.dependants ?? ''} onChange={e => setUserProfile({...userProfile, dependants: e.target.value})} placeholder="0" className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Main goal</label>
+                    <select value={userProfile.goal || ''} onChange={e => setUserProfile({...userProfile, goal: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-slate-900">
+                      <option value="">Choose a goal</option>
+                      <option value="HK Property Down Payment">HK Property Down Payment</option>
+                      <option value="Early Retirement (FIRE)">Early Retirement (FIRE)</option>
+                      <option value="High-Yield Dividend Cash Flow">High-Yield Dividend Cash Flow</option>
+                      <option value="General Wealth Accumulation">General Wealth Accumulation</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Target amount (HKD)</label>
+                    <input type="number" min="0" value={userProfile.targetAmount || ''} onChange={e => setUserProfile({...userProfile, targetAmount: e.target.value})} placeholder="600000" className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Reach it in (years)</label>
+                    <input type="number" min="1" max="50" value={userProfile.goalYears || ''} onChange={e => setUserProfile({...userProfile, goalYears: e.target.value})} placeholder="5" className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Risk tolerance</label>
+                    <select value={userProfile.riskTolerance || ''} onChange={e => setUserProfile({...userProfile, riskTolerance: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-slate-900">
+                      <option value="">Choose</option>
+                      {['Conservative (Bonds & DIS)', 'Moderate (Balanced Tech & Value)', 'Aggressive (High-Beta Equities)'].map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
