@@ -127,6 +127,7 @@ export function buildInsights(ctx, now = new Date()) {
   const sumType = (...types) => assets.filter(a => types.includes(a.type)).reduce((s, a) => s + (a.valueHkd || 0), 0);
   const stocksValue = (ctx.stocks || []).reduce((s, h) => s + (h.valueHkd || 0), 0);
   const crypto = sumType('crypto');
+  const warrants = sumType('warrant');
   const funds = sumType('fund');
   const bonds = sumType('bond');
   const deposits = sumType('cash');
@@ -134,7 +135,7 @@ export function buildInsights(ctx, now = new Date()) {
   const property = sumType('property');
   const other = sumType('insurance', 'mpf', 'other');
   const liquid = Math.max(0, ctx.liquidCash || 0) + deposits;
-  const growth = stocksValue + funds + crypto;
+  const growth = stocksValue + funds + crypto + warrants;
   const defensive = bonds + deposits + gold;
   const investable = growth + defensive;
   const debts = (ctx.debts || []).filter(d => Number(d.balance) > 0);
@@ -339,6 +340,34 @@ export function buildInsights(ctx, now = new Date()) {
     });
   }
 
+  // 12b. Warrants and CBBCs: leverage, time decay, knock-out
+  const warrantList = assets.filter(a => a.type === 'warrant');
+  if (warrantList.length) {
+    const warrantCap = risk.id === 'aggressive' ? 10 : risk.id === 'moderate' ? 5 : 2;
+    const warrantPct = investable > 0 ? (warrants / investable) * 100 : 100;
+    const nearCall = warrantList.filter(a => a.warrant?.callDistancePct !== null && a.warrant?.callDistancePct !== undefined && a.warrant.callDistancePct <= 5);
+    const expiring = warrantList.filter(a => a.warrant?.days !== null && a.warrant?.days !== undefined && a.warrant.days <= 30);
+    if (nearCall.length || expiring.length || warrantPct > warrantCap) {
+      const lines = [
+        ...nearCall.map(a => `${a.name} is only ${Math.max(0, a.warrant.callDistancePct).toFixed(1)}% from its call level${a.warrant.S ? ` (underlying ${a.warrant.S}, call ${a.warrant.call})` : ''}`),
+        ...expiring.map(a => `${a.name} ${a.warrant.days >= 0 ? `expires in ${a.warrant.days} days` : 'has expired'}${a.warrant.intrinsic !== null ? `; intrinsic value ${a.warrant.intrinsic.toFixed(3)} vs price ${a.warrant.W.toFixed(3)} per unit` : ''}`)
+      ];
+      add({
+        id: 'warrants', priority: nearCall.length || expiring.length ? 'high' : 'medium', area: 'Investing',
+        title: nearCall.length ? 'A CBBC is close to being called' : expiring.length ? 'Warrants are close to expiry' : 'Leveraged products are a large slice of your investments',
+        finding: `${lines.length ? lines.join('; ') + '. ' : ''}Warrants and CBBCs are ${pct(warrantPct)} of investments (${hkd(warrants)}); for a ${risk.label.toLowerCase()} profile they are usually kept under ${warrantCap}%.`,
+        actions: [
+          ...(nearCall.length ? ['Decide now whether to sell: once the call level is touched the CBBC ends and you may get little or nothing back'] : []),
+          ...(expiring.length ? ['Time value disappears fastest in the last month: sell, or accept that it may expire worthless'] : []),
+          'Size each position so losing all of it would not hurt your plan',
+          'Prefer warrants with longer expiry and lower gearing; check the issuer\'s implied volatility before buying',
+          'Practise in Simulated Trading first if you are new to leveraged products'
+        ],
+        cta: { label: 'View warrants', tab: 'portfolio' }
+      });
+    }
+  }
+
   // 13. Single-stock concentration
   const biggest = [...(ctx.stocks || [])].sort((a, b) => b.valueHkd - a.valueHkd)[0];
   if (biggest && stocksValue > 20000 && biggest.valueHkd / stocksValue > 0.3 && (ctx.stocks || []).length > 0) {
@@ -459,7 +488,7 @@ export function buildInsights(ctx, now = new Date()) {
       liquid, emergencyMonths, emergencyTargetMonths, netWorth, investable, growthPct, targetGrowth, cryptoPct,
       debtTotal, dti, months, monthlyByCat,
       allocation: [
-        { name: 'Stocks', value: stocksValue }, { name: 'Funds', value: funds }, { name: 'Crypto', value: crypto },
+        { name: 'Stocks', value: stocksValue }, { name: 'Funds', value: funds }, { name: 'Crypto', value: crypto }, { name: 'Warrants & CBBCs', value: warrants },
         { name: 'Bonds', value: bonds }, { name: 'Cash & Deposits', value: liquid }, { name: 'Gold', value: gold },
         { name: 'Property', value: property }, { name: 'Insurance, MPF & Other', value: other }
       ].filter(a => a.value > 0)

@@ -4,7 +4,7 @@ import {
   Send, ShieldCheck, AlertCircle, User, LogOut, Sliders, Target, Compass, CreditCard, PiggyBank,
   RefreshCw, Globe, ArrowUpRight, ArrowDownRight, CheckCircle2, Loader2, AlertTriangle, Bell,
   Download, ShieldAlert, Newspaper, Filter, Search, Zap, ExternalLink, Activity, Edit2, Save,
-  X, ChevronRight, DollarSign, Settings, Sparkles, FlaskConical, Lightbulb, ListChecks, Landmark
+  X, ChevronRight, DollarSign, Settings, Sparkles, FlaskConical, Lightbulb, ListChecks, Landmark, LineChart as LineChartIcon
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -16,7 +16,8 @@ import LiquidGlass from './effects/LiquidGlass';
 import LiquidLogo from './effects/LiquidLogo';
 import LiquidGlassLayer from './effects/LiquidGlassLayer';
 import PaperTrading from './components/PaperTrading';
-import OtherAssets, { assetValueHkd, assetType } from './components/OtherAssets';
+import StockAnalysis from './components/StockAnalysis';
+import OtherAssets, { assetValueHkd, assetType, hkCode, warrantMetrics } from './components/OtherAssets';
 import { buildInsights } from './lib/insights';
 import TransactionComposer, { categoryIcon, nextOccurrence, todayLocal, repeatLabel } from './components/TransactionComposer';
 
@@ -64,6 +65,8 @@ const fetchWithTimeout = async (url, ms = 7000) => {
 const normalizeTicker = (rawSymbol) => {
   const s = String(rawSymbol || '').trim().toUpperCase();
   if (!s) return null;
+  // Hang Seng indices (common warrant / CBBC underlyings)
+  if (['HSI', 'HSCEI', 'HSTECH'].includes(s)) return { symbol: s, isHK: true, quoteCode: `r_hk${s}`, historyCode: null };
   const hk = s.match(/^(\d{1,5})(\.HK)?$/);
   if (hk) {
     const num = String(parseInt(hk[1], 10));
@@ -99,6 +102,8 @@ const fetchLiveStockQuote = async (rawSymbol) => {
           currency: t.isHK ? 'HKD' : (/^[A-Z]{3}$/.test(f[35]) ? f[35] : 'USD'),
           time: f[30] || '',
           historyCode: t.isHK ? t.historyCode : `us${f[2]}`,
+          // P/E from the feed when it looks sane (used to pre-fill the valuation calculator)
+          pe: (() => { const v = parseFloat(f[39]); return v > 0 && v < 2000 ? v : null; })(),
           source: 'Tencent Securities'
         };
       }
@@ -160,7 +165,7 @@ const searchMarketSymbols = (query) => new Promise((resolve) => {
       raw.split('^').forEach(entry => {
         const [market, code, name, , type] = entry.split('~');
         if (!code || !['hk', 'us'].includes(market)) return;
-        if (type && !/^(GP|ETF)/.test(type)) return;
+        if (type && !/^(GP|ETF|QZ|NX|WL)/.test(type)) return; // stocks, ETFs, warrants (QZ), CBBCs (NX)
         const t = normalizeTicker(market === 'hk' ? code : code.split('.')[0]);
         if (!t || seen.has(t.symbol) || /^8\d{4}\.HK$/.test(t.symbol)) return;
         seen.add(t.symbol);
@@ -186,6 +191,23 @@ const fetchPriceHistory = async (historyCode, days = 30) => {
     const node = json?.data?.[historyCode] || {};
     const rows = node.qfqday || node.day || [];
     return rows.map(r => ({ date: r[0], close: parseFloat(r[2]) })).filter(r => r.close > 0);
+  } catch (err) {
+    return [];
+  }
+};
+
+// Daily OHLCV (open, high, low, close, volume), oldest first, for the Stock Analysis view
+const fetchOhlcHistory = async (historyCode, days = 520) => {
+  if (!historyCode) return [];
+  try {
+    const res = await fetchWithTimeout(`https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${historyCode},day,,,${days},qfq`, 9000);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const node = json?.data?.[historyCode] || {};
+    const rows = node.qfqday || node.day || [];
+    // Tencent row: [date, open, close, high, low, volume, ...]
+    return rows.map(r => ({ date: r[0], open: parseFloat(r[1]), close: parseFloat(r[2]), high: parseFloat(r[3]), low: parseFloat(r[4]), volume: parseFloat(r[5]) || 0 }))
+      .filter(r => r.close > 0 && r.high > 0 && r.low > 0);
   } catch (err) {
     return [];
   }
@@ -371,7 +393,7 @@ const CATEGORY_COLORS = {
   'Refund': '#bef264',
   // Other asset types (Investments page)
   'Bond': '#a78bfa', 'Crypto': '#f7931a', 'Cash & Deposits': '#34d399', 'Fund': '#38bdf8', 'Gold & Metals': '#facc15',
-  'Property': '#fb7185', 'Insurance Savings': '#818cf8', 'MPF Balance': '#2dd4bf'
+  'Property': '#fb7185', 'Insurance Savings': '#818cf8', 'MPF Balance': '#2dd4bf', 'Warrants & CBBCs': '#f43f5e'
 };
 
 // Palette for charts whose items are not categories (payment methods, asset classes...)
@@ -380,7 +402,7 @@ const GLASS_PANEL_SELECTOR = '.afa-content [class~="bg-[#161b22]"]:not(.absolute
 
 const ALLOCATION_COLORS = {
   'Stocks': '#00f2fe', 'Funds': '#38bdf8', 'Crypto': '#f7931a', 'Bonds': '#a78bfa', 'Cash & Deposits': '#34d399',
-  'Gold': '#facc15', 'Property': '#fb7185', 'Insurance, MPF & Other': '#94a3b8'
+  'Gold': '#facc15', 'Property': '#fb7185', 'Insurance, MPF & Other': '#94a3b8', 'Warrants & CBBCs': '#f43f5e'
 };
 
 const CHART_PALETTE = ['#00f2fe', '#8b5cf6', '#ff4fd8', '#2dd4bf', '#ffd166', '#4f8cff', '#ff6b8b', '#a3e635', '#c084fc', '#38bdf8'];
@@ -570,11 +592,14 @@ export default function App() {
   // Investments page: real holdings or the simulated (paper) trading account
   const [portfolioView, setPortfolioView] = useState('real');
   const [showAllRecs, setShowAllRecs] = useState(false);
+  const [analysisSymbol, setAnalysisSymbol] = useState('0700.HK');
+  const [tradePreset, setTradePreset] = useState(null); // { symbol, at } handed from Stock Analysis to the simulator
   const [paperAccount, setPaperAccount] = useState(null);
   // Other assets (bonds, crypto, deposits, gold, property...) + live crypto prices in HKD
   const [otherAssets, setOtherAssets] = useState([]);
   const [cryptoPrices, setCryptoPrices] = useState({});
   const [cryptoStatus, setCryptoStatus] = useState('idle');
+  const [warrantQuotes, setWarrantQuotes] = useState({}); // live prices of warrant/CBBC codes and their underlyings
   const [marketFeedDown, setMarketFeedDown] = useState(false);
 
   // Live market search (top search bar)
@@ -895,6 +920,22 @@ export default function App() {
     const timer = setInterval(() => { if (!document.hidden) fetchCryptoPrices(ids); }, 60000);
     return () => clearInterval(timer);
   }, [user, coinKey]);
+
+  // Live prices for warrants / CBBCs and their underlyings (same HK feed as stocks), every 60 s
+  const warrantKey = useMemo(() => [...new Set(otherAssets.filter(a => a.type === 'warrant').flatMap(a => [a.code, a.underlying]).filter(Boolean).map(hkCode))].sort().join(','), [otherAssets]);
+  useEffect(() => {
+    if (!user || !warrantKey) return undefined;
+    const codes = warrantKey.split(',');
+    const load = async () => {
+      const got = await Promise.all(codes.map(c => fetchLiveStockQuote(c)));
+      const next = {};
+      got.forEach((q, i) => { if (q?.price) next[codes[i]] = q; });
+      setWarrantQuotes(prev => ({ ...prev, ...next }));
+    };
+    load();
+    const timer = setInterval(() => { if (!document.hidden) load(); }, 60000);
+    return () => clearInterval(timer);
+  }, [user, warrantKey]);
 
   const assetsPath = (id) => doc(db, 'artifacts', typeof __app_id !== 'undefined' ? __app_id : 'afa-default', 'users', user.uid, 'assets', id);
   const handleAddAsset = async (data) => { if (user) await addDoc(getCollectionPath(user.uid, 'assets'), data); };
@@ -1709,7 +1750,11 @@ export default function App() {
 
   // --- COMPLETE BALANCE SHEET: ledger cash + stocks + other assets − debts ---
   const liquidCash = useMemo(() => accountBalances.filter(a => ['Bank Account', 'Cash', 'Octopus'].includes(a.name)).reduce((sum, a) => sum + Math.max(0, a.value), 0), [accountBalances]);
-  const otherAssetsValued = useMemo(() => otherAssets.map(a => ({ ...a, valueHkd: assetValueHkd(a, cryptoPrices, DEFAULT_USD_HKD_RATE) })), [otherAssets, cryptoPrices]);
+  const otherAssetsValued = useMemo(() => otherAssets.map(a => ({
+    ...a,
+    valueHkd: assetValueHkd(a, cryptoPrices, DEFAULT_USD_HKD_RATE, warrantQuotes),
+    ...(a.type === 'warrant' ? { warrant: warrantMetrics(a, warrantQuotes) } : {})
+  })), [otherAssets, cryptoPrices, warrantQuotes]);
   const otherAssetsTotal = useMemo(() => otherAssetsValued.reduce((sum, a) => sum + a.valueHkd, 0), [otherAssetsValued]);
   const creditCardOwed = Math.max(0, -(accountBalances.find(a => a.name === 'Credit Card')?.value || 0));
   const netWorth = liquidCash + portfolioTotalValue + otherAssetsTotal - debtAmount - creditCardOwed;
@@ -3279,18 +3324,24 @@ ${JSON.stringify(snapshot)}`;
               <div className="space-y-6 anim-slide-in">
                 {/* Real portfolio or simulated trading */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex p-1 rounded-2xl bg-[#161b22] border border-slate-800/80 self-start">
-                    {[['real', 'My Assets', Wallet], ['simulation', 'Simulated Trading', FlaskConical]].map(([id, label, Icon]) => (
+                  <div className="flex flex-wrap p-1 rounded-2xl bg-[#161b22] border border-slate-800/80 self-start">
+                    {[['real', 'My Assets', Wallet], ['simulation', 'Simulated Trading', FlaskConical], ['analysis', 'Stock Analysis', LineChartIcon], ['news', 'Market News', Newspaper]].map(([id, label, Icon]) => (
                       <button key={id} onClick={() => setPortfolioView(id)} className={`px-4 py-2 rounded-xl text-xs font-bold tracking-wide flex items-center gap-2 cursor-pointer transition-all ${portfolioView === id ? 'bg-[#00f2fe] text-[#0d1117]' : 'text-slate-400 hover:text-white'}`}>
                         <Icon className="w-3.5 h-3.5" /> {label}
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] text-slate-500">{portfolioView === 'real' ? 'Your real holdings and other assets, with live prices.' : 'Virtual money only. Your real assets are not affected.'}</p>
+                  <p className="text-[11px] text-slate-500">{portfolioView === 'real' ? 'Your real holdings and other assets, with live prices.' : portfolioView === 'analysis' ? 'Indicators, risk statistics and valuation for any HK or US stock.' : portfolioView === 'news' ? 'Live headlines; stories about your holdings are tagged.' : 'Virtual money only. Your real assets are not affected.'}</p>
                 </div>
 
                 {portfolioView === 'simulation' && (
-                  <PaperTrading account={paperAccount} onChange={handleSavePaperAccount} fetchQuote={fetchLiveStockQuote} searchSymbols={searchMarketSymbols} usdHkd={DEFAULT_USD_HKD_RATE} />
+                  <PaperTrading account={paperAccount} onChange={handleSavePaperAccount} fetchQuote={fetchLiveStockQuote} searchSymbols={searchMarketSymbols} usdHkd={DEFAULT_USD_HKD_RATE}
+                    presetSymbol={tradePreset} onAnalyse={(sym) => { setAnalysisSymbol(sym); setPortfolioView('analysis'); }} />
+                )}
+
+                {portfolioView === 'analysis' && (
+                  <StockAnalysis initialSymbol={analysisSymbol} fetchQuote={fetchLiveStockQuote} fetchHistory={fetchOhlcHistory} searchSymbols={searchMarketSymbols}
+                    onTrade={(sym) => { setTradePreset({ symbol: sym, at: Date.now() }); setPortfolioView('simulation'); }} />
                 )}
 
                 {portfolioView === 'real' && (<>
@@ -3444,6 +3495,7 @@ ${JSON.stringify(snapshot)}`;
                   assets={otherAssets}
                   cryptoPrices={cryptoPrices}
                   cryptoStatus={cryptoStatus}
+                  quotes={warrantQuotes}
                   usdHkd={DEFAULT_USD_HKD_RATE}
                   onAdd={handleAddAsset}
                   onUpdate={handleUpdateAsset}
@@ -3510,7 +3562,8 @@ ${JSON.stringify(snapshot)}`;
 
                 </>)}
 
-                {/* LIVE MARKET NEWS */}
+                {/* LIVE MARKET NEWS (4th tab) */}
+                {portfolioView === 'news' && (
                 <div className="bg-[#161b22] p-6 rounded-3xl border border-slate-800/80 shadow-md space-y-6">
                   
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
@@ -3578,6 +3631,7 @@ ${JSON.stringify(snapshot)}`;
                   </div>
 
                 </div>
+                )}
 
               </div>
             )}

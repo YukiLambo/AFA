@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Loader2, RefreshCw, RotateCcw, TrendingUp, TrendingDown, History, FlaskConical, X } from 'lucide-react';
+import { Search, Loader2, RefreshCw, RotateCcw, TrendingUp, TrendingDown, History, FlaskConical, X, Zap, AlertTriangle } from 'lucide-react';
 
 // Simulated ("paper") trading account. Users practise with virtual cash at live HK/US prices; nothing
 // here touches their real holdings. The whole account is one object, saved by the parent via onChange:
@@ -11,6 +11,18 @@ const STARTING_OPTIONS = [100000, 500000, 1000000];
 const MAX_TRADES_KEPT = 300;
 const REFRESH_MS = 30000;
 
+// HKEX code ranges: derivative warrants 10000–29999 and 89000–89999, CBBCs 47000–48999 and 50000–69999.
+// The name is checked too (call/put, bull/bear in English or Chinese).
+export function instrumentKind(symbol = '', name = '') {
+  const m = String(symbol).match(/^(\d{4,5})\.HK$/);
+  const n = m ? parseInt(m[1], 10) : 0;
+  const nm = String(name).toLowerCase();
+  if ((n >= 47000 && n <= 48999) || (n >= 50000 && n <= 69999) || /\b(bull|bear)\b|牛|熊/.test(nm)) return 'cbbc';
+  if ((n >= 10000 && n <= 29999) || (n >= 89000 && n <= 89999) || /\b(call|put)\b|认购|认沽|購|沽/.test(nm)) return 'warrant';
+  return 'stock';
+}
+const KIND_LABEL = { warrant: 'Warrant', cbbc: 'CBBC' };
+
 export const newPaperAccount = (startingCash = 1000000) => ({
   startingCash, cash: startingCash, realizedPnl: 0, holdings: [], trades: [], createdAt: new Date().toISOString()
 });
@@ -19,7 +31,7 @@ const hkd = (n, d = 2) => `HK$${Number(n || 0).toLocaleString('en-HK', { minimum
 const px = (n, cur) => `${cur === 'USD' ? 'US$' : 'HK$'}${Number(n || 0).toLocaleString('en-HK', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
 const signed = (n) => `${n >= 0 ? '+' : '−'}${hkd(Math.abs(n))}`;
 
-export default function PaperTrading({ account, onChange, fetchQuote, searchSymbols, usdHkd }) {
+export default function PaperTrading({ account, onChange, fetchQuote, searchSymbols, usdHkd, presetSymbol, onAnalyse }) {
   const fx = (cur) => (cur === 'USD' ? usdHkd : 1);
   const [quotes, setQuotes] = useState({});
   const [refreshing, setRefreshing] = useState(false);
@@ -63,6 +75,11 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
     setSearching(true);
     const t = setTimeout(async () => {
       const found = await searchSymbols(q);
+      // Typing a code (e.g. a 5-digit warrant or CBBC) always offers it directly
+      if (/^\d{1,5}$/.test(q)) {
+        const code = `${String(parseInt(q, 10)).padStart(4, '0')}.HK`;
+        if (!found.some(f => f.symbol === code)) found.unshift({ symbol: code, name: instrumentKind(code) === 'stock' ? 'HK code' : `HK ${KIND_LABEL[instrumentKind(code)]}` });
+      }
       if (!cancelled) { setMatches(found.slice(0, 6)); setSearching(false); }
     }, 350);
     return () => { cancelled = true; clearTimeout(t); };
@@ -80,6 +97,9 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
     setQuotes(prev => ({ ...prev, [q.symbol]: q }));
     setShares('');
   };
+
+  // Opened from Stock Analysis with a symbol ready to trade
+  useEffect(() => { if (presetSymbol?.symbol && account) pick(presetSymbol.symbol); }, [presetSymbol]);
 
   const rows = useMemo(() => (account?.holdings || []).map(h => {
     const q = quotes[h.symbol];
@@ -113,6 +133,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
   const totalReturn = equity - account.startingCash;
   const totalReturnPct = (totalReturn / account.startingCash) * 100;
   const unrealized = rows.reduce((s, r) => s + r.pnl, 0);
+  const leveraged = rows.filter(r => instrumentKind(r.symbol, r.name) !== 'stock').reduce((s, r) => s + r.value, 0);
 
   const held = selected ? account.holdings.find(h => h.symbol === selected.symbol) : null;
   const qty = Math.floor(Number(shares) || 0);
@@ -207,6 +228,13 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
         </div>
       </div>
 
+      {equity > 0 && leveraged / equity > 0.2 && (
+        <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs text-rose-300 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{((leveraged / equity) * 100).toFixed(0)}% of your simulated account is in warrants/CBBCs. Real investors usually keep leveraged products to a small slice, because a few bad days can wipe them out.</span>
+        </div>
+      )}
+
       {/* Order ticket */}
       <div className={card}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
@@ -230,13 +258,13 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
 
         <div className="relative">
           <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search a stock to trade: 700, AAPL, tencent, 2800…" className="w-full pl-9 pr-9 py-2.5 glass-input rounded-xl text-sm text-white" aria-label="Search stock to simulate" />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search a stock, ETF, warrant or CBBC: 700, AAPL, tencent, or a 5-digit warrant code…" className="w-full pl-9 pr-9 py-2.5 glass-input rounded-xl text-sm text-white" aria-label="Search stock to simulate" />
           {searching && <Loader2 className="w-4 h-4 text-slate-500 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />}
           {matches.length > 0 && (
             <div className="absolute z-20 mt-1 w-full bg-[#0d1117] border border-slate-700 rounded-xl overflow-hidden shadow-xl">
               {matches.map(m => (
                 <button key={m.symbol} onClick={() => pick(m.symbol)} className="w-full text-left px-4 py-2.5 hover:bg-white/5 flex justify-between gap-3 cursor-pointer">
-                  <span className="text-sm font-bold text-white">{m.symbol}</span>
+                  <span className="text-sm font-bold text-white flex items-center gap-1.5">{m.symbol}{instrumentKind(m.symbol, m.name) !== 'stock' && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">{KIND_LABEL[instrumentKind(m.symbol, m.name)]}</span>}</span>
                   <span className="text-xs text-slate-400 truncate">{m.name}</span>
                 </button>
               ))}
@@ -250,12 +278,23 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
               <div className="min-w-0">
                 <div className="text-lg font-black text-white">{selected.symbol}</div>
                 <div className="text-xs text-slate-400 truncate">{selected.name}</div>
+                {instrumentKind(selected.symbol, selected.name) !== 'stock' && (
+                  <div className="mt-2 text-[10px] text-rose-300 flex gap-1.5 leading-relaxed">
+                    <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{instrumentKind(selected.symbol, selected.name) === 'cbbc'
+                      ? 'CBBC: leveraged, and terminated early if the underlying touches the call level. You can lose most or all of it.'
+                      : 'Warrant: leveraged, loses time value every day and can expire worthless.'} Simulated orders trade at the live price; real warrants trade in board lots.</span>
+                  </div>
+                )}
                 {held && <div className="text-[11px] text-[#00f2fe] mt-2">You hold {held.shares.toLocaleString()} @ {px(held.avgCost, held.currency)}</div>}
               </div>
               <div className="text-right shrink-0">
                 <div className="text-xl font-bold text-white font-mono">{px(selected.price, selected.currency)}</div>
                 <div className={`text-xs font-mono ${selected.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{selected.changePct >= 0 ? '+' : ''}{Number(selected.changePct || 0).toFixed(2)}% today</div>
-                <button onClick={() => setSelected(null)} className="mt-2 text-[10px] text-slate-500 hover:text-white inline-flex items-center gap-1 cursor-pointer"><X className="w-3 h-3" /> Close</button>
+                <div className="mt-2 flex justify-end gap-3">
+                  {onAnalyse && <button onClick={() => onAnalyse(selected.symbol)} className="text-[10px] text-[#00f2fe] hover:underline cursor-pointer">Analyse</button>}
+                  <button onClick={() => setSelected(null)} className="text-[10px] text-slate-500 hover:text-white inline-flex items-center gap-1 cursor-pointer"><X className="w-3 h-3" /> Close</button>
+                </div>
               </div>
             </div>
             <div className="p-4 rounded-xl bg-[#0d1117] border border-slate-800 space-y-3">
@@ -306,7 +345,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
               {rows.length === 0 && <tr><td colSpan="7" className="py-8 text-center text-xs text-slate-500">No simulated positions yet. Search a stock above and place your first order.</td></tr>}
               {rows.map(r => (
                 <tr key={r.symbol} className="hover:bg-slate-800/20">
-                  <td className="py-3 px-5"><div className="font-bold text-white">{r.symbol}</div><div className="text-[11px] text-slate-500 truncate max-w-[180px]">{r.name}</div></td>
+                  <td className="py-3 px-5"><div className="font-bold text-white flex items-center gap-1.5">{r.symbol}{instrumentKind(r.symbol, r.name) !== 'stock' && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">{KIND_LABEL[instrumentKind(r.symbol, r.name)]}</span>}</div><div className="text-[11px] text-slate-500 truncate max-w-[180px]">{r.name}</div></td>
                   <td className="py-3 px-5 text-right font-mono">{r.shares.toLocaleString()}</td>
                   <td className="py-3 px-5 text-right font-mono text-slate-400">{px(r.avgCost, r.currency)}</td>
                   <td className="py-3 px-5 text-right font-mono text-white">{px(r.price, r.currency)}{r.dayPct !== undefined && <span className={`block text-[10px] ${r.dayPct >= 0 ? 'text-emerald-400/80' : 'text-rose-400/80'}`}>{r.dayPct >= 0 ? '+' : ''}{Number(r.dayPct).toFixed(2)}% today</span>}</td>
