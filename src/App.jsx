@@ -25,6 +25,7 @@ import TransactionComposer, { categoryIcon, nextOccurrence, todayLocal, repeatLa
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import IntroLanding from './components/IntroLanding';
 
 const firebaseConfig = {
   apiKey: "AIzaSyArZZDniGw4tromow4bVLj2efh8NJWYieE",
@@ -856,11 +857,7 @@ export default function App() {
     };
   }, [user]);
 
-  // Splash Screen Delay
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2800);
-    return () => clearTimeout(timer);
-  }, []);
+  // The entry screen stays until the visitor presses "Get started" (see IntroLanding)
 
   // --- LIVE MARKET PRICES: fetched for every holding, automatically, every 30 seconds ---
   const refreshQuotes = async ({ persist = false } = {}) => {
@@ -2256,22 +2253,8 @@ ${JSON.stringify(snapshot)}`;
       {/* Ambient Lights */}
       <div className="fixed top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-[#00f2fe]/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
 
-      {/* SPLASH SCREEN */}
-      {showSplash && (
-        <div className="fixed inset-0 z-50 bg-[#0a0a0a] flex flex-col items-center justify-center p-6 transition-opacity duration-1000">
-          <div className="relative flex items-center justify-center mb-10">
-            <AppIcon className="w-28 h-28 drop-shadow-[0_0_35px_rgba(0,242,254,0.4)]" animateStroke={true} />
-          </div>
-          <div translate="no" className="notranslate flex text-4xl sm:text-5xl font-black tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-white via-cyan-100 to-cyan-400">
-             <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards', opacity: 0 }}>A.</span>
-             <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards', opacity: 0 }}>F.</span>
-             <span style={{ animation: 'fadeUpStagger 1s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards', opacity: 0 }}>A.</span>
-          </div>
-          <p style={{ animation: 'fadeUpStagger 1s ease-out 1.3s forwards', opacity: 0 }} className="text-xs text-cyan-400/70 font-mono tracking-widest mt-5 uppercase text-center leading-relaxed">
-            Automated Financial Assistant
-          </p>
-        </div>
-      )}
+      {/* ENTRY SCREEN: coin minting animation, with Overview / Why A.F.A. / Features pages */}
+      {showSplash && <IntroLanding onEnter={() => setShowSplash(false)} />}
 
       {/* AUTHENTICATION & REGISTRATION */}
       {!authLoading && !user && !showSplash && (
