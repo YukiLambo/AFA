@@ -2,11 +2,24 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Cell, ReferenceLine, ReferenceArea } from 'recharts';
 import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
 import { aggregateNews, companySearchName } from '../lib/newsSentiment';
-import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan } from '../lib/indicators';
+import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan, valuationRange, impliedGrowth, dcfValue, pegFairPe, backtestSignals, STUDY_RESULTS, STUDY2, signalSeries, adxSeries, ichimokuSeries, supertrendSeries, stochasticSeries, obvSeries, fibonacciLevels, detectPatterns, ema, macd, rsi } from '../lib/indicators';
 
 // Stock analysis for the simulator: live quote, risk statistics, five technical indicators with a
 // combined score, a candlestick chart with moving averages / Bollinger bands / a statistical projection,
 // and a valuation calculator (P/E, earnings DCF, dividend discount, Graham). Educational only.
+
+// Sector presets for the valuation calculator (typical long-run assumptions, editable)
+const PRESETS = {
+  tech: { label: 'Tech / internet', growthPct: 12, discountPct: 10, terminalPe: 18, divGrowthPct: 5 },
+  consumer: { label: 'Consumer', growthPct: 8, discountPct: 9, terminalPe: 16, divGrowthPct: 4 },
+  financial: { label: 'Banks & insurance', growthPct: 5, discountPct: 9, terminalPe: 10, divGrowthPct: 3 },
+  utility: { label: 'Utilities & REITs', growthPct: 3, discountPct: 7, terminalPe: 14, divGrowthPct: 2 },
+  property: { label: 'Property', growthPct: 2, discountPct: 10, terminalPe: 8, divGrowthPct: 1 },
+  energy: { label: 'Energy & materials', growthPct: 4, discountPct: 10, terminalPe: 10, divGrowthPct: 2 },
+  industrial: { label: 'Industrials', growthPct: 6, discountPct: 9, terminalPe: 13, divGrowthPct: 3 }
+};
+// What the real-market study found for each indicator (see STUDY_RESULTS in lib/indicators.js)
+const EVIDENCE = { ma: ['No edge found', 'slate'], macd: ['No edge found', 'slate'], kd: ['Small contrarian edge', 'teal'], rsi: ['Small contrarian edge', 'teal'], bb: ['Small contrarian edge', 'teal'] };
 
 const MAS = [
   { n: 5, color: '#ffd166' }, { n: 20, color: '#fb923c' }, { n: 60, color: '#34d399' },
@@ -58,7 +71,7 @@ function nextTradingDays(lastDate, n) {
   return out;
 }
 
-export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, fetchHistory, searchSymbols, onTrade, watchlist = [], onWatchlistChange, fetchNews, generalNews = [] }) {
+export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, fetchHistory, searchSymbols, onTrade, watchlist = [], onWatchlistChange, fetchNews, generalNews = [], portfolioValue = 0 }) {
   const [symbol, setSymbol] = useState(initialSymbol);
   useEffect(() => { if (initialSymbol) setSymbol(initialSymbol); }, [initialSymbol]);
   const [quote, setQuote] = useState(null);
@@ -72,11 +85,14 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
   const [shownMas, setShownMas] = useState({ 5: true, 20: true, 60: true, 120: false, 240: false });
   const [showBands, setShowBands] = useState(true);
   const [showForecast, setShowForecast] = useState(true);
+  const [overlay, setOverlay] = useState({ fib: false, supertrend: false, cloud: false });
   const [showPlan, setShowPlan] = useState(true);
   const [planLevels, setPlanLevels] = useState(null);
   const [news, setNews] = useState({ status: 'idle', items: [] });
   const [watchQuotes, setWatchQuotes] = useState({});
-  const [val, setVal] = useState({ eps: '', growthPct: 8, discountPct: 9, terminalPe: 15, fairPe: 15, dps: '', divGrowthPct: 3 });
+  const [val, setVal] = useState({ eps: '', growthPct: 8, discountPct: 9, terminalPe: 16, fairPe: pegFairPe(8), fairPeAuto: true, dps: '', divGrowthPct: 4, preset: 'consumer' });
+  const [riskPct, setRiskPct] = useState(1);
+  const [sizeBase, setSizeBase] = useState('');
 
   // Load quote + ~2 years of daily candles
   useEffect(() => {
@@ -88,7 +104,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
       if (!q) { setQuote(null); setRows([]); setStatus('error'); return; }
       setQuote(q);
       setVal(v => ({ ...v, eps: q.pe ? (q.price / q.pe).toFixed(2) : '', dps: '' }));
-      const hist = await fetchHistory(q.historyCode, 520);
+      const hist = await fetchHistory(q.historyCode, 1000);
       if (cancelled) return;
       setRows(hist);
       setStatus(hist.length >= 35 ? 'ok' : 'nodata');
@@ -161,7 +177,18 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
       r1m: periodReturn(closes, 21), r3m: periodReturn(closes, 63), r1y: periodReturn(closes, 252),
       vol: annualVolatility(closes), sharpe: sharpe(closes), mdd: maxDrawdown(closes.slice(-252)),
       forecast: holtForecast(closes, 20),
-      review: technicalReview(rows)
+      review: technicalReview(rows),
+      track: backtestSignals(rows),
+      // Extended indicator set (lib/indicators.js) for the indicator table, patterns and chart overlays
+      series: signalSeries(rows),
+      adx: adxSeries(rows),
+      ichimoku: ichimokuSeries(rows),
+      supertrend: supertrendSeries(rows),
+      stoch: stochasticSeries(rows),
+      obv: obvSeries(rows),
+      fib: fibonacciLevels(rows),
+      patterns: detectPatterns(rows, 5),
+      ema12: ema(closes, 12), ema26: ema(closes, 26), macd: macd(closes), rsi14: rsi(closes)
     };
   }, [rows]);
 
@@ -173,6 +200,9 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
       const row = { date: r.date, open: r.open, high: r.high, low: r.low, close: r.close, volume: r.volume, wick: [r.low, r.high] };
       MAS.forEach(m => { row[`ma${m.n}`] = analysis.mas[m.n][i]; });
       if (analysis.bb.upper[i] !== null) { row.band = [analysis.bb.lower[i], analysis.bb.upper[i]]; row.bbUpper = analysis.bb.upper[i]; row.bbLower = analysis.bb.lower[i]; }
+      if (analysis.supertrend.line[i] !== null) row[analysis.supertrend.dir[i] > 0 ? 'stUp' : 'stDn'] = analysis.supertrend.line[i];
+      const sa = analysis.ichimoku.spanA[i], sb = analysis.ichimoku.spanB[i];
+      if (sa !== null && sb !== null) row.cloud = [Math.min(sa, sb), Math.max(sa, sb)];
       return row;
     });
     if (showForecast && analysis.forecast) {
@@ -197,15 +227,30 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
     return [Math.max(0, lo - pad), hi + pad];
   }, [chartData, showBands, showPlan, planLevels]);
 
-  const valuation = useMemo(() => valuationModels({
+  const valInputs = useMemo(() => ({
     eps: Number(val.eps) || 0, growthPct: Number(val.growthPct) || 0, discountPct: Number(val.discountPct) || 0,
     terminalPe: Number(val.terminalPe) || 0, fairPe: Number(val.fairPe) || 0, dps: Number(val.dps) || 0, divGrowthPct: Number(val.divGrowthPct) || 0
   }), [val]);
+  const valuation = useMemo(() => valuationModels(valInputs), [valInputs]);
+  const fairRange = useMemo(() => valuationRange(valInputs), [valInputs]);
+  const setValField = (k, v) => setVal(prev => {
+    const next = { ...prev, [k]: v };
+    if (k === 'fairPe') next.fairPeAuto = false;
+    if (k === 'growthPct' && prev.fairPeAuto) next.fairPe = pegFairPe(Number(v) || 0);
+    return next;
+  });
+  const applyPreset = (key) => setVal(prev => ({ ...prev, ...PRESETS[key], preset: key, fairPe: pegFairPe(PRESETS[key].growthPct), fairPeAuto: true }));
 
   const price = quote?.price;
   // Buy / hold / sell plan from indicators + valuation + volatility (see tradePlan in lib/indicators.js)
   const newsSummary = useMemo(() => aggregateNews(news.items), [news.items]);
-  const plan = useMemo(() => (analysis && quote ? tradePlan({ rows, price: quote.price, fair: valuation.fair, review: analysis.review, forecast: analysis.forecast, news: news.status === 'ok' ? newsSummary : null }) : null), [analysis, rows, quote, valuation.fair, newsSummary, news.status]);
+  const plan = useMemo(() => (analysis && quote ? tradePlan({
+    rows, price: quote.price, fairRange, review: analysis.review, forecast: analysis.forecast,
+    news: news.status === 'ok' ? newsSummary : null,
+    // The stock's own track record nudges the timing / strength weights once there are enough past samples
+    weights: analysis.track && analysis.track.n >= 100 ? analysis.track.weights : null
+  }) : null), [analysis, rows, quote, fairRange, newsSummary, news.status]);
+  const implied = quote && valInputs.eps > 0 ? impliedGrowth(quote.price, valInputs.eps, valInputs.discountPct, valInputs.terminalPe) : null;
   const inWatchlist = quote ? watchlist.some(w => w.symbol === quote.symbol) : false;
   const toggleWatch = () => {
     if (!quote || !onWatchlistChange) return;
@@ -214,6 +259,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
   useEffect(() => { setPlanLevels(plan ? [plan.stop, plan.target, plan.entryLow] : null); }, [plan]);
   const cur = quote?.currency === 'USD' ? 'US$' : 'HK$';
   const mos = valuation.fair && price ? (valuation.fair - price) / valuation.fair : null;
+  const sizingBase = Number(sizeBase) || portfolioValue || 0;
   const lastRow = rows[rows.length - 1];
   const card = 'bg-[#161b22] p-4 rounded-2xl border border-slate-800/80 shadow-md';
   const label = 'text-[10px] font-mono uppercase text-slate-500';
@@ -357,17 +403,17 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
             const scale = ['Sell', 'Reduce', 'Hold', 'Accumulate', 'Buy'];
             const p2 = (v) => `${cur}${fmt(v, v < 1 ? 3 : 2)}`;
             const explain = {
-              Buy: `Indicators, valuation, momentum and news line up. Buy in the entry zone; protect the position with the stop-loss.`,
+              Buy: `Timing, relative strength, valuation and news line up. Buy in the entry zone; protect the position with the stop-loss.`,
               Accumulate: `Leaning positive. Build a position gradually, ideally on dips into the entry zone rather than chasing.`,
               Hold: `Mixed signals. Holders can keep the position with the stop-loss in place; new buyers can wait for a better entry.`,
               Reduce: `Leaning negative. Consider trimming into strength near resistance and tightening the stop-loss.`,
-              Sell: `Indicators, valuation, momentum and news point down. Holders should consider selling; avoid new buying.`
+              Sell: `Timing, relative strength, valuation and news point down. Holders should consider selling; avoid new buying.`
             }[plan.signal];
             return (
               <div className={card}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                   <h4 className="text-sm font-bold text-white flex items-center gap-2"><Crosshair className="w-4 h-4 text-[#00f2fe]" /> Trade plan · buy, hold or sell</h4>
-                  <span className="text-[10px] text-slate-500">Technical 35% · valuation 35% · 3-month momentum 15% · company news 15% · 60-trading-day horizon</span>
+                  <span className="text-[10px] text-slate-500">Timing 35% · relative strength 15% · valuation 30% · company news 20% · weights from a real-market test · 60-trading-day horizon</span>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
                   <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800 flex flex-col justify-between">
@@ -395,9 +441,9 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                           <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> Serious news ({plan.severeNews[0].words.join(', ')}) in the last two weeks: buy signals are switched off until it clears.
                         </div>
                       )}
-                      {[['Technical', plan.parts.tech], ['Valuation', valuation.fair ? plan.parts.val : null], ['Momentum', plan.parts.momentum], ['News', plan.parts.news]].map(([k, v]) => (
-                        <div key={k} className="flex items-center gap-2">
-                          <span className="w-16 text-slate-500">{k}</span>
+                      {[['Timing', plan.parts.timing, plan.weightsUsed.timing], ['Strength', plan.parts.strength, plan.weightsUsed.strength], ['Valuation', plan.parts.val, plan.weightsUsed.val], ['News', plan.parts.news, plan.weightsUsed.news]].map(([k, v, wt]) => (
+                        <div key={k} className="flex items-center gap-2" title={`${k} carries ${Math.round((wt || 0) * 100)}% of the rating`}>
+                          <span className="w-16 text-slate-500">{k} <span className="text-slate-600">{wt ? `${Math.round(wt * 100)}%` : ''}</span></span>
                           <div className="flex-1 h-1.5 rounded-full bg-slate-800 relative overflow-hidden">
                             {v !== null && <div className="absolute top-0 h-full" style={{ left: v >= 0 ? '50%' : `${50 + v * 50}%`, width: `${Math.abs(v) * 50}%`, backgroundColor: v >= 0 ? GREEN : RED }} />}
                             <div className="absolute left-1/2 top-0 h-full w-px bg-slate-600" />
@@ -405,6 +451,11 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                           <span className="w-10 text-right text-slate-400">{v === null ? 'n/a' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)}`}</span>
                         </div>
                       ))}
+                      {plan.timingParts && plan.timingParts.revAdj !== null && (
+                        <div className="pt-2 mt-1 border-t border-slate-800 text-[9px] leading-relaxed text-slate-500 font-sans">
+                          Timing = buy-the-dip {plan.timingParts.revAdj >= 0 ? '+' : ''}{(plan.timingParts.revAdj * 100).toFixed(0)} (×{plan.timingParts.adx > 25 ? '1.5, ADX strong' : plan.timingParts.adx < 20 ? '0.6, ADX weak' : '1.0'}) · trend crowd {plan.timingParts.trendCons > 0 ? 'bullish → −' : plan.timingParts.trendCons < 0 ? 'bearish → +' : ''}{Math.abs(plan.timingParts.trendCons * 100).toFixed(0)} · events {plan.timingParts.events > 0 ? '+' : ''}{(plan.timingParts.events * 100).toFixed(0)}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -428,8 +479,24 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                       <div className="flex justify-between items-baseline"><span className="text-slate-400">Take-profit (profit-max)</span><span className="font-mono font-bold text-[#00f2fe]">{p2(plan.target)} <span className="text-[10px] text-slate-500">{pctTxt(plan.target / plan.entry - 1)}</span></span></div>
                       <div className="flex justify-between items-baseline"><span className="text-slate-400">Stop-loss</span><span className="font-mono font-bold text-rose-400">{p2(plan.stop)} <span className="text-[10px] text-slate-500">{pctTxt(plan.stop / plan.entry - 1)}</span></span></div>
                       <div className="flex justify-between items-baseline"><span className="text-slate-400">Reward : risk</span><span className="font-mono text-white">{plan.riskReward ? `${plan.riskReward.toFixed(1)} : 1` : '—'}</span></div>
-                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Chance target is hit first</span><span className="font-mono text-white">{(plan.probTarget * 100).toFixed(0)}%</span></div>
+                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Chance target is hit first</span><span className="font-mono text-white">≈{Math.round(plan.probTarget * 20) * 5}% <span className="text-[10px] text-slate-500">(stop ≈{Math.round(plan.probStop * 20) * 5}%)</span></span></div>
                       <div className="flex justify-between items-baseline"><span className="text-slate-400">Expected profit / share</span><span className={`font-mono font-bold ${plan.evPerShare >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{plan.evPerShare >= 0 ? '+' : '−'}{cur}{fmt(Math.abs(plan.evPerShare))}</span></div>
+                    </div>
+                    {/* Position size: risk a fixed share of the portfolio between entry and stop (how professionals size trades) */}
+                    <div className="mt-3 pt-3 border-t border-slate-800 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-slate-400 flex-wrap">
+                        Risk
+                        <select value={riskPct} onChange={e => setRiskPct(Number(e.target.value))} className="bg-[#161b22] border border-slate-700 rounded px-1 py-0.5 text-white text-[11px]">
+                          {[0.5, 1, 2].map(r => <option key={r} value={r}>{r}%</option>)}
+                        </select>
+                        of
+                        <input type="number" min="0" value={sizeBase} onChange={e => setSizeBase(e.target.value)} placeholder={portfolioValue ? Math.round(portfolioValue).toString() : 'portfolio HK$'} className="w-24 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-white text-[11px] font-mono" />
+                      </div>
+                      {sizingBase > 0 && plan.entry > plan.stop ? (() => {
+                        const fx = quote.currency === 'USD' ? 7.8 : 1;
+                        const shares = Math.floor((sizingBase * riskPct / 100) / ((plan.entry - plan.stop) * fx));
+                        return <div className="mt-1 text-slate-300">→ up to <span className="font-mono font-bold text-white">{shares.toLocaleString()}</span> shares (≈HK${Math.round(shares * plan.entry * fx).toLocaleString()}, {((shares * plan.entry * fx) / sizingBase * 100).toFixed(0)}% of the portfolio); a stop-out loses ≈HK${Math.round(sizingBase * riskPct / 100).toLocaleString()}.</div>;
+                      })() : <div className="mt-1 text-slate-500">Enter your portfolio size to get a position size.</div>}
                     </div>
                   </div>
 
@@ -441,9 +508,9 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                       <div className="h-px bg-slate-800 my-1" />
                       {valuation.fair ? (
                         <>
-                          <div className="flex justify-between items-baseline"><span className="text-slate-400">Buy below (20% margin)</span><span className="font-mono font-bold text-emerald-300">{p2(plan.buyBelow)}</span></div>
-                          <div className="flex justify-between items-baseline"><span className="text-slate-400">Fair value</span><span className="font-mono text-white">{p2(valuation.fair)}</span></div>
-                          <div className="flex justify-between items-baseline"><span className="text-slate-400">Sell above (+20%)</span><span className="font-mono font-bold text-rose-300">{p2(plan.sellAbove)}</span></div>
+                          <div className="flex justify-between items-baseline"><span className="text-slate-400">Buy below (under low case)</span><span className="font-mono font-bold text-emerald-300">{p2(plan.buyBelow)}</span></div>
+                          <div className="flex justify-between items-baseline"><span className="text-slate-400">Fair value range</span><span className="font-mono text-white">{fairRange ? `${p2(fairRange.low)} – ${p2(fairRange.high)}` : p2(valuation.fair)}</span></div>
+                          <div className="flex justify-between items-baseline"><span className="text-slate-400">Sell above (over high case)</span><span className="font-mono font-bold text-rose-300">{p2(plan.sellAbove)}</span></div>
                         </>
                       ) : <p className="text-[11px] text-slate-500">Enter EPS in the valuation calculator below to add valuation-based buy and sell prices.</p>}
                     </div>
@@ -454,8 +521,75 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                 </div>
                 <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
                   How the prices are set: entry zone from the nearest support (swing lows, MA20/MA60, lower Bollinger band) to today's price; stop-loss below support and at least 1.5× the average daily range (ATR) away.
-                  The take-profit is the level that gives the highest expected profit over 60 trading days, using the stock's own volatility and a drift from the trend and the valuation gap. Educational estimate, not investment advice.
+                  The take-profit is the level with the highest expected profit over 60 trading days, counted on {plan.simPaths.toLocaleString()} simulated paths that resample this stock's own past daily moves (so sudden jumps are included). Educational estimate, not investment advice.
                 </p>
+              </div>
+            );
+          })()}
+
+          {/* How much to trust the rating: real-market test + this stock's own record */}
+          {plan && (() => {
+            const st = STUDY_RESULTS;
+            const t = analysis.track;
+            const pc = plan.percentiles;
+            const sign = (v) => (v === null || v === undefined ? '—' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`);
+            return (
+              <div className={card}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2"><Gauge className="w-4 h-4 text-[#00f2fe]" /> How reliable is this rating?</h4>
+                  <span className="text-[10px] text-slate-500">Learned from how {st.universe} actually traded, {st.period}</span>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
+                    <div className={label}>Real-market test of the timing model · next 60 days</div>
+                    <table className="w-full mt-2 text-[11px] font-mono">
+                      <thead><tr className="text-slate-500"><th className="text-left font-normal">Period</th><th className="text-right font-normal">Bullish</th><th className="text-right font-normal">All</th><th className="text-right font-normal">Bearish</th><th className="text-right font-normal">IC</th></tr></thead>
+                      <tbody>
+                        {[['HK 2024–26 (test)', STUDY2.timingModel.test, STUDY2.timingModel.testIC], ['HK 2019–23 (tuning)', STUDY2.timingModel.train, STUDY2.timingModel.trainIC], ['US 2024–26', STUDY2.timingModel.usTest, STUDY2.timingModel.usTestIC], ['US 2019–23', STUDY2.timingModel.usTrain, STUDY2.timingModel.usTrainIC]].map(([k, v, icv]) => (
+                          <tr key={k}>
+                            <td className="text-slate-400 py-0.5 font-sans">{k}</td>
+                            <td className={`text-right ${v.top > v.all ? 'text-emerald-400' : 'text-rose-400'}`}>{v.top > 0 ? '+' : ''}{v.top}%</td>
+                            <td className="text-right text-slate-300">{v.all > 0 ? '+' : ''}{v.all}%</td>
+                            <td className={`text-right ${v.bottom < v.all ? 'text-emerald-400' : 'text-rose-400'}`}>{v.bottom > 0 ? '+' : ''}{v.bottom}%</td>
+                            <td className="text-right text-slate-300">{icv.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Bullish / bearish = timing score ≥ +0.25 / ≤ −0.25. The model worked well in 2024–26 (positive for {STUDY2.timingModel.stocksPositive} HK stocks) but made little difference in 2019–23, so the edge depends on market conditions. The old trend-following rating did the opposite of what it said ({STUDY_RESULTS.oldModel.buyAvg}% after buys vs {STUDY_RESULTS.oldModel.sellAvg}% after sells).</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
+                    <div className={label}>This stock's own record · next 20 days</div>
+                    {t ? (
+                      <>
+                        <div className="mt-2 space-y-1 text-[11px] font-mono">
+                          <div className="flex justify-between"><span className="text-slate-500">Buy-side days ({t.buy.n})</span><span className={t.buy.avgRet >= t.all.avgRet ? 'text-emerald-400' : 'text-rose-400'}>{sign(t.buy.avgRet)}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-500">All days ({t.all.n})</span><span className="text-slate-300">{sign(t.all.avgRet)}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-500">Sell-side days ({t.sell.n})</span><span className={t.sell.n && t.sell.avgRet <= t.all.avgRet ? 'text-emerald-400' : 'text-rose-400'}>{sign(t.sell.n ? t.sell.avgRet : null)}</span></div>
+                          <div className="flex justify-between"><span className="text-slate-500">Rank correlation (timing / strength)</span><span className="text-slate-300">{t.icTiming.toFixed(2)} / {t.icStrength.toFixed(2)}</span></div>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                          {t.edgeBuy > 0.002 ? 'On this stock the signal has helped so far.' : t.edgeBuy < -0.002 ? 'On this stock the signal has not helped so far, so treat the rating with extra caution.' : 'On this stock the signal has made little difference so far.'}
+                          {t.n >= 100 ? ' Timing and strength weights were adjusted (at most ±50%) to this record.' : ' Too few past samples to adjust the weights.'} {t.from} to {t.to}.
+                        </p>
+                      </>
+                    ) : <p className="text-[11px] text-slate-500 mt-2">Needs about 1.5 years of price history.</p>}
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
+                    <div className={label}>Relative strength vs HK blue chips</div>
+                    {pc ? (
+                      <div className="mt-2 space-y-1.5">
+                        {[['Near 52-week high', pc.hi52], ['12-month momentum', pc.mom12_1], ['Above 200-day average', pc.trend200], ['Low volatility', pc.lowvol]].map(([k, v]) => (
+                          <div key={k}>
+                            <div className="flex justify-between text-[10px] font-mono"><span className="text-slate-500">{k}</span><span className="text-slate-300">top {Math.max(1, Math.round((1 - v) * 100))}%</span></div>
+                            <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${v * 100}%`, backgroundColor: v >= 0.6 ? GREEN : v <= 0.4 ? RED : '#94a3b8' }} /></div>
+                          </div>
+                        ))}
+                        <p className="text-[10px] text-slate-500 leading-relaxed pt-1">These four helped pick stronger stocks out of the group in the test (they matter most for choosing what to own).</p>
+                      </div>
+                    ) : <p className="text-[11px] text-slate-500 mt-2">Needs a year of price history.</p>}
+                  </div>
+                </div>
               </div>
             );
           })()}
@@ -497,25 +631,83 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
             )}
           </div>
 
-          {/* Indicator verdicts */}
-          <div className={card}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2"><Gauge className="w-4 h-4 text-[#00f2fe]" /> Technical indicators</h4>
-              <span className="text-[10px] text-slate-500">Each indicator scores −2 to +2; they describe past prices, not future returns.</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
-              {analysis.review.items.map(it => (
-                <div key={it.id} className="p-3 rounded-xl bg-[#0d1117] border border-slate-800">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-white">{it.label}</span>
-                    <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${tone(it.score)}`}>{it.tag}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">{it.note}</p>
-                  <div className="text-[10px] font-mono mt-1 text-slate-500">score {it.score > 0 ? '+' : ''}{it.score}</div>
+          {/* Indicator table: the 10 most popular indicators + common TradingView tools, with what the test found */}
+          {(() => {
+            const i = rows.length - 1, c = analysis.closes, p = price || c[i];
+            const sma = (n) => (c.length >= n ? c.slice(-n).reduce((t, v) => t + v, 0) / n : null);
+            const s50 = sma(50), s200 = sma(200);
+            const A = analysis.adx, ich = analysis.ichimoku, st = analysis.supertrend, sto = analysis.stoch, m = analysis.macd;
+            const cloudTop = Math.max(ich.spanA[i] ?? -Infinity, ich.spanB[i] ?? -Infinity), cloudBot = Math.min(ich.spanA[i] ?? Infinity, ich.spanB[i] ?? Infinity);
+            const obvUp = analysis.obv[i] > analysis.obv[Math.max(0, i - 20)];
+            const fibNear = analysis.fib ? analysis.fib.levels.filter(l => l.ratio > 0 && l.ratio < 1).reduce((a2, l) => (!a2 || Math.abs(l.price - p) < Math.abs(a2.price - p) ? l : a2), null) : null;
+            const bbz = analysis.bb.upper[i] ? (p - analysis.bb.mid[i]) / ((analysis.bb.upper[i] - analysis.bb.mid[i]) / 2) : null;
+            const ic = STUDY2.indicatorIC;
+            const rowsT = [
+              ['SMA 50 / 200', s50 && s200 ? `${fmt(s50)} / ${fmt(s200)}` : '—', s50 && s200 ? (s50 > s200 ? 'Uptrend (golden)' : 'Downtrend (death)') : '—', s50 > s200 ? 1 : -1, ic.golden, 'contra'],
+              ['EMA 12 / 26', `${fmt(analysis.ema12[i])} / ${fmt(analysis.ema26[i])}`, analysis.ema12[i] > analysis.ema26[i] ? 'Fast above slow: bullish' : 'Fast below slow: bearish', analysis.ema12[i] > analysis.ema26[i] ? 1 : -1, ic.emaX, 'contra'],
+              ['MACD (12,26,9)', `${fmt(m.dif[i], 3)} vs ${fmt(m.signal[i], 3)}`, m.dif[i] > m.signal[i] ? 'Above signal: bullish' : 'Below signal: bearish', m.dif[i] > m.signal[i] ? 1 : -1, ic.macdX, 'contra'],
+              ['Fibonacci (120-day swing)', fibNear ? `${(fibNear.ratio * 100).toFixed(1)}% at ${fmt(fibNear.price)}` : '—', fibNear ? `Nearest level ${Math.abs(fibNear.price / p - 1) < 0.01 ? '(price is at it)' : fibNear.price < p ? '(support below)' : '(resistance above)'}` : '—', 0, ic.fibPos, 'levels'],
+              ['Stochastic (14,3)', `%K ${fmt(sto.k[i], 1)} · %D ${fmt(sto.d[i], 1)}`, sto.k[i] < 20 ? 'Oversold (<20)' : sto.k[i] > 80 ? 'Overbought (>80)' : 'Neutral', sto.k[i] < 20 ? 1 : sto.k[i] > 80 ? -1 : 0, ic.stoch, 'none'],
+              ['Bollinger (20,2)', bbz !== null ? `${bbz >= 0 ? '+' : ''}${bbz.toFixed(2)} σ from mid` : '—', bbz > 2 ? 'Above upper band' : bbz < -2 ? 'Below lower band' : bbz >= 0 ? 'Upper half' : 'Lower half', bbz > 0 ? 1 : -1, ic.bbPos, 'shown'],
+              ['RSI (14)', fmt(analysis.rsi14[i], 1), analysis.rsi14[i] > 70 ? 'Overbought (>70)' : analysis.rsi14[i] < 30 ? 'Oversold (<30)' : analysis.rsi14[i] >= 50 ? 'Above 50' : 'Below 50', analysis.rsi14[i] < 30 ? 1 : analysis.rsi14[i] > 70 ? -1 : 0, null, 'div'],
+              ['ADX (14) · +DI / −DI', `${fmt(A.adx[i], 1)} · ${fmt(A.pdi[i], 1)} / ${fmt(A.ndi[i], 1)}`, `${A.adx[i] > 25 ? 'Strong' : A.adx[i] < 20 ? 'Weak / no' : 'Moderate'} trend, ${A.pdi[i] > A.ndi[i] ? 'buyers' : 'sellers'} in control`, A.pdi[i] > A.ndi[i] ? 1 : -1, ic.diDir, 'adx'],
+              ['Standard deviation (volatility)', analysis.vol ? `${(analysis.vol * 100).toFixed(1)}% a year` : '—', analysis.vol > 0.45 ? 'High volatility' : analysis.vol < 0.2 ? 'Low volatility' : 'Normal volatility', 0, null, 'risk'],
+              ['Ichimoku cloud (9,26,52)', `Tenkan ${fmt(ich.tenkan[i])} · Kijun ${fmt(ich.kijun[i])}`, p > cloudTop ? 'Price above the cloud' : p < cloudBot ? 'Price below the cloud' : 'Price inside the cloud', p > cloudTop ? 1 : p < cloudBot ? -1 : 0, ic.ichi, 'contra'],
+              ['Supertrend (10,3)', st.line[i] ? fmt(st.line[i]) : '—', st.dir[i] > 0 ? 'Up: line is support' : 'Down: line is resistance', st.dir[i], ic.superT, 'contra'],
+              ['On-balance volume', obvUp ? 'Rising (20 days)' : 'Falling (20 days)', obvUp ? 'Volume confirms buying' : 'Volume confirms selling', obvUp ? 1 : -1, ic.obvTrend, 'shown']
+            ];
+            const use = { contra: ['In rating (contrarian)', 'text-amber-300'], div: ['In rating (divergence)', 'text-teal-300'], adx: ['In rating (regime)', 'text-teal-300'], levels: ['Price levels only', 'text-slate-400'], shown: ['Shown only (reverse edge)', 'text-slate-400'], risk: ['Risk & sizing', 'text-slate-400'], none: ['Not used (no edge)', 'text-slate-500'] };
+            const evTag = { works: ['Held up in test', 'border-teal-400/40 text-teal-200'], contrarian: ['Worked in reverse', 'border-amber-400/40 text-amber-200'], mixed: ['Mixed results', 'border-slate-500/50 text-slate-300'], none: ['No reliable edge', 'border-slate-700 text-slate-500'] };
+            return (
+              <div className={card}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2"><Gauge className="w-4 h-4 text-[#00f2fe]" /> Indicators &amp; patterns</h4>
+                  <span className="text-[10px] text-slate-500">The 10 most-used indicators plus Supertrend and OBV · "Test IC" = how well the classic reading predicted the next 60 days (HK, 2024–26; + works as taught, − works in reverse)</span>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px] min-w-[760px]">
+                    <thead className="text-[10px] font-mono uppercase text-slate-500 border-b border-slate-800">
+                      <tr><th className="text-left py-2 pr-3">Indicator</th><th className="text-left py-2 pr-3">Now</th><th className="text-left py-2 pr-3">Classic reading</th><th className="text-right py-2 pr-3">Test IC</th><th className="text-left py-2">How A.F.A. uses it</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {rowsT.map(([name, now, reading, bias, icv, how]) => (
+                        <tr key={name}>
+                          <td className="py-2 pr-3 font-bold text-white whitespace-nowrap">{name}</td>
+                          <td className="py-2 pr-3 font-mono text-slate-300 whitespace-nowrap">{now}</td>
+                          <td className={`py-2 pr-3 ${bias > 0 ? 'text-emerald-300' : bias < 0 ? 'text-rose-300' : 'text-slate-300'}`}>{reading}</td>
+                          <td className={`py-2 pr-3 text-right font-mono ${icv === null || icv === undefined ? 'text-slate-600' : icv > 0.03 ? 'text-teal-300' : icv < -0.03 ? 'text-amber-300' : 'text-slate-500'}`}>{icv === null || icv === undefined ? '—' : `${icv > 0 ? '+' : ''}${icv.toFixed(2)}`}</td>
+                          <td className={`py-2 text-[10px] font-mono ${use[how][1]}`}>{use[how][0]}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-4">
+                  <div className={label}>Chart patterns &amp; signals in the last 5 sessions</div>
+                  {analysis.patterns.length === 0 ? <p className="text-[11px] text-slate-500 mt-1.5">None detected (checked: RSI divergence, 55-day breakouts, golden/death cross, MACD and Supertrend crosses, engulfing, hammer, shooting star, double top/bottom, Bollinger squeeze).</p> : (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {analysis.patterns.map(pt => (
+                        <div key={pt.id} className="px-3 py-2 rounded-xl bg-[#0d1117] border border-slate-800 max-w-xs">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-1.5 h-1.5 rounded-full ${pt.bias > 0 ? 'bg-emerald-400' : pt.bias < 0 ? 'bg-rose-400' : 'bg-slate-400'}`} />
+                            <span className="text-xs font-bold text-white">{pt.label}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${evTag[pt.evidence][1]}`}>{evTag[pt.evidence][0]}</span>
+                            <span className="text-[10px] font-mono text-slate-500">{pt.date}</span>
+                          </div>
+                          {pt.note && <p className="text-[10px] text-slate-500 mt-1 leading-snug">{pt.note}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
+                  What the test found: used the textbook way, every trend reading (moving-average crosses, MACD, +DI/−DI, Ichimoku, Supertrend, OBV, Bollinger and Fibonacci position) was followed by <span className="text-amber-300">weaker</span> returns on the same stock, so A.F.A. treats a crowd of bullish trend signals as "stretched". Buying after a fall worked, more so when ADX shows a strong move. RSI bullish divergence and new 55-day lows held up; candlestick patterns, double tops/bottoms and squeezes did not.
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Chart */}
           <div className={card}>
@@ -531,6 +723,9 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   <button key={m.n} onClick={() => setShownMas(s => ({ ...s, [m.n]: !s[m.n] }))} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${shownMas[m.n] ? 'text-[#0d1117]' : 'text-slate-400 border-slate-700 bg-transparent'}`} style={shownMas[m.n] ? { backgroundColor: m.color, borderColor: m.color } : undefined}>MA{m.n}</button>
                 ))}
                 <button onClick={() => setShowBands(v => !v)} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${showBands ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/50' : 'text-slate-400 border-slate-700'}`}>Bollinger</button>
+                {[['fib', 'Fibonacci', 'bg-violet-500/20 text-violet-200 border-violet-400/50'], ['supertrend', 'Supertrend', 'bg-sky-500/20 text-sky-200 border-sky-400/50'], ['cloud', 'Ichimoku', 'bg-fuchsia-500/20 text-fuchsia-200 border-fuchsia-400/50']].map(([k, l, on]) => (
+                  <button key={k} onClick={() => setOverlay(o => ({ ...o, [k]: !o[k] }))} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${overlay[k] ? on : 'text-slate-400 border-slate-700'}`}>{l}</button>
+                ))}
                 <button onClick={() => setShowPlan(v => !v)} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${showPlan ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/50' : 'text-slate-400 border-slate-700'}`}>Plan levels</button>
                 <button onClick={() => setShowForecast(v => !v)} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${showForecast ? 'bg-amber-500/20 text-amber-200 border-amber-400/50' : 'text-slate-400 border-slate-700'}`}>20-day projection</button>
                 <div className="flex p-0.5 rounded-lg bg-[#0d1117] border border-slate-800 ml-1">
@@ -560,6 +755,12 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                     <Line key={m.n} type="monotone" dataKey={`ma${m.n}`} name={`MA${m.n}`} stroke={m.color} dot={false} strokeWidth={1.2} isAnimationActive={false} connectNulls />
                   ))}
                   {showForecast && <Line type="monotone" dataKey="fMid" name="Projection" stroke="#f59e0b" strokeDasharray="5 4" dot={false} strokeWidth={1.5} isAnimationActive={false} />}
+                  {overlay.cloud && <Area type="monotone" dataKey="cloud" name="Ichimoku cloud" stroke="none" fill="#d946ef" fillOpacity={0.1} isAnimationActive={false} />}
+                  {overlay.supertrend && <Line type="stepAfter" dataKey="stUp" name="Supertrend (up)" stroke={GREEN} dot={false} strokeWidth={1.3} isAnimationActive={false} />}
+                  {overlay.supertrend && <Line type="stepAfter" dataKey="stDn" name="Supertrend (down)" stroke={RED} dot={false} strokeWidth={1.3} isAnimationActive={false} />}
+                  {overlay.fib && analysis.fib && analysis.fib.levels.map(l => (
+                    <ReferenceLine key={l.ratio} y={l.price} stroke="#a78bfa" strokeOpacity={0.6} strokeDasharray="2 3" label={{ value: `${(l.ratio * 100).toFixed(1)}%`, position: 'insideRight', fill: '#a78bfa', fontSize: 9 }} />
+                  ))}
                   {price && <ReferenceLine y={price} stroke="#00f2fe" strokeOpacity={0.4} strokeDasharray="2 4" />}
                   {showPlan && plan && <ReferenceArea y1={plan.entryLow} y2={plan.entryHigh} fill={GREEN} fillOpacity={0.08} stroke="none" />}
                   {showPlan && plan && <ReferenceLine y={plan.target} stroke="#00f2fe" strokeDasharray="6 3" label={{ value: `Target ${fmt(plan.target)}`, position: 'insideTopLeft', fill: '#00f2fe', fontSize: 10 }} />}
@@ -593,21 +794,28 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
         <div className={card}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <h4 className="text-sm font-bold text-white flex items-center gap-2"><Calculator className="w-4 h-4 text-[#00f2fe]" /> Valuation calculator</h4>
-            <span className="text-[10px] text-slate-500">{quote.pe ? `EPS pre-filled from the feed's P/E of ${fmt(quote.pe, 1)}. ` : ''}Change any input to test your own assumptions.</span>
+            <span className="text-[10px] text-slate-500">{quote.pe ? `EPS pre-filled from the feed's P/E of ${fmt(quote.pe, 1)}. ` : ''}Pick the sector, then adjust any input.</span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="grid grid-cols-2 gap-3 content-start">
+              <div className="col-span-2">
+                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">Sector preset</label>
+                <select value={val.preset} onChange={e => applyPreset(e.target.value)} className={`${inputCls} [&>option]:bg-[#161b22]`}>
+                  {Object.entries(PRESETS).map(([k, pz]) => <option key={k} value={k}>{pz.label} · growth {pz.growthPct}%, return {pz.discountPct}%</option>)}
+                </select>
+              </div>
               {[
                 ['eps', `EPS (${cur} per share)`, '0.01'], ['dps', `Dividend per share (${cur})`, '0.01'],
                 ['growthPct', 'EPS growth % / yr (5 yrs)', '0.5'], ['divGrowthPct', 'Dividend growth %', '0.5'],
                 ['discountPct', 'Required return %', '0.5'], ['terminalPe', 'Exit P/E (year 5)', '0.5'],
-                ['fairPe', 'Fair P/E today', '0.5']
+                ['fairPe', val.fairPeAuto ? 'Fair P/E (auto from growth)' : 'Fair P/E today', '0.5']
               ].map(([k, l, step]) => (
                 <div key={k}>
                   <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">{l}</label>
-                  <input type="number" step={step} value={val[k]} onChange={e => setVal(v => ({ ...v, [k]: e.target.value }))} className={inputCls} />
+                  <input type="number" step={step} value={val[k]} onChange={e => setValField(k, e.target.value)} className={inputCls} />
                 </div>
               ))}
+              {!val.fairPeAuto && <button onClick={() => setVal(v => ({ ...v, fairPe: pegFairPe(Number(v.growthPct) || 0), fairPeAuto: true }))} className="self-end mb-2 text-[10px] text-[#00f2fe] hover:underline cursor-pointer text-left">Reset fair P/E to auto ({pegFairPe(Number(val.growthPct) || 0)})</button>}
             </div>
             <div className="space-y-2">
               {valuation.models.length === 0 && <p className="text-xs text-slate-500">Enter EPS (and a dividend for the dividend model) to see fair-value estimates.</p>}
@@ -620,11 +828,35 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   <div className="text-[10px] text-slate-500 mt-0.5">{m.formula}</div>
                 </div>
               ))}
+              {valInputs.eps > 0 && (() => {
+                const g = valInputs.growthPct, r = valInputs.discountPct;
+                const gs = [g - 4, g, g + 4], rs = [r - 1, r, r + 1];
+                return (
+                  <div className="p-3 rounded-xl bg-[#0d1117] border border-slate-800">
+                    <div className="text-[10px] font-mono uppercase text-slate-500 mb-1">DCF sensitivity · growth (rows) × required return (columns)</div>
+                    <table className="w-full text-[10px] font-mono">
+                      <thead><tr><th></th>{rs.map(x => <th key={x} className="text-right font-normal text-slate-500">{x}%</th>)}</tr></thead>
+                      <tbody>
+                        {gs.map(gr => (
+                          <tr key={gr}>
+                            <td className="text-slate-500">{gr}%</td>
+                            {rs.map(x => { const v = dcfValue(valInputs.eps, gr, x, valInputs.terminalPe); return <td key={x} className={`text-right ${v >= price ? 'text-emerald-400' : 'text-rose-400'} ${gr === g && x === r ? 'font-bold underline' : ''}`}>{v ? fmt(v, v < 10 ? 2 : 0) : '—'}</td>; })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
             <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800 flex flex-col justify-center">
               <div className={label}>Fair value (median of models)</div>
               <div className="text-3xl font-black text-white font-mono mt-1">{valuation.fair ? `${cur}${fmt(valuation.fair)}` : '—'}</div>
+              {fairRange && <div className="text-[11px] font-mono text-slate-400 mt-0.5">range {cur}{fmt(fairRange.low)} – {fmt(fairRange.high)} <span className="text-slate-600">(growth ±3 pts, return ∓1 pt)</span></div>}
               <div className="text-xs text-slate-400 mt-1">vs price {cur}{fmt(price, price < 1 ? 3 : 2)}</div>
+              {implied !== null && (
+                <div className="mt-2 text-[11px] text-slate-300">Today's price already assumes <span className={`font-mono font-bold ${implied > (Number(val.growthPct) || 0) ? 'text-rose-300' : 'text-emerald-300'}`}>{implied.toFixed(1)}%</span> EPS growth a year for 5 years (you assume {Number(val.growthPct) || 0}%).</div>
+              )}
               {mos !== null && (
                 <>
                   <div className={`mt-3 text-sm font-black ${mos > 0.15 ? 'text-emerald-400' : mos < -0.15 ? 'text-rose-400' : 'text-amber-300'}`}>

@@ -22,13 +22,38 @@ const SEVERE = [
   'default', 'liquidation', 'profit warning', 'criminal', 'arrested', 'restatement', 'short seller report'
 ];
 
+// Phrases whose meaning is the opposite of their words (checked first, then removed from the text)
+const PHRASES = [
+  [/loss(es)? (narrow|narrowed|narrows|shrink|shrinks|shrank)|narrower loss|smaller loss|cuts? (its )?losses|returns? to profit|swings? to (a )?profit/, 1],
+  [/better[- ]than[- ]expected|beats? (estimates|expectations|forecasts)|above (estimates|expectations)/, 1],
+  [/worse[- ]than[- ]expected|misse[sd]? (estimates|expectations|forecasts)|below (estimates|expectations)|falls? short/, -1],
+  [/profit (falls|drops|slumps|plunges)|swings? to (a )?loss|first loss|wider loss|loss widens/, -1],
+  [/lifts? (the )?ban|ends? (the )?(probe|investigation)|probe (closed|dropped)|settles? (lawsuit|case)|wins? (lawsuit|appeal)/, 1],
+  [/cuts? (the )?dividend|suspends? (the )?dividend|scraps? (the )?dividend/, -1]
+];
+// A negation just before a word flips it ("not strong", "no growth", "fails to rebound")
+const NEGATORS = /(not|no|never|without|fails? to|unlikely to|lack of)\s+(\w+\s+)?$/;
+
 const has = (text, phrase) => new RegExp(`(^|[^a-z])${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`).test(text);
 
+// Counts a word, flipping it when a negation comes right before it
+function countWord(text, word) {
+  const re = new RegExp(`(^|[^a-z])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`, 'g');
+  let m, plain = 0, flipped = 0;
+  while ((m = re.exec(text))) {
+    if (NEGATORS.test(text.slice(Math.max(0, m.index - 25), m.index + 1))) flipped++; else plain++;
+  }
+  return { plain: Math.min(plain, 1), flipped: Math.min(flipped, 1) };
+}
+
 export function scoreHeadline(title = '', summary = '') {
-  const text = `${title} ${summary}`.toLowerCase();
+  let text = `${title} ${summary}`.toLowerCase();
   let pos = 0, neg = 0;
-  POSITIVE.forEach(w => { if (has(text, w)) pos++; });
-  NEGATIVE.forEach(w => { if (has(text, w)) neg++; });
+  PHRASES.forEach(([re, sign]) => {
+    if (re.test(text)) { if (sign > 0) pos += 2; else neg += 2; text = text.replace(new RegExp(re.source, 'g'), ' '); }
+  });
+  POSITIVE.forEach(w => { const c = countWord(text, w); pos += c.plain; neg += c.flipped; });
+  NEGATIVE.forEach(w => { const c = countWord(text, w); neg += c.plain; pos += c.flipped; });
   const severe = SEVERE.filter(w => has(text, w));
   neg += severe.length * 2;
   const total = pos + neg;

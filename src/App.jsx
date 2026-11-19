@@ -604,6 +604,8 @@ export default function App() {
   // Investments page: real holdings or the simulated (paper) trading account
   const [portfolioView, setPortfolioView] = useState('real');
   const [showAllRecs, setShowAllRecs] = useState(false);
+  // 'AI Diagnostic' was merged into Analytics
+  useEffect(() => { if (activeTab === 'diagnostic') setActiveTab('report'); }, [activeTab]);
   const [analysisSymbol, setAnalysisSymbol] = useState('0700.HK');
   const [tradePreset, setTradePreset] = useState(null);
   const [watchlist, setWatchlist] = useState([]); // [{ symbol, name }] saved on the profile // { symbol, at } handed from Stock Analysis to the simulator
@@ -2474,7 +2476,6 @@ ${JSON.stringify(snapshot)}`;
                 { id: 'debt', label: 'Debt Health', icon: CreditCard },
                 { id: 'mpf', label: 'MPF & Tax', icon: PiggyBank },
                 { id: 'advisor', label: 'A.F.A. AI Chat', icon: Bot },
-                { id: 'diagnostic', label: 'AI Diagnostic', icon: FileText },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
@@ -2514,7 +2515,7 @@ ${JSON.stringify(snapshot)}`;
                    activeTab === 'simulator' ? 'Strategic Wealth Modeler' : 
                    activeTab === 'debt' ? 'Debt Health' : 
                    activeTab === 'mpf' ? 'MPF & Tax' : 
-                   activeTab === 'advisor' ? 'A.F.A AI Chat' : 'Diagnostic'}
+                   activeTab === 'advisor' ? 'A.F.A AI Chat' : 'Analytics'}
                 </h2>
              </div>
              
@@ -3121,6 +3122,7 @@ ${JSON.stringify(snapshot)}`;
                           `${insights.snapshot.dependants} dependant${insights.snapshot.dependants === 1 ? '' : 's'}`
                         ].map(t => <span key={t} className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#0d1117] border border-slate-800 text-slate-300">{t}</span>)}
                         <button onClick={() => setShowProfileModal(true)} className="text-[10px] font-mono px-2.5 py-1 rounded-full text-[#00f2fe] hover:underline cursor-pointer">Edit profile →</button>
+                        <button onClick={() => { setActiveTab('advisor'); handleSendMessage(null, 'What should I do? Explain my top priorities from my action plan.'); }} className="text-[10px] font-mono px-2.5 py-1 rounded-full border border-[#00f2fe]/30 text-[#00f2fe] hover:bg-[#00f2fe]/10 cursor-pointer flex items-center gap-1"><Bot className="w-3 h-3" /> Ask A.F.A. AI to explain</button>
                       </div>
                     </div>
                     <div className="flex items-center gap-4 shrink-0">
@@ -3364,6 +3366,7 @@ ${JSON.stringify(snapshot)}`;
                 {portfolioView === 'analysis' && (
                   <StockAnalysis initialSymbol={analysisSymbol} fetchQuote={fetchLiveStockQuote} fetchHistory={fetchOhlcHistory} searchSymbols={searchMarketSymbols}
                     watchlist={watchlist} onWatchlistChange={handleWatchlistChange} fetchNews={fetchCompanyNews} generalNews={newsFeed}
+                    portfolioValue={portfolioTotalValue + otherAssetsTotal + liquidCash}
                     onTrade={(sym) => { setTradePreset({ symbol: sym, at: Date.now() }); setPortfolioView('simulation'); }} />
                 )}
 
@@ -4035,30 +4038,6 @@ ${JSON.stringify(snapshot)}`;
             )}
 
             {/* AI DIAGNOSTIC TAB */}
-            {activeTab === 'diagnostic' && (
-              <div className="space-y-6 anim-slide-in">
-                <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
-                  <h2 className="text-base font-bold text-white mb-4">AI Financial Health Diagnostic</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
-                      <span className="text-xs font-mono text-slate-400">Savings Ratio (50/30/20)</span>
-                      <div className="text-2xl font-bold text-emerald-400 mt-1">{savingsRatio.toFixed(1)}%</div>
-                      <p className="text-xs text-slate-500 mt-2">Target benchmark is 20%+.</p>
-                    </div>
-                    <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
-                      <span className="text-xs font-mono text-slate-400">Rent Burden Threshold</span>
-                      <div className="text-2xl font-bold text-amber-400 mt-1">{rentBurdenRatio.toFixed(1)}%</div>
-                      <p className="text-xs text-slate-500 mt-2">Maximum benchmark is 35%.</p>
-                    </div>
-                    <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
-                      <span className="text-xs font-mono text-slate-400">Tax Optimization Cap</span>
-                      <div className="text-2xl font-bold text-indigo-400 mt-1">$60,000 Cap</div>
-                      <p className="text-xs text-slate-500 mt-2">Consider TVC tax deductions.</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* REGULATORY FOOTER */}
             <footer className="mt-8 p-4 rounded-2xl bg-[#161b22] border border-slate-800/80 text-[10px] text-slate-500 font-mono leading-relaxed text-center shadow-inner">
