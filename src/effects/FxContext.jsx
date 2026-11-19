@@ -16,7 +16,8 @@ function readInitialPreference() {
     if (saved === 'on') return true;
     if (saved === 'off') return false;
   } catch (e) { /* storage blocked: fall back to the default */ }
-  return !prefersReducedMotion();
+  // Off by default: the professional theme is flat. Users can still switch the liquid effects on.
+  return false;
 }
 
 export function FxProvider({ children }) {

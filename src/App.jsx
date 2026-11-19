@@ -26,6 +26,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import IntroLanding from './components/IntroLanding';
+import MarketStrip from './components/MarketStrip';
 
 const firebaseConfig = {
   apiKey: "AIzaSyArZZDniGw4tromow4bVLj2efh8NJWYieE",
@@ -182,36 +183,61 @@ const searchMarketSymbols = (query) => new Promise((resolve) => {
   document.head.appendChild(script);
 });
 
+// Daily price history from Tencent.
+// Main endpoint (split-adjusted) first; Tencent's proxy endpoint as a fallback. The proxy returns
+// unadjusted prices, so stock splits are detected and earlier prices are adjusted here.
+const KLINE_URLS = [
+  (code, days) => `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${code},day,,,${days},qfq`,
+  (code, days) => `https://proxy.finance.qq.com/ifzqgtimg/appstock/app/newfqkline/get?param=${code},day,,,${days},qfq`
+];
+
+// Find overnight gaps that match a split ratio (2-for-1, 10-for-1, 1-for-10 ...) and adjust older rows
+const adjustSplits = (rows) => {
+  const out = rows.map(r => [...r]);
+  for (let i = out.length - 1; i > 0; i--) {
+    const prevClose = parseFloat(out[i - 1][2]), open = parseFloat(out[i][1]);
+    if (!(prevClose > 0 && open > 0)) continue;
+    const ratio = prevClose / open;
+    let k = 0;
+    if (ratio >= 1.8) { const n = Math.round(ratio); if (n >= 2 && Math.abs(ratio / n - 1) < 0.06) k = n; else if (Math.abs(ratio / 1.5 - 1) < 0.04) k = 1.5; }
+    else if (ratio <= 0.55) { const n = Math.round(1 / ratio); if (n >= 2 && Math.abs((1 / ratio) / n - 1) < 0.06) k = 1 / n; }
+    if (!k) continue;
+    for (let j = 0; j < i; j++) {
+      for (let c = 1; c <= 4; c++) out[j][c] = String(parseFloat(out[j][c]) / k);
+      out[j][5] = String((parseFloat(out[j][5]) || 0) * k);
+    }
+  }
+  return out;
+};
+
+const fetchKlineRows = async (historyCode, days, timeout) => {
+  for (let u = 0; u < KLINE_URLS.length; u++) {
+    try {
+      const res = await fetchWithTimeout(KLINE_URLS[u](historyCode, days), timeout);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const node = json?.data?.[historyCode] || {};
+      const rows = node.qfqday || node.day || [];
+      if (rows.length) return u === 0 && node.qfqday ? rows : adjustSplits(rows);
+    } catch (err) { /* try the next source */ }
+  }
+  return [];
+};
+
 // Daily closing prices (about the last 30 trading days) for the portfolio history chart
 const fetchPriceHistory = async (historyCode, days = 30) => {
   if (!historyCode) return [];
-  try {
-    const res = await fetchWithTimeout(`https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${historyCode},day,,,${days},qfq`);
-    if (!res.ok) return [];
-    const json = await res.json();
-    const node = json?.data?.[historyCode] || {};
-    const rows = node.qfqday || node.day || [];
-    return rows.map(r => ({ date: r[0], close: parseFloat(r[2]) })).filter(r => r.close > 0);
-  } catch (err) {
-    return [];
-  }
+  const rows = await fetchKlineRows(historyCode, days);
+  return rows.map(r => ({ date: r[0], close: parseFloat(r[2]) })).filter(r => r.close > 0);
 };
 
 // Daily OHLCV (open, high, low, close, volume), oldest first, for the Stock Analysis view
 const fetchOhlcHistory = async (historyCode, days = 520) => {
   if (!historyCode) return [];
-  try {
-    const res = await fetchWithTimeout(`https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${historyCode},day,,,${days},qfq`, 9000);
-    if (!res.ok) return [];
-    const json = await res.json();
-    const node = json?.data?.[historyCode] || {};
-    const rows = node.qfqday || node.day || [];
-    // Tencent row: [date, open, close, high, low, volume, ...]
-    return rows.map(r => ({ date: r[0], open: parseFloat(r[1]), close: parseFloat(r[2]), high: parseFloat(r[3]), low: parseFloat(r[4]), volume: parseFloat(r[5]) || 0 }))
-      .filter(r => r.close > 0 && r.high > 0 && r.low > 0);
-  } catch (err) {
-    return [];
-  }
+  const rows = await fetchKlineRows(historyCode, days, 9000);
+  // Tencent row: [date, open, close, high, low, volume, ...]
+  return rows.map(r => ({ date: r[0], open: parseFloat(r[1]), close: parseFloat(r[2]), high: parseFloat(r[3]), low: parseFloat(r[4]), volume: parseFloat(r[5]) || 0 }))
+    .filter(r => r.close > 0 && r.high > 0 && r.low > 0);
 };
 
 // --- LIVE NEWS: RSS feeds converted to JSON by rss2json (CORS-enabled, no key needed) ---
@@ -2192,7 +2218,7 @@ ${JSON.stringify(snapshot)}`;
   }, [transactions, cashFlowView]);
 
   return (
-    <div className={`flex h-screen bg-[#0d1117] text-slate-100 font-sans selection:bg-[#00f2fe]/30 selection:text-cyan-300 overflow-hidden ${fx.enabled ? 'afa-fx' : ''}`}>
+    <div className={`flex h-screen bg-[#0d1117] text-slate-100 font-sans selection:bg-[#00f2fe]/30 selection:text-cyan-300 overflow-hidden afa-pro ${fx.enabled ? 'afa-fx' : ''}`}>
       
       <style>{`
         @keyframes fadeUpStagger {
@@ -2241,6 +2267,53 @@ ${JSON.stringify(snapshot)}`;
           border-color: rgba(160, 225, 255, 0.18) !important;
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(0, 242, 254, 0.04), 0 22px 44px -20px rgba(0, 0, 0, 0.75);
         }
+
+        /* ===== Professional theme (terminal-style: flat panels, hairline borders, tight radii, tabular numbers) ===== */
+        .afa-pro { --pro-bg: #0b0f14; --pro-panel: #10151c; --pro-panel-2: #0d1218; --pro-line: #1c2430; --pro-line-2: #263040; --pro-text: #e6edf3; --pro-dim: #8b98a9; --pro-accent: #00f2fe;
+          background: var(--pro-bg) !important; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; font-feature-settings: 'cv11', 'ss01', 'tnum'; letter-spacing: -0.003em; }
+        .afa-pro .font-mono { font-family: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace !important; letter-spacing: 0; }
+        .afa-pro .afa-content { background: var(--pro-bg) !important; }
+        /* Panels */
+        .afa-pro .afa-content [class~="bg-[#161b22]"], .afa-pro aside, .afa-pro .glass-panel { background-color: var(--pro-panel) !important; }
+        .afa-pro .afa-content [class~="bg-[#0d1117]"] { background-color: var(--pro-panel-2) !important; }
+        .afa-pro .glass-panel { backdrop-filter: none; -webkit-backdrop-filter: none; border-color: var(--pro-line); box-shadow: none; }
+        .afa-pro .afa-content [class*="border-slate-800"], .afa-pro aside, .afa-pro aside [class*="border-slate-800"], .afa-pro header { border-color: var(--pro-line) !important; }
+        .afa-pro .afa-content [class*="border-slate-700"] { border-color: var(--pro-line-2) !important; }
+        /* Radii: tighter, like a trading platform */
+        .afa-pro .rounded-3xl { border-radius: 10px !important; }
+        .afa-pro .rounded-2xl { border-radius: 8px !important; }
+        .afa-pro .rounded-xl { border-radius: 6px !important; }
+        .afa-pro .rounded-lg { border-radius: 5px !important; }
+        /* No glows or heavy shadows inside the app (menus and dialogs keep a soft one) */
+        .afa-pro .afa-content .shadow-2xl:not(.absolute):not(.fixed), .afa-pro .afa-content .shadow-xl:not(.absolute):not(.fixed), .afa-pro .afa-content .shadow-lg:not(.absolute):not(.fixed), .afa-pro .afa-content .shadow-md:not(.absolute):not(.fixed), .afa-pro aside { box-shadow: none !important; }
+        .afa-pro .afa-content [class*="shadow-[0_0"], .afa-pro .afa-content [class*="drop-shadow-["] { box-shadow: none !important; filter: none !important; }
+        .afa-pro .afa-content .absolute.rounded-full[class*="blur-"] { display: none; }
+        /* Type: confident but not shouty */
+        .afa-pro .font-black { font-weight: 700 !important; letter-spacing: -0.015em; }
+        .afa-pro .font-extrabold { font-weight: 650 !important; }
+        .afa-pro h1, .afa-pro h2, .afa-pro h3, .afa-pro h4 { letter-spacing: -0.012em; }
+        .afa-pro .afa-content .text-3xl, .afa-pro .afa-content .text-4xl, .afa-pro .afa-content .text-2xl { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+        .afa-pro .uppercase.tracking-widest, .afa-pro .uppercase.tracking-wider { letter-spacing: 0.08em !important; }
+        .afa-pro .text-slate-500 { color: #728096 !important; }
+        .afa-pro .text-slate-400 { color: var(--pro-dim) !important; }
+        /* Inputs */
+        .afa-pro .glass-input, .afa-pro .afa-content input, .afa-pro .afa-content select, .afa-pro .afa-content textarea, .afa-pro header input { background-color: #0a0e13 !important; border-color: var(--pro-line-2) !important; }
+        .afa-pro .glass-input:focus, .afa-pro .afa-content input:focus, .afa-pro header input:focus { border-color: var(--pro-accent) !important; box-shadow: 0 0 0 1px rgba(0, 242, 254, 0.25) !important; }
+        /* Panel hover: a quiet line, not a glow */
+        .afa-pro .afa-content [class~="bg-[#161b22]"]:not(.absolute):not(.fixed) { transition: border-color .15s ease; }
+        /* Tables */
+        .afa-pro .afa-content table thead { color: #6b7a8f; }
+        .afa-pro .afa-content table tbody tr:hover { background: rgba(255, 255, 255, 0.018); }
+        /* Calm page entry (no blur zoom) */
+        .afa-pro .dashboard-enter { animation: proEnter .35s ease-out both; }
+        @keyframes proEnter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        /* Sidebar nav: square rows with an accent bar for the active page */
+        .afa-pro .afa-nav-btn { border-radius: 4px !important; position: relative; padding-top: 8px; padding-bottom: 8px; }
+        .afa-pro .afa-nav-btn.is-active { background: rgba(0, 242, 254, 0.07) !important; color: #e6fbff !important; font-weight: 600 !important; }
+        .afa-pro .afa-nav-btn.is-active::before { content: ''; position: absolute; left: -12px; top: 6px; bottom: 6px; width: 2px; background: var(--pro-accent); }
+        /* Primary buttons: solid but calmer cyan, platform-style lettering */
+        .afa-pro .afa-content button[class~="bg-[#00f2fe]"] { background-color: #12c9dc !important; color: #041015 !important; letter-spacing: 0.03em !important; font-weight: 600 !important; }
+        .afa-pro .afa-content button[class~="bg-[#00f2fe]"]:hover { background-color: #2ee0f0 !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
@@ -2250,8 +2323,6 @@ ${JSON.stringify(snapshot)}`;
       {/* Liquid glass under every dashboard block (one WebGL pass for all of them) */}
       {user && !showSplash && <LiquidGlassLayer selector={GLASS_PANEL_SELECTOR} clipSelector=".afa-content" />}
 
-      {/* Ambient Lights */}
-      <div className="fixed top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-[#00f2fe]/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
 
       {/* ENTRY SCREEN: coin minting animation, with Overview / Why A.F.A. / Features pages */}
       {showSplash && <IntroLanding onEnter={() => setShowSplash(false)} />}
@@ -2439,7 +2510,7 @@ ${JSON.stringify(snapshot)}`;
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center space-x-3 py-2.5 px-3 rounded-xl transition-all cursor-pointer ${
+                    className={`afa-nav-btn ${isActive ? 'is-active' : ''} w-full flex items-center space-x-3 py-2.5 px-3 rounded-xl transition-all cursor-pointer ${
                       isActive 
                         ? 'bg-[#00f2fe]/10 text-[#00f2fe] font-bold' 
                         : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
@@ -2466,7 +2537,7 @@ ${JSON.stringify(snapshot)}`;
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center space-x-3 py-2.5 px-3 rounded-xl transition-all cursor-pointer ${
+                    className={`afa-nav-btn ${isActive ? 'is-active' : ''} w-full flex items-center space-x-3 py-2.5 px-3 rounded-xl transition-all cursor-pointer ${
                       isActive 
                         ? 'bg-[#00f2fe]/10 text-[#00f2fe] font-bold' 
                         : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
@@ -2488,9 +2559,12 @@ ${JSON.stringify(snapshot)}`;
         <div className={`afa-content flex-1 flex flex-col relative h-full overflow-y-auto overflow-x-hidden dashboard-enter ${fx.enabled ? 'bg-transparent' : 'bg-[#0d1117]'}`}>
           
           {/* HEADER (Main Content Area) */}
-          <header className={`sticky top-0 z-30 ${fx.enabled ? 'bg-[#0d1117]/80' : 'bg-[#161b22]/90'} backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-3.5 shadow-sm`}>
+          <div className="sticky top-0 z-30">
+          <MarketStrip />
+          <header className={`${fx.enabled ? 'bg-[#0d1117]/80' : 'bg-[#0b0f14]/95'} backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-2.5`}>
              <div className="flex items-center gap-4">
-                <h2 className="text-base font-bold text-white tracking-wide">
+                <span className="hidden lg:inline text-[10px] font-mono uppercase tracking-widest text-slate-500">Workspace /</span>
+                <h2 className="text-[15px] font-semibold text-white">
                   {activeTab === 'dashboard' ? 'Dashboard' : 
                    activeTab === 'ledger' ? 'Transactions' : 
                    activeTab === 'report' ? 'Analytics' : 
@@ -2713,6 +2787,7 @@ ${JSON.stringify(snapshot)}`;
                 </div>
              </div>
           </header>
+          </div>
 
           <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-6">
             
