@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Cell, ReferenceLine, ReferenceArea } from 'recharts';
 import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
 import { aggregateNews, companySearchName } from '../lib/newsSentiment';
+import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, SIGNAL_SCALE } from '../lib/horizonModel';
+import { valuationScore } from '../lib/indicators';
 import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan, valuationRange, impliedGrowth, dcfValue, pegFairPe, backtestSignals, STUDY_RESULTS, STUDY2, signalSeries, adxSeries, ichimokuSeries, supertrendSeries, stochasticSeries, obvSeries, fibonacciLevels, detectPatterns, ema, macd, rsi } from '../lib/indicators';
 
 // Stock analysis for the simulator: live quote, risk statistics, five technical indicators with a
@@ -256,7 +258,14 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
     if (!quote || !onWatchlistChange) return;
     onWatchlistChange(inWatchlist ? watchlist.filter(w => w.symbol !== quote.symbol) : [...watchlist, { symbol: quote.symbol, name: quote.name }].slice(-20));
   };
-  useEffect(() => { setPlanLevels(plan ? [plan.stop, plan.target, plan.entryLow] : null); }, [plan]);
+  // Short-term (2 weeks) and long-term (6 months) outlook from the real-market study (lib/horizonModel.js)
+  const [horizon, setHorizon] = useState('short');
+  const outlook = useMemo(() => (analysis && quote ? horizonOutlook({
+    rows, price: quote.price,
+    valScore: valuationScore(quote.price, fairRange),
+    severe: news.status === 'ok' && newsSummary.severe.length > 0
+  }) : null), [analysis, rows, quote, fairRange, newsSummary, news.status]);
+  useEffect(() => { const o = outlook && outlook[horizon]; setPlanLevels(o ? [o.stop, o.target, o.entry] : null); }, [outlook, horizon]);
   const cur = quote?.currency === 'USD' ? 'US$' : 'HK$';
   const mos = valuation.fair && price ? (valuation.fair - price) / valuation.fair : null;
   const sizingBase = Number(sizeBase) || portfolioValue || 0;
@@ -384,197 +393,188 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
               </div>
             </div>
             <div className={card}>
-              <div className={label}>Technical score</div>
+              <div className={label}>Textbook technical score</div>
               <div className={`text-lg font-black mt-1 ${analysis.review.total > 1 ? 'text-emerald-400' : analysis.review.total < -1 ? 'text-rose-400' : 'text-slate-200'}`}>{analysis.review.verdict}</div>
-              <div className="text-[10px] text-slate-500">Score {analysis.review.total > 0 ? '+' : ''}{analysis.review.total} / 10 from 5 indicators</div>
+              <div className="text-[10px] text-slate-500">Classic reading of 5 indicators, {analysis.review.total > 0 ? '+' : ''}{analysis.review.total} / 10 (not used in the outlook)</div>
             </div>
           </div>
 
-          {/* Trade plan */}
-          {plan && (() => {
-            // Restrained, terminal-style rating badge: tinted outline + dot, no bright fill
-            const sigTone = {
+          {/* Trade plan: separate short-term (about 2 weeks) and long-term (about 6 months) outlooks */}
+          {outlook && plan && (() => {
+            const toneOf = (s) => ({
               Buy: { box: 'border-emerald-500/40 bg-emerald-500/[0.07] text-emerald-300', dot: '#16c784' },
               Accumulate: { box: 'border-teal-400/40 bg-teal-400/[0.07] text-teal-200', dot: '#2dd4bf' },
               Hold: { box: 'border-slate-500/50 bg-slate-400/[0.06] text-slate-100', dot: '#94a3b8' },
               Reduce: { box: 'border-orange-400/40 bg-orange-400/[0.07] text-orange-200', dot: '#fb923c' },
               Sell: { box: 'border-rose-500/40 bg-rose-500/[0.07] text-rose-300', dot: '#ea3943' }
-            }[plan.signal];
-            const scale = ['Sell', 'Reduce', 'Hold', 'Accumulate', 'Buy'];
+            }[s]);
             const p2 = (v) => `${cur}${fmt(v, v < 1 ? 3 : 2)}`;
-            const explain = {
-              Buy: `Timing, relative strength, valuation and news line up. Buy in the entry zone; protect the position with the stop-loss.`,
-              Accumulate: `Leaning positive. Build a position gradually, ideally on dips into the entry zone rather than chasing.`,
-              Hold: `Mixed signals. Holders can keep the position with the stop-loss in place; new buyers can wait for a better entry.`,
-              Reduce: `Leaning negative. Consider trimming into strength near resistance and tightening the stop-loss.`,
-              Sell: `Timing, relative strength, valuation and news point down. Holders should consider selling; avoid new buying.`
-            }[plan.signal];
+            const pp = (x) => `${(x * 100).toFixed(0)}%`;
+            const advice = {
+              short: { Buy: 'Odds favour a rise over the next two weeks. A trade can be opened now with the stop below.', Accumulate: 'Slightly better odds than usual for a rise. Start small or wait for a dip.', Hold: 'No clear short-term edge. Better to wait.', Reduce: 'Odds lean towards a dip in the next two weeks. Holders could trim.', Sell: 'Odds favour a fall over the next two weeks. Avoid buying now.' },
+              long: { Buy: 'Odds favour a higher price in six months. Suits building a position over time.', Accumulate: 'Somewhat better odds than usual over six months. Add gradually.', Hold: 'No clear long-term edge. Keep what you have, add only on weakness.', Reduce: 'Odds lean towards a lower price in six months. Consider trimming.', Sell: 'Odds favour a lower price in six months. Not an investment to add to now.' }
+            };
+            const Horizon = ({ h }) => {
+              const o = outlook[h], tone = toneOf(o.signal);
+              const active = horizon === h;
+              return (
+                <div className={`p-4 rounded-2xl bg-[#0d1117] border transition-colors ${active ? 'border-[#00f2fe]/40' : 'border-slate-800'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className={label}>{o.label}</div>
+                      <div className={`inline-flex items-center gap-2.5 mt-2 px-3.5 py-1.5 rounded-lg border ${tone.box}`}>
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: tone.dot, boxShadow: `0 0 8px ${tone.dot}` }} />
+                        <span className="text-base font-bold uppercase tracking-[0.18em]">{o.signal}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => setHorizon(h)} className={`text-[10px] font-mono px-2 py-1 rounded border cursor-pointer ${active ? 'border-[#00f2fe]/50 text-[#00f2fe]' : 'border-slate-700 text-slate-500 hover:text-slate-300'}`}>{active ? 'Shown on chart' : 'Show on chart'}</button>
+                  </div>
+                  <div className="flex gap-1 mt-3">
+                    {SIGNAL_SCALE.map(st => (
+                      <div key={st} className="flex-1">
+                        <div className="h-1 rounded-full" style={{ backgroundColor: st === o.signal ? tone.dot : '#21262d' }} />
+                        <div className={`text-[8px] font-mono uppercase mt-1 text-center ${st === o.signal ? 'text-slate-200' : 'text-slate-600'}`}>{st}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">{advice[h][o.signal]}</p>
+
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    <div className="p-2.5 rounded-xl bg-[#161b22] border border-slate-800">
+                      <div className="text-[9px] font-mono uppercase text-slate-500">Chance higher</div>
+                      <div className={`text-lg font-black ${o.probUp > o.baseUp + 0.02 ? 'text-emerald-400' : o.probUp < o.baseUp - 0.02 ? 'text-rose-400' : 'text-slate-200'}`}>{pp(o.probUp)}</div>
+                      <div className="text-[9px] text-slate-500">usually {pp(o.baseUp)}</div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-[#161b22] border border-slate-800">
+                      <div className="text-[9px] font-mono uppercase text-slate-500">Expected move</div>
+                      <div className={`text-lg font-black ${o.expRet > o.baseMean ? 'text-emerald-400' : 'text-rose-400'}`}>{pctTxt(o.expRet)}</div>
+                      <div className="text-[9px] text-slate-500">usually {pctTxt(o.baseMean)}</div>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-[#161b22] border border-slate-800">
+                      <div className="text-[9px] font-mono uppercase text-slate-500">Likely range</div>
+                      <div className="text-[11px] font-mono font-bold text-white mt-1">{fmt(o.range[0])} – {fmt(o.range[1])}</div>
+                      <div className="text-[9px] text-slate-500">2 in 3 chance</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-[10px] font-mono uppercase text-slate-500 mb-1.5">Why</div>
+                    <ul className="space-y-1.5">
+                      {o.drivers.slice(0, 7).map((d, k) => (
+                        <li key={k} className="flex gap-2 text-[11px] leading-snug text-slate-300">
+                          <span className={`shrink-0 mt-0.5 text-[10px] ${d.dir > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{d.dir > 0 ? '▲' : '▼'}</span><span>{d.text}</span>
+                        </li>
+                      ))}
+                      {o.drivers.length === 0 && <li className="text-[11px] text-slate-500">Nothing stretched or unusual right now, so the outlook is close to normal for this stock.</li>}
+                    </ul>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                    <div>
+                      <div className="text-[10px] font-mono uppercase text-emerald-400/80 mb-1">What would push it up</div>
+                      <ul className="space-y-1">{o.triggers.up.map((t, k) => <li key={k} className="text-[10px] text-slate-400 leading-snug">· {t}</li>)}</ul>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-mono uppercase text-rose-400/80 mb-1">What would push it down</div>
+                      <ul className="space-y-1">{o.triggers.down.map((t, k) => <li key={k} className="text-[10px] text-slate-400 leading-snug">· {t}</li>)}</ul>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-800 space-y-1.5 text-xs">
+                    {(o.signal === 'Reduce' || o.signal === 'Sell') && <div className="text-[10px] text-amber-400">Not a buy signal: levels shown for reference.</div>}
+                    <div className="flex justify-between items-baseline"><span className="text-slate-400">Entry</span><span className="font-mono font-bold text-emerald-300">{p2(o.entry)}</span></div>
+                    <div className="flex justify-between items-baseline"><span className="text-slate-400">Take-profit</span><span className="font-mono font-bold text-[#00f2fe]">{p2(o.target)} <span className="text-[10px] text-slate-500">{pctTxt(o.target / o.entry - 1)}</span></span></div>
+                    <div className="flex justify-between items-baseline"><span className="text-slate-400">Stop-loss</span><span className="font-mono font-bold text-rose-400">{p2(o.stop)} <span className="text-[10px] text-slate-500">{pctTxt(o.stop / o.entry - 1)}</span></span></div>
+                    <div className="flex justify-between items-baseline"><span className="text-slate-400">Reward : risk</span><span className="font-mono text-white">{o.rr.toFixed(1)} : 1</span></div>
+                    <div className="flex justify-between items-baseline"><span className="text-slate-400">Chance target is hit before stop</span><span className="font-mono text-white">≈{Math.round(o.probTarget * 20) * 5}%</span></div>
+                  </div>
+                </div>
+              );
+            };
+            const sel = outlook[horizon];
             return (
               <div className={card}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2"><Crosshair className="w-4 h-4 text-[#00f2fe]" /> Trade plan · buy, hold or sell</h4>
-                  <span className="text-[10px] text-slate-500">Timing 35% · relative strength 15% · valuation 30% · company news 20% · weights from a real-market test · 60-trading-day horizon</span>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2"><Crosshair className="w-4 h-4 text-[#00f2fe]" /> Trade plan · short-term and long-term</h4>
+                  <span className="text-[10px] text-slate-500">Based on what each signal was actually followed by in {STUDY3.universe}, {STUDY3.period}</span>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                  <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800 flex flex-col justify-between">
-                    <div>
-                      <div className={label}>Signal</div>
-                      <div className={`inline-flex items-center gap-2.5 mt-2 px-3.5 py-1.5 rounded-lg border ${sigTone.box}`}>
-                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: sigTone.dot, boxShadow: `0 0 8px ${sigTone.dot}` }} />
-                        <span className="text-base font-bold uppercase tracking-[0.18em]">{plan.signal}</span>
-                      </div>
-                      {/* Where the rating sits on the five-step scale */}
-                      <div className="flex gap-1 mt-3">
-                        {scale.map(st => (
-                          <div key={st} className="flex-1">
-                            <div className="h-1 rounded-full" style={{ backgroundColor: st === plan.signal ? sigTone.dot : '#21262d' }} />
-                            <div className={`text-[8px] font-mono uppercase mt-1 text-center ${st === plan.signal ? 'text-slate-200' : 'text-slate-600'}`}>{st}</div>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-500 mt-1">Composite {plan.composite >= 0 ? '+' : ''}{(plan.composite * 100).toFixed(0)} / 100</div>
-                      <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">{explain}</p>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <Horizon h="short" />
+                  <Horizon h="long" />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+                  {/* Position size: risk a fixed share of the portfolio between entry and stop */}
+                  <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800 text-[11px]">
+                    <div className={label}>Position size · {horizon === 'short' ? 'short-term' : 'long-term'} plan</div>
+                    <div className="flex items-center gap-1.5 text-slate-400 flex-wrap mt-2">
+                      Risk
+                      <select value={riskPct} onChange={e => setRiskPct(Number(e.target.value))} className="bg-[#161b22] border border-slate-700 rounded px-1 py-0.5 text-white text-[11px]">
+                        {[0.5, 1, 2].map(r => <option key={r} value={r}>{r}%</option>)}
+                      </select>
+                      of
+                      <input type="number" min="0" value={sizeBase} onChange={e => setSizeBase(e.target.value)} placeholder={portfolioValue ? Math.round(portfolioValue).toString() : 'portfolio HK$'} className="w-24 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-white text-[11px] font-mono" />
                     </div>
-                    <div className="mt-3 space-y-1 text-[10px] font-mono">
-                      {plan.severeNews.length > 0 && (
-                        <div className="mb-2 p-2 rounded-lg border border-rose-500/30 bg-rose-500/10 text-[10px] text-rose-300 font-sans leading-relaxed flex gap-1.5">
-                          <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> Serious news ({plan.severeNews[0].words.join(', ')}) in the last two weeks: buy signals are switched off until it clears.
-                        </div>
-                      )}
-                      {[['Timing', plan.parts.timing, plan.weightsUsed.timing], ['Strength', plan.parts.strength, plan.weightsUsed.strength], ['Valuation', plan.parts.val, plan.weightsUsed.val], ['News', plan.parts.news, plan.weightsUsed.news]].map(([k, v, wt]) => (
-                        <div key={k} className="flex items-center gap-2" title={`${k} carries ${Math.round((wt || 0) * 100)}% of the rating`}>
-                          <span className="w-16 text-slate-500">{k} <span className="text-slate-600">{wt ? `${Math.round(wt * 100)}%` : ''}</span></span>
-                          <div className="flex-1 h-1.5 rounded-full bg-slate-800 relative overflow-hidden">
-                            {v !== null && <div className="absolute top-0 h-full" style={{ left: v >= 0 ? '50%' : `${50 + v * 50}%`, width: `${Math.abs(v) * 50}%`, backgroundColor: v >= 0 ? GREEN : RED }} />}
-                            <div className="absolute left-1/2 top-0 h-full w-px bg-slate-600" />
-                          </div>
-                          <span className="w-10 text-right text-slate-400">{v === null ? 'n/a' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)}`}</span>
-                        </div>
-                      ))}
-                      {plan.timingParts && plan.timingParts.revAdj !== null && (
-                        <div className="pt-2 mt-1 border-t border-slate-800 text-[9px] leading-relaxed text-slate-500 font-sans">
-                          Timing = buy-the-dip {plan.timingParts.revAdj >= 0 ? '+' : ''}{(plan.timingParts.revAdj * 100).toFixed(0)} (×{plan.timingParts.adx > 25 ? '1.5, ADX strong' : plan.timingParts.adx < 20 ? '0.6, ADX weak' : '1.0'}) · trend crowd {plan.timingParts.trendCons > 0 ? 'bullish → −' : plan.timingParts.trendCons < 0 ? 'bearish → +' : ''}{Math.abs(plan.timingParts.trendCons * 100).toFixed(0)} · events {plan.timingParts.events > 0 ? '+' : ''}{(plan.timingParts.events * 100).toFixed(0)}
-                        </div>
-                      )}
-                    </div>
+                    {sizingBase > 0 && sel.entry > sel.stop ? (() => {
+                      const fx = quote.currency === 'USD' ? 7.8 : 1;
+                      const shares = Math.floor((sizingBase * riskPct / 100) / ((sel.entry - sel.stop) * fx));
+                      return <div className="mt-1 text-slate-300">→ up to <span className="font-mono font-bold text-white">{shares.toLocaleString()}</span> shares (≈HK${Math.round(shares * sel.entry * fx).toLocaleString()}, {((shares * sel.entry * fx) / sizingBase * 100).toFixed(0)}% of the portfolio); a stop-out loses ≈HK${Math.round(sizingBase * riskPct / 100).toLocaleString()}.</div>;
+                    })() : <div className="mt-1 text-slate-500">Enter your portfolio size to get a position size.</div>}
+                    {onTrade && (
+                      <button onClick={() => onTrade(quote.symbol)} className="mt-3 w-full py-2 rounded-xl text-[11px] font-black uppercase tracking-wider bg-[#00f2fe]/10 border border-[#00f2fe]/30 text-[#00f2fe] cursor-pointer hover:bg-[#00f2fe]/20">Practise this plan in the simulator</button>
+                    )}
                   </div>
-
                   <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
-                    <div className={label}>Tendency</div>
-                    <div className={`text-lg font-black mt-1 ${plan.tendency === 'Rising' ? 'text-emerald-400' : plan.tendency === 'Falling' ? 'text-rose-400' : 'text-slate-200'}`}>{plan.tendency === 'Rising' ? '▲' : plan.tendency === 'Falling' ? '▼' : '◆'} {plan.tendency}</div>
-                    <div className="text-[11px] text-slate-400">Expected drift over 20 trading days: <span className={plan.move20 >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{pctTxt(plan.move20)}</span> → about {p2(price * (1 + plan.move20))}</div>
-                    <div className="mt-3 text-[10px] font-mono space-y-0.5">
-                      <div className="flex justify-between"><span className="text-slate-500">Resistance</span><span className="text-rose-300">{plan.resistances.length ? plan.resistances.map(v => fmt(v)).join(' · ') : 'none nearby'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Price</span><span className="text-white">{fmt(price)}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Support</span><span className="text-emerald-300">{plan.supports.length ? plan.supports.map(v => fmt(v)).join(' · ') : 'none nearby'}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">Daily range (ATR)</span><span className="text-slate-300">{fmt(plan.atr)} ({((plan.atr / price) * 100).toFixed(1)}%)</span></div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
-                    <div className={label}>If buying</div>
-                    {(plan.signal === 'Reduce' || plan.signal === 'Sell') && <div className="mt-1 text-[10px] text-amber-400">Not a buy signal now: levels shown for reference only.</div>}
+                    <div className={label}>Valuation prices (long-term holders)</div>
                     <div className="mt-2 space-y-2 text-xs">
-                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Entry zone</span><span className="font-mono font-bold text-emerald-300">{p2(plan.entryLow)} – {p2(plan.entryHigh)}</span></div>
-                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Take-profit (profit-max)</span><span className="font-mono font-bold text-[#00f2fe]">{p2(plan.target)} <span className="text-[10px] text-slate-500">{pctTxt(plan.target / plan.entry - 1)}</span></span></div>
-                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Stop-loss</span><span className="font-mono font-bold text-rose-400">{p2(plan.stop)} <span className="text-[10px] text-slate-500">{pctTxt(plan.stop / plan.entry - 1)}</span></span></div>
-                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Reward : risk</span><span className="font-mono text-white">{plan.riskReward ? `${plan.riskReward.toFixed(1)} : 1` : '—'}</span></div>
-                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Chance target is hit first</span><span className="font-mono text-white">≈{Math.round(plan.probTarget * 20) * 5}% <span className="text-[10px] text-slate-500">(stop ≈{Math.round(plan.probStop * 20) * 5}%)</span></span></div>
-                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Expected profit / share</span><span className={`font-mono font-bold ${plan.evPerShare >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{plan.evPerShare >= 0 ? '+' : '−'}{cur}{fmt(Math.abs(plan.evPerShare))}</span></div>
-                    </div>
-                    {/* Position size: risk a fixed share of the portfolio between entry and stop (how professionals size trades) */}
-                    <div className="mt-3 pt-3 border-t border-slate-800 text-[11px]">
-                      <div className="flex items-center gap-1.5 text-slate-400 flex-wrap">
-                        Risk
-                        <select value={riskPct} onChange={e => setRiskPct(Number(e.target.value))} className="bg-[#161b22] border border-slate-700 rounded px-1 py-0.5 text-white text-[11px]">
-                          {[0.5, 1, 2].map(r => <option key={r} value={r}>{r}%</option>)}
-                        </select>
-                        of
-                        <input type="number" min="0" value={sizeBase} onChange={e => setSizeBase(e.target.value)} placeholder={portfolioValue ? Math.round(portfolioValue).toString() : 'portfolio HK$'} className="w-24 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-white text-[11px] font-mono" />
-                      </div>
-                      {sizingBase > 0 && plan.entry > plan.stop ? (() => {
-                        const fx = quote.currency === 'USD' ? 7.8 : 1;
-                        const shares = Math.floor((sizingBase * riskPct / 100) / ((plan.entry - plan.stop) * fx));
-                        return <div className="mt-1 text-slate-300">→ up to <span className="font-mono font-bold text-white">{shares.toLocaleString()}</span> shares (≈HK${Math.round(shares * plan.entry * fx).toLocaleString()}, {((shares * plan.entry * fx) / sizingBase * 100).toFixed(0)}% of the portfolio); a stop-out loses ≈HK${Math.round(sizingBase * riskPct / 100).toLocaleString()}.</div>;
-                      })() : <div className="mt-1 text-slate-500">Enter your portfolio size to get a position size.</div>}
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
-                    <div className={label}>If holding · valuation prices</div>
-                    <div className="mt-2 space-y-2 text-xs">
-                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Take profit between</span><span className="font-mono font-bold text-[#00f2fe]">{p2(plan.sellZoneLow)} – {p2(plan.sellZoneHigh)}</span></div>
-                      <div className="flex justify-between items-baseline"><span className="text-slate-400">Cut loss below</span><span className="font-mono font-bold text-rose-400">{p2(plan.stop)}</span></div>
-                      <div className="h-px bg-slate-800 my-1" />
                       {valuation.fair ? (
                         <>
                           <div className="flex justify-between items-baseline"><span className="text-slate-400">Buy below (under low case)</span><span className="font-mono font-bold text-emerald-300">{p2(plan.buyBelow)}</span></div>
                           <div className="flex justify-between items-baseline"><span className="text-slate-400">Fair value range</span><span className="font-mono text-white">{fairRange ? `${p2(fairRange.low)} – ${p2(fairRange.high)}` : p2(valuation.fair)}</span></div>
                           <div className="flex justify-between items-baseline"><span className="text-slate-400">Sell above (over high case)</span><span className="font-mono font-bold text-rose-300">{p2(plan.sellAbove)}</span></div>
                         </>
-                      ) : <p className="text-[11px] text-slate-500">Enter EPS in the valuation calculator below to add valuation-based buy and sell prices.</p>}
+                      ) : <p className="text-[11px] text-slate-500">Enter EPS in the valuation calculator below to add valuation-based buy and sell prices. Valuation then counts in the long-term outlook.</p>}
                     </div>
-                    {onTrade && (
-                      <button onClick={() => onTrade(quote.symbol)} className="mt-3 w-full py-2 rounded-xl text-[11px] font-black uppercase tracking-wider bg-[#00f2fe]/10 border border-[#00f2fe]/30 text-[#00f2fe] cursor-pointer hover:bg-[#00f2fe]/20">Practise this plan in the simulator</button>
-                    )}
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
-                  How the prices are set: entry zone from the nearest support (swing lows, MA20/MA60, lower Bollinger band) to today's price; stop-loss below support and at least 1.5× the average daily range (ATR) away.
-                  The take-profit is the level with the highest expected profit over 60 trading days, counted on {plan.simPaths.toLocaleString()} simulated paths that resample this stock's own past daily moves (so sudden jumps are included). Educational estimate, not investment advice.
+                  How it works: each indicator and pattern was tested on {STUDY3.universe}. For every state we measured how often the price was higher 10 and 120 trading days later, compared with that stock's normal rate. The chance shown starts from this stock's own normal rate and adds what today's signals were worth in the test, cut by a quarter to stay conservative.
+                  Stops sit below the recent swing low and at least 1.5 daily ranges away (short-term) or about one six-month volatility away (long-term). Educational estimate, not investment advice.
                 </p>
               </div>
             );
           })()}
 
-          {/* How much to trust the rating: real-market test + this stock's own record */}
-          {plan && (() => {
-            const st = STUDY_RESULTS;
-            const t = analysis.track;
+          {/* How much to trust the outlook: out-of-sample results of the study */}
+          {outlook && plan && (() => {
             const pc = plan.percentiles;
-            const sign = (v) => (v === null || v === undefined ? '—' : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`);
+            const Test = ({ m, name }) => (
+              <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
+                <div className={label}>{name} · next {m.horizon} trading days</div>
+                <table className="w-full mt-2 text-[11px] font-mono">
+                  <thead><tr className="text-slate-500"><th className="text-left font-normal">Test period</th><th className="text-right font-normal">Most bullish 20%</th><th className="text-right font-normal">Most bearish 20%</th><th className="text-right font-normal">IC</th></tr></thead>
+                  <tbody>
+                    {['HK', 'US'].map(k => (
+                      <tr key={k}>
+                        <td className="text-slate-400 py-0.5 font-sans">{k === 'HK' ? 'Hong Kong' : 'United States'}</td>
+                        <td className="text-right text-emerald-400">+{m.top[k][0].toFixed(1)}% · +{m.top[k][1].toFixed(0)} pts</td>
+                        <td className="text-right text-rose-400">{m.bottom[k][0].toFixed(1)}% · {m.bottom[k][1].toFixed(0)} pts</td>
+                        <td className="text-right text-slate-300">{(k === 'HK' ? m.icTestHK : m.icTestUS).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Return vs the stock's normal, and change in how often it was higher. Jul 2023 – Nov 2026, not used for tuning. Worked on {m.posTestHK} HK and {m.posTestUS} US stocks; tuning-period IC {m.icTrainHK.toFixed(2)} (HK) / {m.icTrainUS.toFixed(2)} (US).</p>
+              </div>
+            );
             return (
               <div className={card}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                  <h4 className="text-sm font-bold text-white flex items-center gap-2"><Gauge className="w-4 h-4 text-[#00f2fe]" /> How reliable is this rating?</h4>
-                  <span className="text-[10px] text-slate-500">Learned from how {st.universe} actually traded, {st.period}</span>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2"><Gauge className="w-4 h-4 text-[#00f2fe]" /> How reliable is this outlook?</h4>
+                  <span className="text-[10px] text-slate-500">{STUDY3.universe} · {STUDY3.period}</span>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
-                    <div className={label}>Real-market test of the timing model · next 60 days</div>
-                    <table className="w-full mt-2 text-[11px] font-mono">
-                      <thead><tr className="text-slate-500"><th className="text-left font-normal">Period</th><th className="text-right font-normal">Bullish</th><th className="text-right font-normal">All</th><th className="text-right font-normal">Bearish</th><th className="text-right font-normal">IC</th></tr></thead>
-                      <tbody>
-                        {[['HK 2024–26 (test)', STUDY2.timingModel.test, STUDY2.timingModel.testIC], ['HK 2019–23 (tuning)', STUDY2.timingModel.train, STUDY2.timingModel.trainIC], ['US 2024–26', STUDY2.timingModel.usTest, STUDY2.timingModel.usTestIC], ['US 2019–23', STUDY2.timingModel.usTrain, STUDY2.timingModel.usTrainIC]].map(([k, v, icv]) => (
-                          <tr key={k}>
-                            <td className="text-slate-400 py-0.5 font-sans">{k}</td>
-                            <td className={`text-right ${v.top > v.all ? 'text-emerald-400' : 'text-rose-400'}`}>{v.top > 0 ? '+' : ''}{v.top}%</td>
-                            <td className="text-right text-slate-300">{v.all > 0 ? '+' : ''}{v.all}%</td>
-                            <td className={`text-right ${v.bottom < v.all ? 'text-emerald-400' : 'text-rose-400'}`}>{v.bottom > 0 ? '+' : ''}{v.bottom}%</td>
-                            <td className="text-right text-slate-300">{icv.toFixed(2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Bullish / bearish = timing score ≥ +0.25 / ≤ −0.25. The model worked well in 2024–26 (positive for {STUDY2.timingModel.stocksPositive} HK stocks) but made little difference in 2019–23, so the edge depends on market conditions. The old trend-following rating did the opposite of what it said ({STUDY_RESULTS.oldModel.buyAvg}% after buys vs {STUDY_RESULTS.oldModel.sellAvg}% after sells).</p>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
-                    <div className={label}>This stock's own record · next 20 days</div>
-                    {t ? (
-                      <>
-                        <div className="mt-2 space-y-1 text-[11px] font-mono">
-                          <div className="flex justify-between"><span className="text-slate-500">Buy-side days ({t.buy.n})</span><span className={t.buy.avgRet >= t.all.avgRet ? 'text-emerald-400' : 'text-rose-400'}>{sign(t.buy.avgRet)}</span></div>
-                          <div className="flex justify-between"><span className="text-slate-500">All days ({t.all.n})</span><span className="text-slate-300">{sign(t.all.avgRet)}</span></div>
-                          <div className="flex justify-between"><span className="text-slate-500">Sell-side days ({t.sell.n})</span><span className={t.sell.n && t.sell.avgRet <= t.all.avgRet ? 'text-emerald-400' : 'text-rose-400'}>{sign(t.sell.n ? t.sell.avgRet : null)}</span></div>
-                          <div className="flex justify-between"><span className="text-slate-500">Rank correlation (timing / strength)</span><span className="text-slate-300">{t.icTiming.toFixed(2)} / {t.icStrength.toFixed(2)}</span></div>
-                        </div>
-                        <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-                          {t.edgeBuy > 0.002 ? 'On this stock the signal has helped so far.' : t.edgeBuy < -0.002 ? 'On this stock the signal has not helped so far, so treat the rating with extra caution.' : 'On this stock the signal has made little difference so far.'}
-                          {t.n >= 100 ? ' Timing and strength weights were adjusted (at most ±50%) to this record.' : ' Too few past samples to adjust the weights.'} {t.from} to {t.to}.
-                        </p>
-                      </>
-                    ) : <p className="text-[11px] text-slate-500 mt-2">Needs about 1.5 years of price history.</p>}
-                  </div>
+                  <Test m={STUDY3.short} name="Short-term model" />
+                  <Test m={STUDY3.long} name="Long-term model" />
                   <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
                     <div className={label}>Relative strength vs HK blue chips</div>
                     {pc ? (
@@ -585,11 +585,12 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                             <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${v * 100}%`, backgroundColor: v >= 0.6 ? GREEN : v <= 0.4 ? RED : '#94a3b8' }} /></div>
                           </div>
                         ))}
-                        <p className="text-[10px] text-slate-500 leading-relaxed pt-1">These four helped pick stronger stocks out of the group in the test (they matter most for choosing what to own).</p>
+                        <p className="text-[10px] text-slate-500 leading-relaxed pt-1">For choosing between stocks, strength against peers helped. Over time on the same stock, stretched prices tended to reverse, which is what the outlook above uses.</p>
                       </div>
                     ) : <p className="text-[11px] text-slate-500 mt-2">Needs a year of price history.</p>}
                   </div>
                 </div>
+                <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">Limits: the test uses today's large companies, so firms that fell and never recovered are missing, which flatters "buy the dip". That is why every effect is cut by a quarter. In a sharp bear market, stretched prices can stay stretched for longer.</p>
               </div>
             );
           })()}
@@ -631,79 +632,105 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
             )}
           </div>
 
-          {/* Indicator table: the 10 most popular indicators + common TradingView tools, with what the test found */}
-          {(() => {
-            const i = rows.length - 1, c = analysis.closes, p = price || c[i];
-            const sma = (n) => (c.length >= n ? c.slice(-n).reduce((t, v) => t + v, 0) / n : null);
-            const s50 = sma(50), s200 = sma(200);
-            const A = analysis.adx, ich = analysis.ichimoku, st = analysis.supertrend, sto = analysis.stoch, m = analysis.macd;
-            const cloudTop = Math.max(ich.spanA[i] ?? -Infinity, ich.spanB[i] ?? -Infinity), cloudBot = Math.min(ich.spanA[i] ?? Infinity, ich.spanB[i] ?? Infinity);
-            const obvUp = analysis.obv[i] > analysis.obv[Math.max(0, i - 20)];
-            const fibNear = analysis.fib ? analysis.fib.levels.filter(l => l.ratio > 0 && l.ratio < 1).reduce((a2, l) => (!a2 || Math.abs(l.price - p) < Math.abs(a2.price - p) ? l : a2), null) : null;
-            const bbz = analysis.bb.upper[i] ? (p - analysis.bb.mid[i]) / ((analysis.bb.upper[i] - analysis.bb.mid[i]) / 2) : null;
-            const ic = STUDY2.indicatorIC;
-            const rowsT = [
-              ['SMA 50 / 200', s50 && s200 ? `${fmt(s50)} / ${fmt(s200)}` : '—', s50 && s200 ? (s50 > s200 ? 'Uptrend (golden)' : 'Downtrend (death)') : '—', s50 > s200 ? 1 : -1, ic.golden, 'contra'],
-              ['EMA 12 / 26', `${fmt(analysis.ema12[i])} / ${fmt(analysis.ema26[i])}`, analysis.ema12[i] > analysis.ema26[i] ? 'Fast above slow: bullish' : 'Fast below slow: bearish', analysis.ema12[i] > analysis.ema26[i] ? 1 : -1, ic.emaX, 'contra'],
-              ['MACD (12,26,9)', `${fmt(m.dif[i], 3)} vs ${fmt(m.signal[i], 3)}`, m.dif[i] > m.signal[i] ? 'Above signal: bullish' : 'Below signal: bearish', m.dif[i] > m.signal[i] ? 1 : -1, ic.macdX, 'contra'],
-              ['Fibonacci (120-day swing)', fibNear ? `${(fibNear.ratio * 100).toFixed(1)}% at ${fmt(fibNear.price)}` : '—', fibNear ? `Nearest level ${Math.abs(fibNear.price / p - 1) < 0.01 ? '(price is at it)' : fibNear.price < p ? '(support below)' : '(resistance above)'}` : '—', 0, ic.fibPos, 'levels'],
-              ['Stochastic (14,3)', `%K ${fmt(sto.k[i], 1)} · %D ${fmt(sto.d[i], 1)}`, sto.k[i] < 20 ? 'Oversold (<20)' : sto.k[i] > 80 ? 'Overbought (>80)' : 'Neutral', sto.k[i] < 20 ? 1 : sto.k[i] > 80 ? -1 : 0, ic.stoch, 'none'],
-              ['Bollinger (20,2)', bbz !== null ? `${bbz >= 0 ? '+' : ''}${bbz.toFixed(2)} σ from mid` : '—', bbz > 2 ? 'Above upper band' : bbz < -2 ? 'Below lower band' : bbz >= 0 ? 'Upper half' : 'Lower half', bbz > 0 ? 1 : -1, ic.bbPos, 'shown'],
-              ['RSI (14)', fmt(analysis.rsi14[i], 1), analysis.rsi14[i] > 70 ? 'Overbought (>70)' : analysis.rsi14[i] < 30 ? 'Oversold (<30)' : analysis.rsi14[i] >= 50 ? 'Above 50' : 'Below 50', analysis.rsi14[i] < 30 ? 1 : analysis.rsi14[i] > 70 ? -1 : 0, null, 'div'],
-              ['ADX (14) · +DI / −DI', `${fmt(A.adx[i], 1)} · ${fmt(A.pdi[i], 1)} / ${fmt(A.ndi[i], 1)}`, `${A.adx[i] > 25 ? 'Strong' : A.adx[i] < 20 ? 'Weak / no' : 'Moderate'} trend, ${A.pdi[i] > A.ndi[i] ? 'buyers' : 'sellers'} in control`, A.pdi[i] > A.ndi[i] ? 1 : -1, ic.diDir, 'adx'],
-              ['Standard deviation (volatility)', analysis.vol ? `${(analysis.vol * 100).toFixed(1)}% a year` : '—', analysis.vol > 0.45 ? 'High volatility' : analysis.vol < 0.2 ? 'Low volatility' : 'Normal volatility', 0, null, 'risk'],
-              ['Ichimoku cloud (9,26,52)', `Tenkan ${fmt(ich.tenkan[i])} · Kijun ${fmt(ich.kijun[i])}`, p > cloudTop ? 'Price above the cloud' : p < cloudBot ? 'Price below the cloud' : 'Price inside the cloud', p > cloudTop ? 1 : p < cloudBot ? -1 : 0, ic.ichi, 'contra'],
-              ['Supertrend (10,3)', st.line[i] ? fmt(st.line[i]) : '—', st.dir[i] > 0 ? 'Up: line is support' : 'Down: line is resistance', st.dir[i], ic.superT, 'contra'],
-              ['On-balance volume', obvUp ? 'Rising (20 days)' : 'Falling (20 days)', obvUp ? 'Volume confirms buying' : 'Volume confirms selling', obvUp ? 1 : -1, ic.obvTrend, 'shown']
-            ];
-            const use = { contra: ['In rating (contrarian)', 'text-amber-300'], div: ['In rating (divergence)', 'text-teal-300'], adx: ['In rating (regime)', 'text-teal-300'], levels: ['Price levels only', 'text-slate-400'], shown: ['Shown only (reverse edge)', 'text-slate-400'], risk: ['Risk & sizing', 'text-slate-400'], none: ['Not used (no edge)', 'text-slate-500'] };
-            const evTag = { works: ['Held up in test', 'border-teal-400/40 text-teal-200'], contrarian: ['Worked in reverse', 'border-amber-400/40 text-amber-200'], mixed: ['Mixed results', 'border-slate-500/50 text-slate-300'], none: ['No reliable edge', 'border-slate-700 text-slate-500'] };
+          {/* Indicators and patterns: current reading and what that reading was actually followed by */}
+          {outlook && (() => {
+            const tableRows = indicatorTable(outlook);
+            const Cell = ({ v }) => {
+              if (!v) return <span className="text-slate-600">Normal range</span>;
+              if (!v.dir) return <span className="text-slate-500" title={evText(v)}>No reliable edge</span>;
+              return <span className={v.dir > 0 ? 'text-emerald-300' : 'text-rose-300'} title={`${v.agree} of 4 market/period tests agreed`}>{v.dir > 0 ? '▲' : '▼'} {evText(v).replace(' vs normal,', ' ·').replace(' often up', '')}</span>;
+            };
+            const taughtTxt = (d) => (d > 0 ? 'Bullish' : d < 0 ? 'Bearish' : 'Neutral');
+            const verdictTag = (key) => {
+              const s = verdict(key, 'short'), l = verdict(key, 'long'), taught = PATTERNS[key][1];
+              const dirs = [s && s.dir, l && l.dir].filter(Boolean);
+              if (!dirs.length) return ['No reliable edge', 'border-slate-700 text-slate-500'];
+              if (!taught) return ['Has an edge', 'border-teal-400/40 text-teal-200'];
+              if (dirs.every(d => d === taught)) return ['Works as taught', 'border-teal-400/40 text-teal-200'];
+              if (dirs.every(d => d === -taught)) return ['Works in reverse', 'border-amber-400/40 text-amber-200'];
+              return ['Mixed', 'border-slate-500/50 text-slate-300'];
+            };
             return (
               <div className={card}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <h4 className="text-sm font-bold text-white flex items-center gap-2"><Gauge className="w-4 h-4 text-[#00f2fe]" /> Indicators &amp; patterns</h4>
-                  <span className="text-[10px] text-slate-500">The 10 most-used indicators plus Supertrend and OBV · "Test IC" = how well the classic reading predicted the next 60 days (HK, 2024–26; + works as taught, − works in reverse)</span>
+                  <span className="text-[10px] text-slate-500">What today's reading was followed by in the real market: return vs normal · change in how often the price was higher</span>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[11px] min-w-[760px]">
+                  <table className="w-full text-[11px] min-w-[820px]">
                     <thead className="text-[10px] font-mono uppercase text-slate-500 border-b border-slate-800">
-                      <tr><th className="text-left py-2 pr-3">Indicator</th><th className="text-left py-2 pr-3">Now</th><th className="text-left py-2 pr-3">Classic reading</th><th className="text-right py-2 pr-3">Test IC</th><th className="text-left py-2">How A.F.A. uses it</th></tr>
+                      <tr><th className="text-left py-2 pr-3">Indicator</th><th className="text-left py-2 pr-3">Type</th><th className="text-left py-2 pr-3">Now</th><th className="text-left py-2 pr-3">Reading</th><th className="text-left py-2 pr-3">Next 2 weeks</th><th className="text-left py-2">Next 6 months</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
-                      {rowsT.map(([name, now, reading, bias, icv, how]) => (
-                        <tr key={name}>
-                          <td className="py-2 pr-3 font-bold text-white whitespace-nowrap">{name}</td>
-                          <td className="py-2 pr-3 font-mono text-slate-300 whitespace-nowrap">{now}</td>
-                          <td className={`py-2 pr-3 ${bias > 0 ? 'text-emerald-300' : bias < 0 ? 'text-rose-300' : 'text-slate-300'}`}>{reading}</td>
-                          <td className={`py-2 pr-3 text-right font-mono ${icv === null || icv === undefined ? 'text-slate-600' : icv > 0.03 ? 'text-teal-300' : icv < -0.03 ? 'text-amber-300' : 'text-slate-500'}`}>{icv === null || icv === undefined ? '—' : `${icv > 0 ? '+' : ''}${icv.toFixed(2)}`}</td>
-                          <td className={`py-2 text-[10px] font-mono ${use[how][1]}`}>{use[how][0]}</td>
+                      {tableRows.map(r => (
+                        <tr key={r.name}>
+                          <td className="py-2 pr-3 font-bold text-white whitespace-nowrap">{r.name}</td>
+                          <td className="py-2 pr-3 text-slate-500 text-[10px] font-mono uppercase">{r.group}</td>
+                          <td className="py-2 pr-3 font-mono text-slate-300 whitespace-nowrap">{r.now || '—'}</td>
+                          <td className="py-2 pr-3 text-slate-200">{r.reading}</td>
+                          <td className="py-2 pr-3 font-mono text-[10px]"><Cell v={r.short} /></td>
+                          <td className="py-2 font-mono text-[10px]"><Cell v={r.long} /></td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <div className="mt-4">
-                  <div className={label}>Chart patterns &amp; signals in the last 5 sessions</div>
-                  {analysis.patterns.length === 0 ? <p className="text-[11px] text-slate-500 mt-1.5">None detected (checked: RSI divergence, 55-day breakouts, golden/death cross, MACD and Supertrend crosses, engulfing, hammer, shooting star, double top/bottom, Bollinger squeeze).</p> : (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {analysis.patterns.map(pt => (
-                        <div key={pt.id} className="px-3 py-2 rounded-xl bg-[#0d1117] border border-slate-800 max-w-xs">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-1.5 h-1.5 rounded-full ${pt.bias > 0 ? 'bg-emerald-400' : pt.bias < 0 ? 'bg-rose-400' : 'bg-slate-400'}`} />
-                            <span className="text-xs font-bold text-white">{pt.label}</span>
+
+                <div className="mt-5">
+                  <div className={label}>Patterns found in the last 5 sessions</div>
+                  {outlook.patterns.length === 0 ? <p className="text-[11px] text-slate-500 mt-1.5">None of the {Object.keys(PATTERNS).length} tested candlestick, chart, harmonic or divergence patterns appeared.</p> : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 mt-2">
+                      {outlook.patterns.map(pt => {
+                        const [name, taught, kind, idea] = PATTERNS[pt.key];
+                        const tag = verdictTag(pt.key);
+                        return (
+                          <div key={pt.key} className="px-3 py-2.5 rounded-xl bg-[#0d1117] border border-slate-800">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold text-white">{name}</span>
+                              <span className="text-[10px] font-mono text-slate-500">{pt.ago === 0 ? 'today' : `${pt.ago}d ago`}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1 leading-snug">{idea} Textbook: {taughtTxt(taught).toLowerCase()} ({kind}).</p>
+                            <div className="mt-1.5 text-[10px] font-mono space-y-0.5">
+                              <div className="flex justify-between gap-2"><span className="text-slate-500">2 weeks</span><Cell v={verdict(pt.key, 'short')} /></div>
+                              <div className="flex justify-between gap-2"><span className="text-slate-500">6 months</span><Cell v={verdict(pt.key, 'long')} /></div>
+                            </div>
+                            <span className={`inline-block mt-1.5 text-[9px] font-mono px-1.5 py-0.5 rounded border ${tag[1]}`}>{tag[0]}</span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${evTag[pt.evidence][1]}`}>{evTag[pt.evidence][0]}</span>
-                            <span className="text-[10px] font-mono text-slate-500">{pt.date}</span>
-                          </div>
-                          {pt.note && <p className="text-[10px] text-slate-500 mt-1 leading-snug">{pt.note}</p>}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
+
+                <details className="mt-4 group">
+                  <summary className="cursor-pointer text-[11px] text-[#00f2fe] select-none">Pattern library: all {Object.keys(PATTERNS).length} tested patterns and what they really did</summary>
+                  <div className="overflow-x-auto mt-2">
+                    <table className="w-full text-[11px] min-w-[760px]">
+                      <thead className="text-[10px] font-mono uppercase text-slate-500 border-b border-slate-800">
+                        <tr><th className="text-left py-2 pr-3">Pattern</th><th className="text-left py-2 pr-3">Kind</th><th className="text-left py-2 pr-3">Textbook</th><th className="text-left py-2 pr-3">Next 2 weeks</th><th className="text-left py-2 pr-3">Next 6 months</th><th className="text-left py-2">Verdict</th></tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60">
+                        {Object.entries(PATTERNS).map(([key, [name, taught, kind]]) => {
+                          const tag = verdictTag(key);
+                          return (
+                            <tr key={key}>
+                              <td className="py-1.5 pr-3 text-white">{name}</td>
+                              <td className="py-1.5 pr-3 text-slate-500 text-[10px] font-mono uppercase">{kind}</td>
+                              <td className={`py-1.5 pr-3 ${taught > 0 ? 'text-emerald-300/80' : taught < 0 ? 'text-rose-300/80' : 'text-slate-400'}`}>{taughtTxt(taught)}</td>
+                              <td className="py-1.5 pr-3 font-mono text-[10px]"><Cell v={verdict(key, 'short')} /></td>
+                              <td className="py-1.5 pr-3 font-mono text-[10px]"><Cell v={verdict(key, 'long')} /></td>
+                              <td className="py-1.5"><span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${tag[1]}`}>{tag[0]}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Patterns are detected by fixed rules (for example a double bottom needs two lows within 3%, at least 10 days apart, and a close above the peak between them). Rare patterns such as rounded tops and the Shark harmonic have too few cases to judge; the Shark is not tested.</p>
+                </details>
+
                 <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
-                  What the test found: used the textbook way, every trend reading (moving-average crosses, MACD, +DI/−DI, Ichimoku, Supertrend, OBV, Bollinger and Fibonacci position) was followed by <span className="text-amber-300">weaker</span> returns on the same stock, so A.F.A. treats a crowd of bullish trend signals as "stretched". Buying after a fall worked, more so when ADX shows a strong move. RSI bullish divergence and new 55-day lows held up; candlestick patterns, double tops/bottoms and squeezes did not.
+                  What the test found: in both Hong Kong and the US, and in both periods, prices that had moved too far tended to come back. Being far below the 50-day average, oversold on RSI or CCI, in a strong downtrend or 30% below the 52-week high was followed by better-than-normal returns; being overbought, far above the averages or near the 52-week high was followed by weaker ones. Trend-following signals (crosses, cloud, Supertrend, SAR) mostly had little or reverse edge. Most candlesticks had no reliable edge; breakouts tended to fade and breakdowns tended to recover.
                 </p>
               </div>
             );
@@ -762,9 +789,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                     <ReferenceLine key={l.ratio} y={l.price} stroke="#a78bfa" strokeOpacity={0.6} strokeDasharray="2 3" label={{ value: `${(l.ratio * 100).toFixed(1)}%`, position: 'insideRight', fill: '#a78bfa', fontSize: 9 }} />
                   ))}
                   {price && <ReferenceLine y={price} stroke="#00f2fe" strokeOpacity={0.4} strokeDasharray="2 4" />}
-                  {showPlan && plan && <ReferenceArea y1={plan.entryLow} y2={plan.entryHigh} fill={GREEN} fillOpacity={0.08} stroke="none" />}
-                  {showPlan && plan && <ReferenceLine y={plan.target} stroke="#00f2fe" strokeDasharray="6 3" label={{ value: `Target ${fmt(plan.target)}`, position: 'insideTopLeft', fill: '#00f2fe', fontSize: 10 }} />}
-                  {showPlan && plan && <ReferenceLine y={plan.stop} stroke={RED} strokeDasharray="6 3" label={{ value: `Stop ${fmt(plan.stop)}`, position: 'insideBottomLeft', fill: RED, fontSize: 10 }} />}
+                  {showPlan && outlook && <ReferenceLine y={outlook[horizon].target} stroke="#00f2fe" strokeDasharray="6 3" label={{ value: `${horizon === 'short' ? '2-wk' : '6-mo'} target ${fmt(outlook[horizon].target)}`, position: 'insideTopLeft', fill: '#00f2fe', fontSize: 10 }} />}
+                  {showPlan && outlook && <ReferenceLine y={outlook[horizon].stop} stroke={RED} strokeDasharray="6 3" label={{ value: `${horizon === 'short' ? '2-wk' : '6-mo'} stop ${fmt(outlook[horizon].stop)}`, position: 'insideBottomLeft', fill: RED, fontSize: 10 }} />}
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
