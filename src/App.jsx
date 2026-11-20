@@ -27,6 +27,7 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, si
 import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import IntroLanding from './components/IntroLanding';
 import { useApplePaySync, ApplePayCard } from './components/ApplePaySync';
+import MobileNav, { InstallHint } from './components/MobileNav';
 
 const firebaseConfig = {
   apiKey: "AIzaSyArZZDniGw4tromow4bVLj2efh8NJWYieE",
@@ -2268,6 +2269,13 @@ ${JSON.stringify(snapshot)}`;
           border-color: rgba(160, 225, 255, 0.18) !important;
           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 1px 0 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(0, 242, 254, 0.04), 0 22px 44px -20px rgba(0, 0, 0, 0.75);
         }
+        /* Phones: room for the bottom tab bar, compact KPI tiles */
+        @media (max-width: 767px) {
+          .afa-content { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+          .afa-content > header { padding-left: 16px; padding-right: 16px; padding-top: max(12px, env(safe-area-inset-top, 0px)); }
+          .afa-kpis > div:not(:first-child) { padding: 14px !important; }
+          .afa-kpis > div:not(:first-child) .text-3xl { font-size: 1.35rem; line-height: 1.75rem; }
+        }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
@@ -2746,9 +2754,10 @@ ${JSON.stringify(snapshot)}`;
             {/* DASHBOARD TAB */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6 anim-slide-in">
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
+                <InstallHint />
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 afa-kpis">
+                  <div className="col-span-2 md:col-span-1 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-2">
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#00f2fe]"/> Total Balance</span>
                     </div>
@@ -3068,7 +3077,27 @@ ${JSON.stringify(snapshot)}`;
                     <span className="text-[10px] text-slate-500 font-mono">{filteredTransactions.length} Records</span>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  {/* Phones: one card per record */}
+                  <div className="md:hidden divide-y divide-slate-800/60">
+                    {filteredTransactions.length === 0 && (
+                      <p className="py-8 px-5 text-center text-xs text-slate-600">No transactions yet. Tap + to record one.</p>
+                    )}
+                    {filteredTransactions.map(tx => (
+                      <div key={tx.id} className="flex items-center gap-3 px-4 py-3">
+                        <span className="w-2 h-9 rounded-full shrink-0" style={{ backgroundColor: CATEGORY_COLORS[tx.category] || '#94a3b8' }} />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-white truncate flex items-center gap-1.5">{tx.description}{tx.recurringId && <RefreshCw className="w-3 h-3 text-[#00f2fe]/70 shrink-0" aria-label="Repeating" />}</div>
+                          <div className="text-[11px] text-slate-500 truncate">{tx.category} · {tx.account || 'Bank Account'} · {tx.date}</div>
+                        </div>
+                        <div className={`text-sm font-mono font-bold whitespace-nowrap ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>
+                          {tx.type === 'income' ? '+' : '-'}${Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </div>
+                        <button onClick={() => handleDeleteTransaction(tx.id)} aria-label="Delete record" className="text-slate-600 hover:text-rose-400 p-2 -mr-2 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-left text-sm text-slate-300 min-w-[640px]">
                     <thead className="bg-[#161b22] border-b border-slate-800 text-slate-500 uppercase text-[10px] font-mono">
                       <tr>
@@ -4158,15 +4187,9 @@ ${JSON.stringify(snapshot)}`;
         </div>
       )}
 
-      {/* Quick "+" for recording on phones */}
-      {user && !showSplash && !showAddTxModal && (
-        <button
-          onClick={() => setShowAddTxModal(true)}
-          aria-label="Record a transaction"
-          className="md:hidden fixed z-40 right-5 bottom-[max(1.25rem,env(safe-area-inset-bottom))] w-14 h-14 rounded-full bg-[#00f2fe] text-[#0d1117] shadow-[0_0_24px_rgba(0,242,254,0.45)] flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
+      {/* Phones: bottom tab bar with a central + for recording */}
+      {user && !showSplash && (
+        <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} onAdd={() => setShowAddTxModal(true)} hidden={showAddTxModal} />
       )}
 
       <TransactionComposer

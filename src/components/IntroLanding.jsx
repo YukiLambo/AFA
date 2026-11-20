@@ -60,6 +60,9 @@ const CSS = `
 .afl .btn-line { font: 500 15px/1 var(--ui); color: var(--ink); background: rgba(255,255,255,0.03); border: 1px solid var(--line-strong); border-radius: 10px; padding: 14px 22px; cursor: pointer; text-decoration: none; display: inline-block; transition: border-color .2s, background .2s; }
 .afl .btn-line:hover, .afl .btn-line:focus-visible { border-color: rgba(0, 242, 254, 0.5); background: rgba(0, 242, 254, 0.06); outline: none; }
 .afl .home-text { transition: opacity .4s ease; }
+.afl .mlinks { display: none; position: fixed; z-index: 4; left: 0; right: 0; bottom: calc(7vh + env(safe-area-inset-bottom, 0px)); justify-content: center; gap: 6px; }
+.afl .mlinks a { font: 500 13px/1 var(--ui); color: rgba(226, 236, 244, 0.7); text-decoration: none; padding: 12px 12px; border-radius: 10px; }
+.afl .mlinks a:active { background: rgba(255, 255, 255, 0.06); }
 .afl.page .home-text { opacity: 0; pointer-events: none; }
 .afl .headline { position: fixed; z-index: 4; left: 0; right: 0; bottom: calc(15vh + env(safe-area-inset-bottom, 0px)); margin: 0; text-align: center;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -180,7 +183,9 @@ const CSS = `
 .afl .section { padding-block: 52px; }
 }
 @media (max-width: 520px) {
-.afl .cta-wrap .pill { display: none; }
+.afl .links { display: none; }
+.afl .mlinks { display: flex; }
+.afl .headline { bottom: calc(17vh + env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) {
 .afl .view.on { animation: none; }
@@ -262,6 +267,11 @@ export default function IntroLanding({ onEnter }) {
       {/* Home */}
       <div className="home-text">
         <h1 className="headline" id="afl-headline" aria-label="Your personal financial assistant"></h1>
+        <nav className="mlinks" aria-label="About A.F.A.">
+          <a href="#overview" onClick={go('overview')}>Overview</a>
+          <a href="#why-afa" onClick={go('why-afa')}>Why A.F.A.</a>
+          <a href="#features" onClick={go('features')}>Features</a>
+        </nav>
       </div>
 
       {/* Overview */}
