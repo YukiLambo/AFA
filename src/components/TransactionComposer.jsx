@@ -376,13 +376,13 @@ export default function TransactionComposer({ open, onClose, onSave, colorFor })
           <Key k="1">1</Key><Key k="2">2</Key><Key k="3">3</Key><Key k="+" className="text-[#00f2fe]">+</Key>
           <Key k="4">4</Key><Key k="5">5</Key><Key k="6">6</Key><Key k="-" className="text-[#00f2fe]">−</Key>
           <Key k="7">7</Key><Key k="8">8</Key><Key k="9">9</Key>
-          <Key onClick={() => save(true)} className="text-xs font-bold uppercase tracking-wider text-slate-200">{hasOperator ? '=' : 'Save & next'}</Key>
+          <Key onClick={() => save(true)} className={hasOperator ? 'text-slate-200' : '!text-[10.5px] !leading-[1.15] font-bold uppercase tracking-wide text-slate-200 text-center px-1'}>{hasOperator ? '=' : <span>Save &amp;<br />next</span>}</Key>
           <Key k=".">.</Key><Key k="0">0</Key>
           <Key k="back"><Delete className="w-5 h-5" /></Key>
           <Key
             onClick={() => save(false)}
             style={{ background: accent, boxShadow: `0 0 18px ${accent}55` }}
-            className="!text-[#0d1117] text-sm font-black uppercase tracking-wider"
+            className="!text-[#0d1117] !text-[13px] font-black uppercase tracking-wider"
           >
             {saving ? '…' : hasOperator ? '=' : 'Done'}
           </Key>
