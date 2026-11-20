@@ -26,6 +26,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import IntroLanding from './components/IntroLanding';
+import { useApplePaySync, ApplePayCard } from './components/ApplePaySync';
 
 const firebaseConfig = {
   apiKey: "AIzaSyArZZDniGw4tromow4bVLj2efh8NJWYieE",
@@ -550,6 +551,7 @@ const AppIcon = ({ className = "w-9 h-9", animateStroke = false }) => (
 export default function App() {
   // Authentication & App State
   const [user, setUser] = useState(null);
+  const applePay = useApplePaySync(db, user); // Apple Pay taps sent from the iPhone shortcut
   const [authLoading, setAuthLoading] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const fx = useFx(); // liquid-metal / liquid-glass visual effects (on/off)
@@ -3023,6 +3025,9 @@ ${JSON.stringify(snapshot)}`;
                     </button>
                   </div>
                 </div>
+
+                {/* Apple Pay auto-sync (iPhone Shortcuts automation) */}
+                <ApplePayCard sync={applePay} />
 
                 {/* Repeating transactions */}
                 <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
