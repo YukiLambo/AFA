@@ -27,7 +27,7 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, si
 import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import IntroLanding from './components/IntroLanding';
 import { useApplePaySync, ApplePayCard } from './components/ApplePaySync';
-import MobileNav, { InstallHint } from './components/MobileNav';
+import MobileNav, { InstallHint, MobileTopBar, MobileHero, MobileStyles } from './components/MobileNav';
 
 const firebaseConfig = {
   apiKey: "AIzaSyArZZDniGw4tromow4bVLj2efh8NJWYieE",
@@ -2275,6 +2275,20 @@ ${JSON.stringify(snapshot)}`;
           .afa-content > header { padding-left: 16px; padding-right: 16px; padding-top: max(12px, env(safe-area-inset-top, 0px)); }
           .afa-kpis > div:not(:first-child) { padding: 14px !important; }
           .afa-kpis > div:not(:first-child) .text-3xl { font-size: 1.35rem; line-height: 1.75rem; }
+          /* Figures in two- and three-up tiles shrink to fit instead of spilling out of the box */
+          .afa-content .grid > * { min-width: 0; }
+          .afa-content .flex > .flex-1 { min-width: 0; }
+          .afa-content [class~="grid-cols-2"] > [class*="p-5"], .afa-content [class~="grid-cols-2"] > [class*="p-6"] { padding: 14px; }
+          .afa-content [class~="grid-cols-2"] :is(.text-xl, .text-2xl, .text-3xl, .text-4xl) { font-size: clamp(13px, 4.2vw, 22px); line-height: 1.3; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .afa-content [class~="grid-cols-3"] :is(.text-lg, .text-xl, .text-2xl, .text-3xl) { font-size: clamp(13px, 3.9vw, 18px); line-height: 1.25; overflow-wrap: anywhere; }
+          .afa-content [class~="grid-cols-2"] :is(.text-sm, .text-base) { overflow-wrap: anywhere; }
+          .afa-content [class~="grid-cols-2"] .uppercase { letter-spacing: 0.04em; }
+        }
+        /* Very narrow phones (iPhone SE 1st gen): money tiles stack one per row so no digits are cut */
+        @media (max-width: 359px) {
+          .afa-content [class~="grid-cols-2"]:has(> * .text-2xl, > * .text-3xl, > * .text-xl) { grid-template-columns: minmax(0, 1fr); }
+          .afa-content [class~="grid-cols-2"] > [class*="col-span-2"] { grid-column: auto; }
+          .afa-content [class~="grid-cols-2"] :is(.text-xl, .text-2xl, .text-3xl, .text-4xl) { font-size: 20px; }
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -2522,8 +2536,15 @@ ${JSON.stringify(snapshot)}`;
       {user && !showSplash && (
         <div className={`afa-content flex-1 flex flex-col relative h-full overflow-y-auto overflow-x-hidden dashboard-enter ${fx.enabled ? 'bg-transparent' : 'bg-[#0d1117]'}`}>
           
+          {/* Phones: compact top bar with side drawer */}
+          <MobileStyles />
+          <MobileTopBar
+            activeTab={activeTab} setActiveTab={setActiveTab} user={user} userProfile={userProfile} insights={insights}
+            alertCount={systemAlerts.length} fx={fx} onEditProfile={() => setShowProfileModal(true)} onSignOut={handleSignOut}
+          />
+
           {/* HEADER (Main Content Area) */}
-          <header className={`sticky top-0 z-30 ${fx.enabled ? 'bg-[#0d1117]/80' : 'bg-[#161b22]/90'} backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-3.5 shadow-sm`}>
+          <header className={`afa-desk-head sticky top-0 z-30 ${fx.enabled ? 'bg-[#0d1117]/80' : 'bg-[#161b22]/90'} backdrop-blur-xl border-b border-slate-800/80 flex items-center justify-between px-6 py-3.5 shadow-sm`}>
              <div className="flex items-center gap-4">
                 <h2 className="text-base font-bold text-white tracking-wide">
                   {activeTab === 'dashboard' ? 'Dashboard' : 
@@ -2754,9 +2775,10 @@ ${JSON.stringify(snapshot)}`;
             {/* DASHBOARD TAB */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6 anim-slide-in">
+                <MobileHero insights={insights} hasData={transactions.length > 0} onOpen={() => setActiveTab('report')} />
                 <InstallHint />
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 afa-kpis">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 md:!mt-0 afa-kpis">
                   <div className="col-span-2 md:col-span-1 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-2">
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#00f2fe]"/> Total Balance</span>
@@ -3289,7 +3311,7 @@ ${JSON.stringify(snapshot)}`;
                       <div className="grid grid-cols-1 gap-3">
                         {systemAlerts.map((alert, idx) => (
                           <div key={idx} className={`p-4 rounded-2xl border flex items-start justify-between gap-3 ${alert.type === 'danger' ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : alert.type === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'}`}>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 min-w-0">
                               <AlertTriangle className="w-5 h-5 mt-0.5 shrink-0" />
                               <div>
                                 <h4 className="font-bold text-sm">{alert.title}</h4>
@@ -3319,15 +3341,15 @@ ${JSON.stringify(snapshot)}`;
                     {/* Weekend Spending */}
                     <div className="bg-[#0d1117] p-5 rounded-2xl border border-slate-800">
                        <h3 className="text-sm font-bold text-white mb-4">Weekend vs Weekday Ratio</h3>
-                       <div className="flex items-center gap-6">
-                          <div className="relative w-24 h-24 shrink-0">
+                       <div className="flex items-center gap-4 sm:gap-6">
+                          <div className="relative w-20 h-20 sm:w-24 sm:h-24 shrink-0">
                              <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                                 <path className="text-slate-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
                                 <path className="text-[#00f2fe]" strokeDasharray={`${anomalyAnalysis.weekendRatio}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
                              </svg>
                              <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{anomalyAnalysis.weekendRatio}%</div>
                           </div>
-                          <div>
+                          <div className="min-w-0">
                              <p className="text-xs text-slate-400 mb-1">Weekend Spending Total</p>
                              <p className="text-xl font-bold text-[#00f2fe]">${anomalyAnalysis.weekendTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                              <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">High weekend ratios often indicate impulsive leisure and entertainment spending.</p>
@@ -3494,8 +3516,8 @@ ${JSON.stringify(snapshot)}`;
                   </div>
                 </div>
 
-                <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden mb-6">
-                  <table className="w-full text-left text-sm text-slate-300">
+                <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-x-auto mb-6">
+                  <table className="w-full text-left text-sm text-slate-300 min-w-[620px]">
                     <thead className="bg-[#0d1117] border-b border-slate-800 text-slate-500 uppercase text-[10px] font-mono">
                       <tr>
                         <th className="py-3.5 px-5">Symbol</th>
@@ -4071,7 +4093,7 @@ ${JSON.stringify(snapshot)}`;
                 </div>
 
                 <form onSubmit={handleSendMessage} className="p-3 bg-[#0d1117] flex gap-2">
-                  <input type="text" value={userInput || ''} onChange={(e) => setUserInput(e.target.value)} placeholder="Ask anything, e.g. Can I afford a HK$3,000 trip this week?" className="flex-1 px-4 py-2 rounded-xl bg-[#161b22] border border-slate-800 text-xs text-white focus:outline-none focus:border-[#00f2fe]" />
+                  <input type="text" value={userInput || ''} onChange={(e) => setUserInput(e.target.value)} placeholder="Ask anything, e.g. Can I afford a HK$3,000 trip this week?" className="flex-1 min-w-0 px-4 py-2 rounded-xl bg-[#161b22] border border-slate-800 text-xs text-white focus:outline-none focus:border-[#00f2fe]" />
                   <button type="submit" className="bg-[#00f2fe] hover:bg-cyan-400 text-[#0d1117] px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
                     <Send className="w-3.5 h-3.5" /> Send
                   </button>

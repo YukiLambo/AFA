@@ -157,7 +157,15 @@ function CopyRow({ label, value, mono = true }) {
 export function ApplePayCard({ sync }) {
   const [open, setOpen] = useState(false);
   const [working, setWorking] = useState(false);
-  const run = async (fn) => { setWorking(true); try { await fn(); } catch (e) { console.error(e); alert('Could not update Apple Pay sync. Check your connection and that the Firestore rules were updated.'); } finally { setWorking(false); } };
+  const run = async (fn) => { setWorking(true); try { await fn(); } catch (e) {
+    console.error(e);
+    const code = String(e && (e.code || e.message) || '');
+    alert(/permission|insufficient/i.test(code)
+      ? 'Firebase blocked this (permission denied). The new Apple Pay rules are not published yet: Firebase Console → Firestore Database → Rules → paste firestore.rules → Publish, wait a minute, then try again.'
+      : /unavailable|network|offline/i.test(code)
+        ? 'No connection to Firebase. Check your internet connection and try again.'
+        : `Could not update Apple Pay sync (${code || 'unknown error'}).`);
+  } finally { setWorking(false); } };
   const connected = !!sync.key;
 
   return (
