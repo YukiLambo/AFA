@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import ApplePaySetup from './ApplePaySetup';
 import { doc, collection, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
 import { Smartphone, Copy, Check, X, Zap, Unlink, Loader2 } from 'lucide-react';
 import { todayLocal } from './TransactionComposer';
@@ -25,22 +26,29 @@ const newKey = () => {
 
 // "HK$1,234.50", "-$45.00", "45.00 HKD", "US$12.99" -> { value, currency, refund }
 export function parseAmount(raw) {
+  // Works on a bare amount ("HK$45.00") and on a whole Wallet notification line
+  // ("HK$1,234.50 with HSBC Visa •••• 1234"): picks the number next to a currency sign first.
   const s = String(raw || '').trim();
-  const num = s.replace(/[^0-9.,-]/g, '');
-  let clean = num;
-  if (/,\d{2}$/.test(num) && !/\./.test(num)) clean = num.replace(/\./g, '').replace(',', '.'); // 12,50 style
-  else clean = num.replace(/,/g, '');
-  const value = Math.abs(parseFloat(clean));
-  const refund = /^-|^\(|refund/i.test(s) || parseFloat(clean) < 0;
+  const CUR = '(HK\\$|US\\$|MOP\\$?|CN¥|JP¥|RMB|HKD|USD|MOP|CNY|JPY|GBP|EUR|[$¥£€])';
+  const tokens = [...s.matchAll(new RegExp(`(-)?\\s*${CUR}?\\s*(\\d[\\d,.]*\\d|\\d)\\s*${CUR}?`, 'gi'))]
+    .map(m => ({ text: m[0], num: m[3], cur: m[2] || m[4] || '', neg: !!m[1] }));
+  const pick = tokens.find(t => t.cur) || tokens.find(t => /[.,]\d{2}$/.test(t.num)) || tokens[0];
+  if (!pick) return { value: 0, currency: 'HKD', refund: /refund/i.test(s) };
+  let num = pick.num;
+  if (/,\d{2}$/.test(num) && !/\./.test(num)) num = num.replace(/\./g, '').replace(',', '.'); // 12,50 style
+  else num = num.replace(/,/g, '');
+  const value = Math.abs(parseFloat(num));
+  const refund = pick.neg || /^\(|refund|credit/i.test(s);
+  const c = (pick.cur || s).toUpperCase();
   let currency = 'HKD';
-  if (/US\$|USD/i.test(s)) currency = 'USD';
-  else if (/HK\$|HKD/i.test(s)) currency = 'HKD';
-  else if (/MOP|MOP\$/i.test(s)) currency = 'MOP';
-  else if (/RMB|CNY|CN¥|元/i.test(s)) currency = 'CNY';
-  else if (/JP¥|JPY|円/i.test(s)) currency = 'JPY';
-  else if (/£|GBP/i.test(s)) currency = 'GBP';
-  else if (/€|EUR/i.test(s)) currency = 'EUR';
-  else if (/¥/.test(s)) currency = 'JPY';
+  if (/US\$|USD/.test(c)) currency = 'USD';
+  else if (/HK\$|HKD/.test(c)) currency = 'HKD';
+  else if (/MOP/.test(c)) currency = 'MOP';
+  else if (/RMB|CNY|CN¥|元/.test(c)) currency = 'CNY';
+  else if (/JP¥|JPY|円/.test(c)) currency = 'JPY';
+  else if (/£|GBP/.test(c)) currency = 'GBP';
+  else if (/€|EUR/.test(c)) currency = 'EUR';
+  else if (/¥/.test(c)) currency = 'JPY';
   return { value: isFinite(value) ? value : 0, currency, refund };
 }
 
@@ -135,6 +143,12 @@ export function useApplePaySync(db, user) {
   return { ...state, connect, disconnect };
 }
 
+// Shared iCloud link of the ready-made "A.F.A. Apple Pay" shortcut (asks for the user's personal link when added).
+// Leave empty to show only the by-hand guide.
+export const SHORTCUT_ICLOUD_URL = '';
+
+const copyText = (t) => { try { navigator.clipboard.writeText(t); } catch (e) { /* ignore */ } };
+
 function CopyRow({ label, value, mono = true }) {
   const [done, setDone] = useState(false);
   const copy = async () => {
@@ -199,16 +213,27 @@ export function ApplePayCard({ sync }) {
       </div>
 
       {open && connected && createPortal(
-        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setOpen(false)}>
-          <div className="glass-panel w-full max-w-xl max-h-[88vh] overflow-y-auto no-scrollbar rounded-3xl p-6" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center sm:p-4" onClick={() => setOpen(false)}>
+          <div className="glass-panel w-full max-w-xl max-h-[90vh] overflow-y-auto no-scrollbar rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2"><Smartphone className="w-4 h-4 text-[#00f2fe]" /> Set up the iPhone shortcut</h3>
-                <p className="text-xs text-slate-400 mt-1">Needs iOS 17 or later and cards in Apple Wallet. Do this once on your iPhone.</p>
+                <div className="text-[10px] font-mono uppercase tracking-widest text-[#00f2fe]">Apple Pay</div>
+                <h3 className="text-[17px] font-bold text-white mt-1 leading-snug">Your iPhone can log every card tap in A.F.A.</h3>
               </div>
               <button onClick={() => setOpen(false)} className="text-slate-500 hover:text-white cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
 
+            {SHORTCUT_ICLOUD_URL
+              ? <ApplePaySetup shortcutUrl={SHORTCUT_ICLOUD_URL} onAdd={() => copyText(inboxUrl(sync.key))} received={sync.imported > 0 ? sync.lastMerchant : ''} />
+              : (
+                <div className={`mt-4 p-3 rounded-xl border text-[11.5px] flex items-center gap-2 ${sync.imported > 0 ? 'border-emerald-400/30 text-emerald-300' : 'border-slate-800 text-slate-400'}`}>
+                  {sync.imported > 0 ? <Check className="w-4 h-4" /> : <Loader2 className="w-4 h-4 animate-spin" />}
+                  {sync.imported > 0 ? `Connected. Received: ${sync.lastMerchant}.` : 'Waiting for your first Apple Pay tap…'}
+                </div>
+              )}
+
+            <details className="mt-5 group" open={!SHORTCUT_ICLOUD_URL}>
+              <summary className="cursor-pointer select-none text-[11px] text-slate-400 hover:text-white">{SHORTCUT_ICLOUD_URL ? 'Set it up by hand instead (advanced)' : 'Set up the shortcut (about 3 minutes)'}</summary>
             <ol className="mt-4 space-y-3 text-xs text-slate-300 list-decimal pl-4 leading-relaxed">
               <li>Open <b className="text-white">Shortcuts</b> → <b className="text-white">Automation</b> → <b className="text-white">+</b> → <b className="text-white">Transaction</b>. Choose your cards, leave every category ticked, pick <b className="text-white">Run Immediately</b>, then <b className="text-white">Next</b> → <b className="text-white">New Blank Automation</b>.</li>
               <li>Add the action <b className="text-white">Text</b>. Paste the body below into it. Then select the word <span className="font-mono text-[#00f2fe]">MERCHANT</span>, tap <b className="text-white">Shortcut Input</b> in the bar above the keyboard, tap the inserted variable and choose <b className="text-white">Merchant</b>. Do the same for <span className="font-mono text-[#00f2fe]">AMOUNT</span> (choose <b className="text-white">Amount</b>) and <span className="font-mono text-[#00f2fe]">CARD</span> (choose <b className="text-white">Card or Pass</b> / <b className="text-white">Name</b>).
@@ -224,6 +249,7 @@ export function ApplePayCard({ sync }) {
               <b className="text-slate-200">What it records:</b> payments made by tapping or paying with Apple Pay on this iPhone, anywhere in the world. Foreign-currency payments are noted in the description. It cannot see card swipes, autopay or direct debits; add those as repeating records.
               <br /><b className="text-slate-200">Privacy:</b> your link only lets the phone drop payments into your private inbox; it cannot read anything. If it leaks, press Disconnect and connect again to get a new link.
             </div>
+            </details>
           </div>
         </div>,
         document.body
