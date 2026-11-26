@@ -1,0 +1,4 @@
+{
+ "note": "Extra symbols for the nightly company-data job (app format, e.g. 0005.HK or AAPL). The study universe in research/universe.json is always included.",
+ "symbols": []
+}

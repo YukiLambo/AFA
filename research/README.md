@@ -43,6 +43,8 @@ Each study writes `results/<study>-<method>.json` (the full numbers) and `result
 | `study3.mjs` | Re-runs the evidence behind the 2-week and 6-month outlook |
 | `study2.mjs` | Re-runs the evidence behind the timing score |
 | `lib/data.mjs` → `indexCloser` | Index close on a date, for returns relative to the market |
+| `walkforward.mjs` | Refits every 6 months and scores the next 6 (step 4) |
+| `crosssection.mjs` | Monthly quintile ranking test of each score (step 8) |
 | `update_app_constants.mjs` | Writes a study3 result into `src/lib/horizonModel.js` (never hand-edit those numbers) |
 | `results/` | Output of the last run |
 
@@ -93,6 +95,41 @@ Newey–West t-statistics on daily averages are smaller than the plain ones. The
 
 The app's verdicts follow this result. After the agreement rule and the FDR gate, only two states show a direction: below the 200-day average (down) and evening star (up, the reverse of its textbook reading). Every other state shows its numbers marked "no reliable edge". Details: `results/study3-market-compare.md`.
 
+## Walk-forward test (step 4)
+
+`node research/walkforward.mjs` refits the model every 6 months from January 2021. Each refit covers the feature scaling, the quintile calibration and the evidence with false-discovery control. It uses only stock-days whose outcome was known before the window starts. It then scores the next 6 months with the cross-sectional rank IC: on each day, it ranks predicted lift against return vs the index across the stocks of one market.
+
+| Horizon | HK IC (windows > 0) | US IC (windows > 0) |
+| --- | --- | --- |
+| 10 days | 0.005 (7 of 12) | 0.007 (6 of 12) |
+| 120 days | 0.013 (6 of 11) | 0.030 (7 of 11) |
+
+None of these is distinguishable from zero: the t-statistics across windows are 0.3–0.6. The app's current constants score better on the same windows (0.008–0.048) only because they were fitted with hindsight.
+
+One thing is stable. In every window, the 120-day calibration slope is negative, by 6–18 points: a high "stretched" score went with lagging the index. Which states pass false-discovery control, however, changes from window to window.
+
+The honest reading is that this indicator-based outlook has no dependable edge out of sample. The app now shows the walk-forward IC in "How reliable is this outlook?" with that warning (`STUDY3.walkForward`). Steps 5–8 add information the price history alone does not have: fundamentals, valuation and a proper cross-sectional test.
+
+## Cross-sectional ranking test (step 8)
+
+`node research/crosssection.mjs` takes each market's stocks every 21 trading days, ranks them by a score, splits them into quintiles and measures each quintile's return vs the index. t-statistics are Newey–West, and costs are deducted (HK 0.25% one-way including stamp duty, US 0.05%).
+
+Top-minus-bottom quintile over 126 days:
+
+| Score (where the app uses it) | HK: Q5 − Q1 (t) | US: Q5 − Q1 (t) |
+| --- | --- | --- |
+| Relative strength (trade plan, 15% weight) | **+8.2% (2.4)**, IC 0.15 (t 3.4) | −3.0% (−0.7) |
+| 12-month momentum (textbook benchmark) | +7.3% (1.8) | +5.4% (0.9) |
+| 6-month outlook composite | −6.7% (−1.7) | −4.7% (−1.1) |
+| Timing score (trade plan, 35% weight) | −4.9% (−1.5) | −3.6% (−1.2) |
+
+- **Only relative strength works**, and only in HK. Its quintiles rise step by step, from −0.6% to +7.7%.
+- **The outlook composites and the timing score point the wrong way** when you use them to choose between stocks. The lowest-scored stocks did best.
+- The trade plan currently gives timing 35% and strength 15%. This argues for reversing that. I have not changed the weights in this step, because that is a model decision.
+- **Caveat:** the HK strength percentiles were built from 2019–2023 HK data, and survivorship flatters strength.
+
+The app's reliability box now shows these numbers (`CROSS_SECTION` in `horizonModel.js`). Full tables: `results/crosssection.md`.
+
 ## Known issues (fixed in the next steps)
 
 `--baseline` reproduces them on purpose, so each change can be measured against the original.
@@ -100,7 +137,7 @@ The app's verdicts follow this result. After the agreement rule and the FDR gate
 1. ~~**Look-ahead "normal" return.**~~ Fixed in step 2: the default method measures returns against the index over the same days. `--baseline` keeps the original method.
 2. ~~**Overlapping returns.**~~ Fixed in step 3. Daily samples of 10- and 120-day returns overlap, and stocks move together on the same day. The market method now averages each day first, then uses a Newey–West t-statistic with lags = horizon − 1. A cell needs the state on at least 30 separate days.
 3. ~~**Multiple testing.**~~ Fixed in step 3. The four cells' t-statistics are combined per state and horizon (Stouffer). Benjamini–Hochberg then keeps the expected share of false discoveries at or below 10% across all 196 tests. The app shows a direction only for states that pass (`FDR_PASS` in `horizonModel.js`).
-4. **One fixed split.** The model is tuned once (2019–2023) and tested once. Step 4 refits it every 6 months.
+4. ~~**One fixed split.**~~ Fixed in step 4: `walkforward.mjs` refits every 6 months.
 5. **Survivorship.** The universe is today's large caps. The app shrinks effects by 25% for this; that factor is a guess and is not measured.
 6. **Prices are split-adjusted but not dividend-adjusted.** Tencent's feed now returns unadjusted prices even when `qfq` is requested. High-dividend stocks (banks, utilities, telecoms) show a price drop on each ex-dividend date. This can make some "oversold" readings look more common than they are.
 

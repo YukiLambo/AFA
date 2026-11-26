@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Cell, ReferenceLine, ReferenceArea } from 'recharts';
 import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
 import { aggregateNews, companySearchName } from '../lib/newsSentiment';
-import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, SIGNAL_SCALE } from '../lib/horizonModel';
+import { getFundamentals, growthFromFundamentals } from '../lib/fundamentals';
+import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, CROSS_SECTION, SIGNAL_SCALE } from '../lib/horizonModel';
 import { valuationScore } from '../lib/indicators';
 import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan, valuationRange, impliedGrowth, dcfValue, pegFairPe, backtestSignals, STUDY_RESULTS, STUDY2, signalSeries, adxSeries, ichimokuSeries, supertrendSeries, stochasticSeries, obvSeries, fibonacciLevels, detectPatterns, ema, macd, rsi } from '../lib/indicators';
 
@@ -92,7 +93,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
   const [planLevels, setPlanLevels] = useState(null);
   const [news, setNews] = useState({ status: 'idle', items: [] });
   const [watchQuotes, setWatchQuotes] = useState({});
-  const [val, setVal] = useState({ eps: '', growthPct: 8, discountPct: 9, terminalPe: 16, fairPe: pegFairPe(8), fairPeAuto: true, dps: '', divGrowthPct: 4, preset: 'consumer' });
+  const [fund, setFund] = useState(null); // nightly company data for this symbol (null = not covered)
+  const [val, setVal] = useState({ eps: '', fcf: '', growthPct: 8, discountPct: 9, terminalPe: 16, fairPe: pegFairPe(8), fairPeAuto: true, dps: '', divGrowthPct: 4, preset: 'consumer' });
   const [riskPct, setRiskPct] = useState(1);
   const [sizeBase, setSizeBase] = useState('');
 
@@ -105,7 +107,23 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
       if (cancelled) return;
       if (!q) { setQuote(null); setRows([]); setStatus('error'); return; }
       setQuote(q);
-      setVal(v => ({ ...v, eps: q.pe ? (q.price / q.pe).toFixed(2) : '', dps: '' }));
+      setVal(v => ({ ...v, eps: q.pe ? (q.price / q.pe).toFixed(2) : '', dps: '', fcf: '' }));
+      // Nightly company data (forward EPS, dividend, free cash flow, analysts' growth) replaces the rough
+      // price ÷ P/E estimate when the stock is covered; every field stays editable
+      const f = await getFundamentals(q.symbol);
+      if (cancelled) return;
+      setFund(f);
+      if (f) {
+        const eps = f.forwardEps > 0 ? f.forwardEps : f.trailingEps > 0 ? f.trailingEps : null;
+        const g = growthFromFundamentals(f);
+        setVal(v => ({
+          ...v,
+          ...(eps ? { eps: eps.toFixed(2) } : {}),
+          ...(f.dps > 0 ? { dps: f.dps.toFixed(2) } : {}),
+          ...(f.fcfPerShare > 0 ? { fcf: f.fcfPerShare.toFixed(2) } : {}),
+          ...(g !== null ? { growthPct: g, ...(v.fairPeAuto ? { fairPe: pegFairPe(g) } : {}) } : {})
+        }));
+      }
       const hist = await fetchHistory(q.historyCode, 1000);
       if (cancelled) return;
       setRows(hist);
@@ -231,7 +249,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
 
   const valInputs = useMemo(() => ({
     eps: Number(val.eps) || 0, growthPct: Number(val.growthPct) || 0, discountPct: Number(val.discountPct) || 0,
-    terminalPe: Number(val.terminalPe) || 0, fairPe: Number(val.fairPe) || 0, dps: Number(val.dps) || 0, divGrowthPct: Number(val.divGrowthPct) || 0
+    terminalPe: Number(val.terminalPe) || 0, fairPe: Number(val.fairPe) || 0, dps: Number(val.dps) || 0, divGrowthPct: Number(val.divGrowthPct) || 0,
+    fcfPerShare: Number(val.fcf) || 0
   }), [val]);
   const valuation = useMemo(() => valuationModels(valInputs), [valInputs]);
   const fairRange = useMemo(() => valuationRange(valInputs), [valInputs]);
@@ -547,7 +566,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
           {/* How much to trust the outlook: out-of-sample results of the study */}
           {outlook && plan && (() => {
             const pc = plan.percentiles;
-            const Test = ({ m, name }) => (
+            const Test = ({ m, name, wf, cs }) => (
               <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
                 <div className={label}>{name} · next {m.horizon} trading days</div>
                 <table className="w-full mt-2 text-[11px] font-mono">
@@ -563,6 +582,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   </tbody>
                 </table>
                 <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Return vs the index, and change in how often the stock beat it. Jul 2023 – Nov 2026, not used for tuning. If the highest-score row is not above the lowest-score row, the model had no edge there. Worked on {m.posTestHK} HK and {m.posTestUS} US stocks; tuning-period IC {m.icTrainHK.toFixed(2)} (HK) / {m.icTrainUS.toFixed(2)} (US).</p>
+                {wf && <p className="text-[10px] text-amber-200/80 mt-1 leading-relaxed">Stricter walk-forward test (model refitted every 6 months from {STUDY3.walkForward.from}, each time using only earlier data): IC {wf.icHK.toFixed(2)} HK / {wf.icUS.toFixed(2)} US, above zero in {wf.posHK} and {wf.posUS} half-years. Close to zero means no dependable edge: use this outlook to learn how signals behave, not to time trades.</p>}
+                {cs && <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">Ranking stocks against each other (top 20% minus bottom 20% by this score, held {cs.hold} trading days, vs the index): {['HK', 'US'].map(k => `${k} ${cs[k].spread >= 0 ? '+' : ''}${cs[k].spread.toFixed(1)}% (t ${cs[k].t.toFixed(1)})`).join(', ')}. A |t| below 2 is not reliable; a negative value means the lowest-scored stocks did better.</p>}
               </div>
             );
             return (
@@ -572,8 +593,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   <span className="text-[10px] text-slate-500">{STUDY3.universe} · {STUDY3.period}</span>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <Test m={STUDY3.short} name="Short-term model" />
-                  <Test m={STUDY3.long} name="Long-term model" />
+                  <Test m={STUDY3.short} wf={STUDY3.walkForward?.short} cs={CROSS_SECTION.outlookShort} name="Short-term model" />
+                  <Test m={STUDY3.long} wf={STUDY3.walkForward?.long} cs={CROSS_SECTION.outlookLong} name="Long-term model" />
                   <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
                     <div className={label}>Relative strength vs HK blue chips</div>
                     {pc ? (
@@ -584,12 +605,12 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                             <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${v * 100}%`, backgroundColor: v >= 0.6 ? GREEN : v <= 0.4 ? RED : '#94a3b8' }} /></div>
                           </div>
                         ))}
-                        <p className="text-[10px] text-slate-500 leading-relaxed pt-1">For choosing between stocks, strength against peers helped. Over time on the same stock, stretched prices tended to reverse, which is what the outlook above uses.</p>
+                        <p className="text-[10px] text-slate-500 leading-relaxed pt-1">For choosing between stocks, strength against peers helped in Hong Kong: ranked monthly, the strongest 20% beat the weakest 20% by {CROSS_SECTION.strength.HK.spread.toFixed(1)}% over six months vs the index (t {CROSS_SECTION.strength.HK.t.toFixed(1)}), the only score in the app that passed this test. In the US it did not ({CROSS_SECTION.strength.US.spread >= 0 ? '+' : ''}{CROSS_SECTION.strength.US.spread.toFixed(1)}%, t {CROSS_SECTION.strength.US.t.toFixed(1)}).</p>
                       </div>
                     ) : <p className="text-[11px] text-slate-500 mt-2">Needs a year of price history.</p>}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">Limits: the test uses today's large companies, so firms that fell and never recovered are missing, which flatters "buy the dip". That is why every effect is cut by a quarter. In a sharp bear market, stretched prices can stay stretched for longer.</p>
+                <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">Limits: the tests use today's large companies, so firms that fell and never recovered are missing, which flatters strength and momentum. That is why every effect is cut by a quarter. Past patterns can stop working, especially in a sharp change of market regime.</p>
               </div>
             );
           })()}
@@ -819,7 +840,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
         <div className={card}>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
             <h4 className="text-sm font-bold text-white flex items-center gap-2"><Calculator className="w-4 h-4 text-[#00f2fe]" /> Valuation calculator</h4>
-            <span className="text-[10px] text-slate-500">{quote.pe ? `EPS pre-filled from the feed's P/E of ${fmt(quote.pe, 1)}. ` : ''}Pick the sector, then adjust any input.</span>
+            <span className="text-[10px] text-slate-500">{fund ? 'Pre-filled from nightly company data. ' : quote.pe ? `EPS pre-filled from the feed's P/E of ${fmt(quote.pe, 1)}. ` : ''}Pick the sector, then adjust any input.</span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="grid grid-cols-2 gap-3 content-start">
@@ -830,7 +851,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                 </select>
               </div>
               {[
-                ['eps', `EPS (${cur} per share)`, '0.01'], ['dps', `Dividend per share (${cur})`, '0.01'],
+                ['eps', fund?.forwardEps > 0 ? `Forward EPS (${cur} per share)` : `EPS (${cur} per share)`, '0.01'], ['dps', `Dividend per share (${cur})`, '0.01'],
+                ['fcf', `Free cash flow per share (${cur})`, '0.01'],
                 ['growthPct', 'EPS growth % / yr (5 yrs)', '0.5'], ['divGrowthPct', 'Dividend growth %', '0.5'],
                 ['discountPct', 'Required return %', '0.5'], ['terminalPe', 'Exit P/E (year 5)', '0.5'],
                 ['fairPe', val.fairPeAuto ? 'Fair P/E (auto from growth)' : 'Fair P/E today', '0.5']
@@ -840,6 +862,9 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   <input type="number" step={step} value={val[k]} onChange={e => setValField(k, e.target.value)} className={inputCls} />
                 </div>
               ))}
+              <p className="col-span-2 text-[10px] text-slate-500 leading-relaxed">{fund
+                ? `Pre-filled from company data (${fund.source.split(' (')[0]}, ${fund.asOf}): ${fund.forwardEps > 0 ? 'analysts\' forward EPS' : 'trailing EPS'}${fund.dps > 0 ? ', dividend' : ''}${fund.fcfPerShare > 0 ? ', free cash flow' : ''}${growthFromFundamentals(fund) !== null ? `, growth ${growthFromFundamentals(fund)}% (analyst estimate, capped at −5…25%)` : ''}${fund.financialCurrency && fund.financialCurrency !== fund.currency ? `; reported in ${fund.financialCurrency}, converted to ${fund.currency}` : ''}. Unofficial source: check against the company's latest results.`
+                : 'No nightly company data for this stock: EPS is estimated as price ÷ P/E from the quote feed. Enter the other figures from the latest annual report.'}</p>
               {!val.fairPeAuto && <button onClick={() => setVal(v => ({ ...v, fairPe: pegFairPe(Number(v.growthPct) || 0), fairPeAuto: true }))} className="self-end mb-2 text-[10px] text-[#00f2fe] hover:underline cursor-pointer text-left">Reset fair P/E to auto ({pegFairPe(Number(val.growthPct) || 0)})</button>}
             </div>
             <div className="space-y-2">

@@ -1,0 +1,394 @@
+{
+ "snapshot": "snapshot-2026-11-25",
+ "start": "2019-10-01",
+ "costsOneWayPct": {
+  "HK": 0.25,
+  "US": 0.05
+ },
+ "markets": {
+  "HK": {
+   "outlookShort": {
+    "21": {
+     "periods": 83,
+     "quintiles": [
+      1.1,
+      0.78,
+      0.33,
+      -0.18,
+      0.37
+     ],
+     "spread": -0.73,
+     "spreadT": -0.9,
+     "spreadPositive": "37 of 83",
+     "ic": -0.043,
+     "icT": -1.6,
+     "topTurnover": 0.58,
+     "spreadAfterCosts": -1.31,
+     "sharpeLS": -0.6
+    },
+    "126": {
+     "periods": 78,
+     "quintiles": [
+      6.75,
+      4.04,
+      1.97,
+      1.6,
+      1.25
+     ],
+     "spread": -5.5,
+     "spreadT": -1.5,
+     "spreadPositive": "32 of 78",
+     "ic": -0.063,
+     "icT": -1.8,
+     "topTurnover": 0.58,
+     "spreadAfterCosts": -6.5,
+     "sharpeLS": null
+    }
+   },
+   "outlookLong": {
+    "21": {
+     "periods": 83,
+     "quintiles": [
+      1.17,
+      0.92,
+      0.28,
+      -0.12,
+      0.14
+     ],
+     "spread": -1.03,
+     "spreadT": -1.2,
+     "spreadPositive": "31 of 83",
+     "ic": -0.052,
+     "icT": -1.9,
+     "topTurnover": 0.53,
+     "spreadAfterCosts": -1.56,
+     "sharpeLS": -0.71
+    },
+    "126": {
+     "periods": 78,
+     "quintiles": [
+      7.29,
+      3.84,
+      1.89,
+      2.03,
+      0.61
+     ],
+     "spread": -6.68,
+     "spreadT": -1.7,
+     "spreadPositive": "29 of 78",
+     "ic": -0.076,
+     "icT": -2,
+     "topTurnover": 0.54,
+     "spreadAfterCosts": -7.68,
+     "sharpeLS": null
+    }
+   },
+   "timing": {
+    "21": {
+     "periods": 83,
+     "quintiles": [
+      1.3,
+      0.48,
+      0.5,
+      -0.15,
+      0.27
+     ],
+     "spread": -1.03,
+     "spreadT": -1.5,
+     "spreadPositive": "34 of 83",
+     "ic": -0.039,
+     "icT": -1.8,
+     "topTurnover": 0.7,
+     "spreadAfterCosts": -1.73,
+     "sharpeLS": -0.94
+    },
+    "126": {
+     "periods": 78,
+     "quintiles": [
+      6.77,
+      3.55,
+      1.47,
+      2.06,
+      1.86
+     ],
+     "spread": -4.91,
+     "spreadT": -1.5,
+     "spreadPositive": "36 of 78",
+     "ic": -0.039,
+     "icT": -1.4,
+     "topTurnover": 0.71,
+     "spreadAfterCosts": -5.91,
+     "sharpeLS": null
+    }
+   },
+   "strength": {
+    "21": {
+     "periods": 83,
+     "quintiles": [
+      -0.23,
+      0.24,
+      0.31,
+      1.01,
+      0.98
+     ],
+     "spread": 1.21,
+     "spreadT": 1.3,
+     "spreadPositive": "53 of 83",
+     "ic": 0.077,
+     "icT": 2.5,
+     "topTurnover": 0.26,
+     "spreadAfterCosts": 0.95,
+     "sharpeLS": 0.39
+    },
+    "126": {
+     "periods": 78,
+     "quintiles": [
+      -0.56,
+      0.99,
+      2.31,
+      4.83,
+      7.65
+     ],
+     "spread": 8.21,
+     "spreadT": 2.4,
+     "spreadPositive": "56 of 78",
+     "ic": 0.149,
+     "icT": 3.4,
+     "topTurnover": 0.27,
+     "spreadAfterCosts": 7.21,
+     "sharpeLS": null
+    }
+   },
+   "mom12_1": {
+    "21": {
+     "periods": 83,
+     "quintiles": [
+      0.21,
+      -0.01,
+      -0.03,
+      0.83,
+      1.31
+     ],
+     "spread": 1.09,
+     "spreadT": 1.2,
+     "spreadPositive": "48 of 83",
+     "ic": 0.057,
+     "icT": 1.8,
+     "topTurnover": 0.21,
+     "spreadAfterCosts": 0.88,
+     "sharpeLS": 0.38
+    },
+    "126": {
+     "periods": 78,
+     "quintiles": [
+      0.65,
+      0.83,
+      1.17,
+      4.51,
+      7.99
+     ],
+     "spread": 7.34,
+     "spreadT": 1.8,
+     "spreadPositive": "46 of 78",
+     "ic": 0.095,
+     "icT": 1.8,
+     "topTurnover": 0.21,
+     "spreadAfterCosts": 6.34,
+     "sharpeLS": null
+    }
+   }
+  },
+  "US": {
+   "outlookShort": {
+    "21": {
+     "periods": 85,
+     "quintiles": [
+      1.11,
+      -0.13,
+      -0.2,
+      0.21,
+      0.33
+     ],
+     "spread": -0.78,
+     "spreadT": -1,
+     "spreadPositive": "35 of 85",
+     "ic": -0.022,
+     "icT": -0.7,
+     "topTurnover": 0.59,
+     "spreadAfterCosts": -0.9,
+     "sharpeLS": -0.42
+    },
+    "126": {
+     "periods": 80,
+     "quintiles": [
+      4.52,
+      -0.08,
+      0.81,
+      1.56,
+      1.33
+     ],
+     "spread": -3.19,
+     "spreadT": -0.8,
+     "spreadPositive": "38 of 80",
+     "ic": -0.038,
+     "icT": -0.8,
+     "topTurnover": 0.59,
+     "spreadAfterCosts": -3.39,
+     "sharpeLS": null
+    }
+   },
+   "outlookLong": {
+    "21": {
+     "periods": 85,
+     "quintiles": [
+      1.25,
+      -0.38,
+      0.13,
+      -0.07,
+      0.39
+     ],
+     "spread": -0.85,
+     "spreadT": -1,
+     "spreadPositive": "36 of 85",
+     "ic": -0.026,
+     "icT": -0.8,
+     "topTurnover": 0.54,
+     "spreadAfterCosts": -0.96,
+     "sharpeLS": -0.44
+    },
+    "126": {
+     "periods": 80,
+     "quintiles": [
+      5.44,
+      -1.08,
+      2.3,
+      0.71,
+      0.77
+     ],
+     "spread": -4.67,
+     "spreadT": -1.1,
+     "spreadPositive": "33 of 80",
+     "ic": -0.046,
+     "icT": -0.9,
+     "topTurnover": 0.55,
+     "spreadAfterCosts": -4.87,
+     "sharpeLS": null
+    }
+   },
+   "timing": {
+    "21": {
+     "periods": 85,
+     "quintiles": [
+      0.73,
+      0.18,
+      -0.46,
+      0.74,
+      0.12
+     ],
+     "spread": -0.61,
+     "spreadT": -0.8,
+     "spreadPositive": "37 of 85",
+     "ic": -0.014,
+     "icT": -0.5,
+     "topTurnover": 0.7,
+     "spreadAfterCosts": -0.75,
+     "sharpeLS": -0.37
+    },
+    "126": {
+     "periods": 80,
+     "quintiles": [
+      3.75,
+      1.79,
+      0.22,
+      2.22,
+      0.15
+     ],
+     "spread": -3.6,
+     "spreadT": -1.2,
+     "spreadPositive": "36 of 80",
+     "ic": -0.035,
+     "icT": -0.9,
+     "topTurnover": 0.7,
+     "spreadAfterCosts": -3.8,
+     "sharpeLS": null
+    }
+   },
+   "strength": {
+    "21": {
+     "periods": 85,
+     "quintiles": [
+      0.35,
+      0.16,
+      0.44,
+      0.25,
+      0.12
+     ],
+     "spread": -0.24,
+     "spreadT": -0.3,
+     "spreadPositive": "40 of 85",
+     "ic": 0.01,
+     "icT": 0.3,
+     "topTurnover": 0.32,
+     "spreadAfterCosts": -0.3,
+     "sharpeLS": -0.13
+    },
+    "126": {
+     "periods": 80,
+     "quintiles": [
+      3.71,
+      1.85,
+      1.25,
+      0.59,
+      0.73
+     ],
+     "spread": -2.98,
+     "spreadT": -0.7,
+     "spreadPositive": "41 of 80",
+     "ic": 0.016,
+     "icT": 0.3,
+     "topTurnover": 0.32,
+     "spreadAfterCosts": -3.18,
+     "sharpeLS": null
+    }
+   },
+   "mom12_1": {
+    "21": {
+     "periods": 85,
+     "quintiles": [
+      0.37,
+      -0.24,
+      0.13,
+      0.04,
+      1.02
+     ],
+     "spread": 0.65,
+     "spreadT": 0.7,
+     "spreadPositive": "48 of 85",
+     "ic": 0.028,
+     "icT": 0.9,
+     "topTurnover": 0.23,
+     "spreadAfterCosts": 0.6,
+     "sharpeLS": 0.24
+    },
+    "126": {
+     "periods": 80,
+     "quintiles": [
+      2.92,
+      -1.65,
+      -1.47,
+      0.04,
+      8.29
+     ],
+     "spread": 5.37,
+     "spreadT": 0.9,
+     "spreadPositive": "47 of 80",
+     "ic": 0.073,
+     "icT": 1.2,
+     "topTurnover": 0.22,
+     "spreadAfterCosts": 5.17,
+     "sharpeLS": null
+    }
+   }
+  }
+ }
+}

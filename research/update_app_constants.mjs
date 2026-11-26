@@ -43,5 +43,23 @@ if (R.fdr) {
   else src = src.replace('// Pattern names, the textbook direction', `// States that passed false-discovery control (Benjamini–Hochberg, Newey–West t-statistics). Written by\n// research/update_app_constants.mjs.\n${fdr}\n\n// Pattern names, the textbook direction`);
 }
 
+// STUDY3.walkForward from results/walkforward.json (refit every 6 months, scored on the next 6)
+try {
+  const W = JSON.parse(readFileSync(join(RESEARCH_DIR, 'results/walkforward.json'), 'utf8'));
+  const wf = (h) => `{ icHK: ${W.summary[h].HK.walk.ic.mean}, icUS: ${W.summary[h].US.walk.ic.mean}, posHK: '${W.summary[h].HK.walk.ic.positive}', posUS: '${W.summary[h].US.walk.ic.positive}' }`;
+  src = src.replace(/\n  walkForward: \{[\s\S]*?\n  \},?/, '');
+  src = src.replace(/(export const STUDY3 = \{[\s\S]*?)\n\};/, `$1,\n  walkForward: {\n    from: '${W.firstTest.slice(0, 4)}', short: ${wf('short')},\n    long: ${wf('long')}\n  }\n};`);
+} catch (e) { console.warn('No walkforward.json: STUDY3.walkForward not written'); }
+
+// CROSS_SECTION from results/crosssection.json: top-minus-bottom quintile tests of each score
+try {
+  const X = JSON.parse(readFileSync(join(RESEARCH_DIR, 'results/crosssection.json'), 'utf8'));
+  const one = (m, name, hd) => { const r = X.markets[m][name][hd]; return `{ spread: ${r.spread}, t: ${r.spreadT}, ic: ${r.ic} }`; };
+  const block = (name, hd) => `{ hold: ${hd}, HK: ${one('HK', name, hd)}, US: ${one('US', name, hd)} }`;
+  const cs = `export const CROSS_SECTION = {\n  outlookShort: ${block('outlookShort', 21)},\n  outlookLong: ${block('outlookLong', 126)},\n  strength: ${block('strength', 126)},\n  timing: ${block('timing', 126)}\n};`;
+  if (/export const CROSS_SECTION = \{[\s\S]*?\n\};/.test(src)) src = src.replace(/export const CROSS_SECTION = \{[\s\S]*?\n\};/, cs);
+  else src = src.replace(/(export const STUDY3 = \{[\s\S]*?\n\};)/, `$1\n\n// Cross-sectional test (research/crosssection.mjs): each month, rank a market's stocks by the score and compare the\n// top 20% with the bottom 20% over the hold, return vs the index in % points. Written by update_app_constants.mjs.\n${cs}`);
+} catch (e) { console.warn('No crosssection.json: CROSS_SECTION not written'); }
+
 writeFileSync(appFile, src);
 console.log(`Updated ${n} EVIDENCE rows, CALIB and STUDY3 in src/lib/horizonModel.js from ${resFile}`);
