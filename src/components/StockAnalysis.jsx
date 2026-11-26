@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Cell, ReferenceLine, ReferenceArea } from 'recharts';
 import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
 import { aggregateNews, companySearchName } from '../lib/newsSentiment';
-import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, SIGNAL_SCALE } from '../lib/horizonModel';
+import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, CROSS_SECTION, SIGNAL_SCALE } from '../lib/horizonModel';
 import { valuationScore } from '../lib/indicators';
 import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan, valuationRange, impliedGrowth, dcfValue, pegFairPe, backtestSignals, STUDY_RESULTS, STUDY2, signalSeries, adxSeries, ichimokuSeries, supertrendSeries, stochasticSeries, obvSeries, fibonacciLevels, detectPatterns, ema, macd, rsi } from '../lib/indicators';
 
@@ -547,7 +547,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
           {/* How much to trust the outlook: out-of-sample results of the study */}
           {outlook && plan && (() => {
             const pc = plan.percentiles;
-            const Test = ({ m, name, wf }) => (
+            const Test = ({ m, name, wf, cs }) => (
               <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
                 <div className={label}>{name} · next {m.horizon} trading days</div>
                 <table className="w-full mt-2 text-[11px] font-mono">
@@ -564,6 +564,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                 </table>
                 <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Return vs the index, and change in how often the stock beat it. Jul 2023 – Nov 2026, not used for tuning. If the highest-score row is not above the lowest-score row, the model had no edge there. Worked on {m.posTestHK} HK and {m.posTestUS} US stocks; tuning-period IC {m.icTrainHK.toFixed(2)} (HK) / {m.icTrainUS.toFixed(2)} (US).</p>
                 {wf && <p className="text-[10px] text-amber-200/80 mt-1 leading-relaxed">Stricter walk-forward test (model refitted every 6 months from {STUDY3.walkForward.from}, each time using only earlier data): IC {wf.icHK.toFixed(2)} HK / {wf.icUS.toFixed(2)} US, above zero in {wf.posHK} and {wf.posUS} half-years. Close to zero means no dependable edge: use this outlook to learn how signals behave, not to time trades.</p>}
+                {cs && <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">Ranking stocks against each other (top 20% minus bottom 20% by this score, held {cs.hold} trading days, vs the index): {['HK', 'US'].map(k => `${k} ${cs[k].spread >= 0 ? '+' : ''}${cs[k].spread.toFixed(1)}% (t ${cs[k].t.toFixed(1)})`).join(', ')}. A |t| below 2 is not reliable; a negative value means the lowest-scored stocks did better.</p>}
               </div>
             );
             return (
@@ -573,8 +574,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   <span className="text-[10px] text-slate-500">{STUDY3.universe} · {STUDY3.period}</span>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <Test m={STUDY3.short} wf={STUDY3.walkForward?.short} name="Short-term model" />
-                  <Test m={STUDY3.long} wf={STUDY3.walkForward?.long} name="Long-term model" />
+                  <Test m={STUDY3.short} wf={STUDY3.walkForward?.short} cs={CROSS_SECTION.outlookShort} name="Short-term model" />
+                  <Test m={STUDY3.long} wf={STUDY3.walkForward?.long} cs={CROSS_SECTION.outlookLong} name="Long-term model" />
                   <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
                     <div className={label}>Relative strength vs HK blue chips</div>
                     {pc ? (
@@ -585,12 +586,12 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                             <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className="h-full rounded-full" style={{ width: `${v * 100}%`, backgroundColor: v >= 0.6 ? GREEN : v <= 0.4 ? RED : '#94a3b8' }} /></div>
                           </div>
                         ))}
-                        <p className="text-[10px] text-slate-500 leading-relaxed pt-1">For choosing between stocks, strength against peers helped. Over time on the same stock, stretched prices tended to reverse, which is what the outlook above uses.</p>
+                        <p className="text-[10px] text-slate-500 leading-relaxed pt-1">For choosing between stocks, strength against peers helped in Hong Kong: ranked monthly, the strongest 20% beat the weakest 20% by {CROSS_SECTION.strength.HK.spread.toFixed(1)}% over six months vs the index (t {CROSS_SECTION.strength.HK.t.toFixed(1)}), the only score in the app that passed this test. In the US it did not ({CROSS_SECTION.strength.US.spread >= 0 ? '+' : ''}{CROSS_SECTION.strength.US.spread.toFixed(1)}%, t {CROSS_SECTION.strength.US.t.toFixed(1)}).</p>
                       </div>
                     ) : <p className="text-[11px] text-slate-500 mt-2">Needs a year of price history.</p>}
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">Limits: the test uses today's large companies, so firms that fell and never recovered are missing, which flatters "buy the dip". That is why every effect is cut by a quarter. In a sharp bear market, stretched prices can stay stretched for longer.</p>
+                <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">Limits: the tests use today's large companies, so firms that fell and never recovered are missing, which flatters strength and momentum. That is why every effect is cut by a quarter. Past patterns can stop working, especially in a sharp change of market regime.</p>
               </div>
             );
           })()}

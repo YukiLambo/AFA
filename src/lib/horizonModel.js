@@ -158,6 +158,15 @@ export const STUDY3 = {
   }
 };
 
+// Cross-sectional test (research/crosssection.mjs): each month, rank a market's stocks by the score and compare the
+// top 20% with the bottom 20% over the hold, return vs the index in % points. Written by update_app_constants.mjs.
+export const CROSS_SECTION = {
+  outlookShort: { hold: 21, HK: { spread: -0.73, t: -0.9, ic: -0.043 }, US: { spread: -0.78, t: -1, ic: -0.022 } },
+  outlookLong: { hold: 126, HK: { spread: -6.68, t: -1.7, ic: -0.076 }, US: { spread: -4.67, t: -1.1, ic: -0.046 } },
+  strength: { hold: 126, HK: { spread: 8.21, t: 2.4, ic: 0.149 }, US: { spread: -2.98, t: -0.7, ic: 0.016 } },
+  timing: { hold: 126, HK: { spread: -4.91, t: -1.5, ic: -0.039 }, US: { spread: -3.6, t: -1.2, ic: -0.035 } }
+};
+
 // "+1.7% vs the index, 10 pts more often ahead of it"
 export const evText = (v) => { const pts = Math.round(Math.abs(v.hit)); return `${v.ex >= 0 ? '+' : '−'}${Math.abs(v.ex).toFixed(1)}% vs the index, ${pts} pt${pts === 1 ? '' : 's'} ${v.hit >= 0 ? 'more' : 'less'} often ahead of it`; };
 

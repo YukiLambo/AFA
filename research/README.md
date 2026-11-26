@@ -44,6 +44,7 @@ Each study writes `results/<study>-<method>.json` (the full numbers) and `result
 | `study2.mjs` | Re-runs the evidence behind the timing score |
 | `lib/data.mjs` → `indexCloser` | Index close on a date, for returns relative to the market |
 | `walkforward.mjs` | Refits every 6 months and scores the next 6 (step 4) |
+| `crosssection.mjs` | Monthly quintile ranking test of each score (step 8) |
 | `update_app_constants.mjs` | Writes a study3 result into `src/lib/horizonModel.js` (never hand-edit those numbers) |
 | `results/` | Output of the last run |
 
@@ -108,6 +109,26 @@ None of these is distinguishable from zero: the t-statistics across windows are 
 One thing is stable. In every window, the 120-day calibration slope is negative, by 6–18 points: a high "stretched" score went with lagging the index. Which states pass false-discovery control, however, changes from window to window.
 
 The honest reading is that this indicator-based outlook has no dependable edge out of sample. The app now shows the walk-forward IC in "How reliable is this outlook?" with that warning (`STUDY3.walkForward`). Steps 5–8 add information the price history alone does not have: fundamentals, valuation and a proper cross-sectional test.
+
+## Cross-sectional ranking test (step 8)
+
+`node research/crosssection.mjs` takes each market's stocks every 21 trading days, ranks them by a score, splits them into quintiles and measures each quintile's return vs the index. t-statistics are Newey–West, and costs are deducted (HK 0.25% one-way including stamp duty, US 0.05%).
+
+Top-minus-bottom quintile over 126 days:
+
+| Score (where the app uses it) | HK: Q5 − Q1 (t) | US: Q5 − Q1 (t) |
+| --- | --- | --- |
+| Relative strength (trade plan, 15% weight) | **+8.2% (2.4)**, IC 0.15 (t 3.4) | −3.0% (−0.7) |
+| 12-month momentum (textbook benchmark) | +7.3% (1.8) | +5.4% (0.9) |
+| 6-month outlook composite | −6.7% (−1.7) | −4.7% (−1.1) |
+| Timing score (trade plan, 35% weight) | −4.9% (−1.5) | −3.6% (−1.2) |
+
+- **Only relative strength works**, and only in HK. Its quintiles rise step by step, from −0.6% to +7.7%.
+- **The outlook composites and the timing score point the wrong way** when you use them to choose between stocks. The lowest-scored stocks did best.
+- The trade plan currently gives timing 35% and strength 15%. This argues for reversing that. I have not changed the weights in this step, because that is a model decision.
+- **Caveat:** the HK strength percentiles were built from 2019–2023 HK data, and survivorship flatters strength.
+
+The app's reliability box now shows these numbers (`CROSS_SECTION` in `horizonModel.js`). Full tables: `results/crosssection.md`.
 
 ## Known issues (fixed in the next steps)
 
