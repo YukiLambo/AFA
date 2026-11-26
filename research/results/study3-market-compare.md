@@ -13,24 +13,9 @@ Snapshot: `snapshot-2026-11-25` · 60 HK + 40 US stocks · tuning 2019-10-01 to 
 | Excess 120d | 1 | 98 of 98 |
 | Hit change 120d | 1 | 98 of 98 |
 
-States whose app verdict (lean up / lean down / no edge) would change with the re-run numbers: 14 of 98.
+States whose app verdict (lean up / lean down / no edge) would change with the re-run numbers: 0 of 98.
 
-| State | App 10d | Re-run 10d | App 120d | Re-run 120d |
-| --- | --- | --- | --- | --- |
-| farBelow50 | 0.42 / 2.3 / 3 | 0.42 / 2.3 / 0 | 0.96 / -1.2 / 2 | 0.96 / -1.2 / 0 |
-| aboveSma200 | 0.09 / 0.7 / 2 | 0.09 / 0.7 / 0 | 1.62 / 3.3 / 4 | 1.62 / 3.3 / 0 |
-| golden | 0.1 / 0.6 / 1 | 0.1 / 0.6 / 0 | 1.63 / 3.3 / 3 | 1.63 / 3.3 / 0 |
-| rsi14gt70 | 0.45 / 3.2 / 4 | 0.45 / 3.2 / 1 | 2.87 / 3.9 / 2 | 2.87 / 3.9 / 1 |
-| adxUp | 0.25 / 2 / 4 | 0.25 / 2 / 0 | 1.04 / 1.9 / 2 | 1.04 / 1.9 / 0 |
-| mom12Strong | 0.24 / 1.2 / 3 | 0.24 / 1.2 / 1 | 3.77 / 6 / 4 | 3.77 / 6 / 1 |
-| near52High | 0.24 / 2.7 / 2 | 0.24 / 2.7 / 0 | 1.48 / 4.3 / 2 | 1.48 / 4.3 / 0 |
-| lowVol | 0.08 / 0.3 / 2 | 0.08 / 0.3 / 0 | 2.31 / 4.6 / 3 | 2.31 / 4.6 / 1 |
-| highVol | -0.19 / -1.4 / 3 | -0.19 / -1.4 / 2 | -1.29 / -5.3 / 2 | -1.29 / -5.3 / 1 |
-| new55High | 0.19 / 1.8 / 2 | 0.19 / 1.8 / 0 | 2.07 / 3.5 / 3 | 2.07 / 3.5 / 0 |
-| eveningStar | -0.2 / -2.4 / 1 | -0.2 / -2.4 / 0 | 2.83 / 3.1 / 2 | 2.83 / 3.1 / 3 |
-| bearFlag | 0.36 / 2.1 / 0 | 0.36 / 2.1 / 0 | -1.99 / -4.4 / 2 | -1.99 / -4.4 / 1 |
-| ascTriangle | 0.12 / 2.4 / 2 | 0.12 / 2.4 / 0 | 1.29 / 4.1 / 3 | 1.29 / 4.1 / 0 |
-| rsiBearDiv | 0.2 / 1.9 / 3 | 0.2 / 1.9 / 0 | 2.18 / 4 / 2 | 2.18 / 4 / 1 |
+
 
 ## Statistical strength
 
