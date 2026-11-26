@@ -1,3 +1,4 @@
+import { roundTripPct } from './tradingCosts.js';
 // Technical indicators and simple statistics on daily OHLCV rows:
 //   rows: [{ date, open, high, low, close, volume }] oldest first.
 // Every series function returns an array the same length as `rows` (null where not enough history yet).
@@ -515,7 +516,7 @@ export function backtestSignals(rows, horizon = 20, priors = { timing: 0.35, str
  *    (fully counted only outside the fair-value range), company news 20%. Timing and strength weights can be
  *    nudged by the stock's own track record (backtestSignals). Weights come from the real-market study above.
  */
-export function tradePlan({ rows, price, fair = null, fairRange = null, review = null, forecast = null, news = null, weights = null, horizon = 60 }) {
+export function tradePlan({ rows, price, fair = null, fairRange = null, review = null, forecast = null, news = null, weights = null, horizon = 60, market = null }) {
   if (!rows || rows.length < 60 || !(price > 0)) return null;
   const closes = rows.map(r => r.close);
   const A = atr(rows).at(-1) || price * 0.02;
@@ -547,6 +548,7 @@ export function tradePlan({ rows, price, fair = null, fairRange = null, review =
   const entry = (entryLow + entryHigh) / 2;
   const stop = Math.min(support - 0.5 * A, entry - 1.5 * A);
 
+  const costPerShare = market ? entry * roundTripPct(market, entry) : 0;
   // Profit-maximising target on simulated paths
   const paths = bootstrapPaths(closes, horizon, 1500, nu);
   const lnStop = Math.log(stop / entry);
@@ -570,7 +572,8 @@ export function tradePlan({ rows, price, fair = null, fairRange = null, review =
       else endSum += entry * Math.exp(path[path.length - 1]) - entry;
     }
     const N = paths.length || 1;
-    const ev = (hit * (T - entry) - stopped * (entry - stop) + endSum) / N;
+    // expected profit after the round-trip trading cost (stamp duty, fees, spread: lib/tradingCosts.js)
+    const ev = (hit * (T - entry) - stopped * (entry - stop) + endSum) / N - costPerShare;
     candidates.push({ target: T, p: hit / N, pStop: stopped / N, ev });
   }
   // Only targets with a realistic chance (≥ 30% of being reached first) qualify; among those take the
@@ -613,7 +616,7 @@ export function tradePlan({ rows, price, fair = null, fairRange = null, review =
   return {
     signal, composite, tendency, move20, nu, sigma, atr: A,
     entryLow, entryHigh, entry, stop, target: best.target, probTarget: best.p, probStop: best.pStop, simPaths: paths.length,
-    evPerShare: best.ev, riskReward: risk > 0 ? reward / risk : null,
+    evPerShare: best.ev, costPerShare, riskReward: risk > 0 ? reward / risk : null,
     support, resistance, supports: supportsBelow.slice(0, 3), resistances: resistAbove.slice(0, 3),
     buyBelow, sellAbove, sellZoneLow, sellZoneHigh, range,
     parts: { timing, strength, val, news: newsScore }, percentiles: rs ? rs.percentiles : null, factorValues: fv, severeNews, fib,

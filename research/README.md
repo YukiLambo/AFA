@@ -146,3 +146,12 @@ The app's reliability box now shows these numbers (`CROSS_SECTION` in `horizonMo
 - Source: `web.ifzq.gtimg.cn/appstock/app/fqkline/get`, the same endpoint the app uses for history. The feed has no service-level agreement. Re-downloads can differ slightly if Tencent revises its history, so studies run on the committed snapshot.
 - Stock splits are detected with the app's rule from `adjustSplits` in `src/App.jsx`.
 - **App bug found:** in `adjustSplits` the 1.5-for-1 branch sits inside `ratio >= 1.8`, so it can never run. Bonus issues in that range are missed: Sino Biopharm (2018 and 2020) and CSPC (2020). The research loader handles them through `corporate_actions.json`. The live app still shows a false one-day crash of about 33–40% in those charts.
+
+## Trading costs (step 12)
+
+`src/lib/tradingCosts.js` holds the cost rules used everywhere:
+- HK: stamp duty 0.1% on each side (rounded up to HK$1), HKEX, SFC and AFRC fees, and CCASS settlement.
+- US: SEC and FINRA fees on sales.
+- Both: an assumed broker commission (0.03% with a HK$3 minimum in HK, zero in the US) and half of one price step for the spread.
+
+A HK round trip at HK$400 costs about 0.33%. `crosssection.mjs` now takes its costs from this file: HK 0.21% one-way, and US about 0.01%, since US large caps trade a cent wide with no commission. The trade plan subtracts the round-trip cost from its expected profit, and paper trading fills at the bid or ask and charges the itemised fees. Test: `node scripts/tests/tradingCosts.test.mjs`.

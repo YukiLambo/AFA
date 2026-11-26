@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { tradeCost } from '../lib/tradingCosts';
 import { Search, Loader2, RefreshCw, RotateCcw, TrendingUp, TrendingDown, History, FlaskConical, X, Zap, AlertTriangle } from 'lucide-react';
 
 // Simulated ("paper") trading account. Users practise with virtual cash at live HK/US prices; nothing
@@ -6,7 +7,8 @@ import { Search, Loader2, RefreshCw, RotateCcw, TrendingUp, TrendingDown, Histor
 //   { startingCash, cash, realizedPnl, holdings: [{ symbol, name, shares, avgCost, currency }],
 //     trades: [{ id, time, side, symbol, name, shares, price, currency, fee, hkdValue, pnl }], createdAt }
 
-export const PAPER_FEE_RATE = 0.001;          // 0.1% per trade, roughly brokerage + stamp duty
+// Costs per order come from lib/tradingCosts.js: HK stamp duty 0.1% each side, exchange fees and levies, settlement,
+// broker commission (assumed), US SEC/FINRA fees on sales, and half the bid-ask spread through the fill price.
 const STARTING_OPTIONS = [100000, 500000, 1000000];
 const MAX_TRADES_KEPT = 300;
 const REFRESH_MS = 30000;
@@ -137,9 +139,13 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
 
   const held = selected ? account.holdings.find(h => h.symbol === selected.symbol) : null;
   const qty = Math.floor(Number(shares) || 0);
-  const gross = selected ? qty * selected.price * fx(selected.currency) : 0;
-  const fee = gross * PAPER_FEE_RATE;
-  const maxBuy = selected ? Math.floor(account.cash / (selected.price * fx(selected.currency) * (1 + PAPER_FEE_RATE))) : 0;
+  const costOf = (q, side_, price, symbol, name) => tradeCost({ market: /\.HK$/.test(symbol) ? 'HK' : 'US', side: side_, price, shares: q, stampExempt: instrumentKind(symbol, name) !== 'stock' });
+  const preview = selected && qty > 0 ? costOf(qty, side, selected.price, selected.symbol, selected.name) : null;
+  // the fill is half a spread worse than the quote: buyers pay the ask, sellers get the bid
+  const fillPx = selected ? selected.price + (preview ? (side === 'buy' ? 1 : -1) * preview.halfSpread : 0) : 0;
+  const gross = selected ? qty * fillPx * fx(selected.currency) : 0;
+  const fee = preview ? preview.fees * fx(selected.currency) : 0;
+  const maxBuy = selected ? Math.floor(account.cash / (selected.price * fx(selected.currency) * 1.0015)) : 0;
   const maxSell = held ? held.shares : 0;
   const problem = !selected ? '' : qty <= 0 ? 'Enter how many shares'
     : side === 'buy' && gross + fee > account.cash + 0.005 ? `Not enough virtual cash (max ${maxBuy.toLocaleString()} shares)`
@@ -151,10 +157,11 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
     setBusy(true);
     // Fresh price at the moment of the order
     const live = (await fetchQuote(selected.symbol)) || selected;
-    const price = live.price;
+    const cost = costOf(qty, side, live.price, live.symbol, live.name);
+    const price = live.price + (side === 'buy' ? 1 : -1) * cost.halfSpread; // fill at the ask / bid
     const rate = fx(live.currency);
     const value = qty * price * rate;
-    const orderFee = Math.round(value * PAPER_FEE_RATE * 100) / 100;
+    const orderFee = Math.round(cost.fees * rate * 100) / 100;
     const acc = accountRef.current;
     let holdings = acc.holdings.map(h => ({ ...h }));
     let cash = acc.cash;
@@ -240,7 +247,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h3 className="font-bold text-white flex items-center gap-2"><FlaskConical className="w-4 h-4 text-[#00f2fe]" /> Place a Simulated Order</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">Live HK and US prices · {(PAPER_FEE_RATE * 100).toFixed(1)}% simulated fee per trade · virtual money only</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Live HK and US prices · stamp duty, exchange fees and the bid-ask spread simulated · virtual money only</p>
           </div>
           {confirmReset ? (
             <div className="flex items-center gap-2 text-[11px]">
@@ -309,7 +316,9 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
               </div>
               <div className="text-[11px] font-mono text-slate-400 space-y-0.5">
                 <div className="flex justify-between"><span>Order value</span><span>{hkd(gross)}</span></div>
-                <div className="flex justify-between"><span>Fee ({(PAPER_FEE_RATE * 100).toFixed(1)}%)</span><span>{hkd(fee)}</span></div>
+                {preview && preview.lines.map(([name, v]) => <div key={name} className="flex justify-between text-slate-500"><span>{name}</span><span>{hkd(v * fx(selected.currency))}</span></div>)}
+                <div className="flex justify-between"><span>Fees</span><span>{hkd(fee)}</span></div>
+                {preview && <div className="flex justify-between text-slate-500"><span>Spread (fill {px(fillPx, selected.currency)}, half a price step {side === 'buy' ? 'above' : 'below'} the quote)</span><span>{hkd(preview.spreadCost * fx(selected.currency))}</span></div>}
                 <div className="flex justify-between text-slate-200"><span>{side === 'buy' ? 'Total cost' : 'You receive'}</span><span>{hkd(side === 'buy' ? gross + fee : gross - fee)}</span></div>
               </div>
               {problem && qty > 0 && <div className="text-[11px] text-amber-400">{problem}</div>}
