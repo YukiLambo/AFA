@@ -516,3 +516,7 @@ export const SIGNAL_SCALE = SIGNALS;
 
 // Internals for research/study3.mjs, so the study re-runs with exactly the definitions the app uses
 export const _research = { series, statesAt, featuresAt, composite, zigzag, FEAT, MU, SD, WEIGHTS, CALIB, SHRINK };
+
+// Price projection vs a random walk (research/forecast.mjs), 20 trading days ahead. Theil's U = error ÷ the error of
+// assuming no change. Written by update_app_constants.mjs.
+export const FORECAST_TEST = { hold: 20, from: '2019', HK: { theilU: 1.02, hitRate: 50.1, coverage95: 94, n: 4912, oldHoltU: 4.924 }, US: { theilU: 1.05, hitRate: 50.4, coverage95: 92.7, n: 3400, oldHoltU: 1.726 } };

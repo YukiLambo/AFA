@@ -3,9 +3,9 @@ import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
 import { aggregateNews, companySearchName } from '../lib/newsSentiment';
 import { getFundamentals, growthFromFundamentals, capmDiscount, getPeerComparison } from '../lib/fundamentals';
-import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, CROSS_SECTION, SIGNAL_SCALE } from '../lib/horizonModel';
+import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, CROSS_SECTION, SIGNAL_SCALE, FORECAST_TEST } from '../lib/horizonModel';
 import { valuationScore } from '../lib/indicators';
-import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan, valuationRange, impliedGrowth, dcfValue, pegFairPe, backtestSignals, STUDY_RESULTS, STUDY2, signalSeries, adxSeries, ichimokuSeries, supertrendSeries, stochasticSeries, obvSeries, fibonacciLevels, detectPatterns, ema, macd, rsi } from '../lib/indicators';
+import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, logForecast, technicalReview, valuationModels, tradePlan, valuationRange, impliedGrowth, dcfValue, pegFairPe, backtestSignals, STUDY_RESULTS, STUDY2, signalSeries, adxSeries, ichimokuSeries, supertrendSeries, stochasticSeries, obvSeries, fibonacciLevels, detectPatterns, ema, macd, rsi } from '../lib/indicators';
 
 // Stock analysis for the simulator: live quote, risk statistics, five technical indicators with a
 // combined score, a candlestick chart with moving averages / Bollinger bands / a statistical projection,
@@ -201,7 +201,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
       closes, mas, bb, hi52, lo52, vol5, vol20,
       r1m: periodReturn(closes, 21), r3m: periodReturn(closes, 63), r1y: periodReturn(closes, 252),
       vol: annualVolatility(closes), sharpe: sharpe(closes), mdd: maxDrawdown(closes.slice(-252)),
-      forecast: holtForecast(closes, 20),
+      forecast: logForecast(closes, 20),
       review: technicalReview(rows),
       track: backtestSignals(rows),
       // Extended indicator set (lib/indicators.js) for the indicator table, patterns and chart overlays
@@ -834,8 +834,9 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
             </div>
             {showForecast && analysis.forecast && (
               <p className="text-[10px] text-slate-500 mt-2">
-                Projection: Holt linear trend smoothing fitted to the last year (α {analysis.forecast.alpha.toFixed(2)}, β {analysis.forecast.beta.toFixed(2)}), with a 95% range that widens over time.
-                In 20 trading days it points to {cur}{fmt(analysis.forecast.path[19].mid)} ({cur}{fmt(analysis.forecast.path[19].lower)}–{fmt(analysis.forecast.path[19].upper)}). It only extends the recent trend; it is not a prediction.
+                Projection: damped-trend smoothing of log prices over the last year (α {analysis.forecast.alpha.toFixed(2)}, β {analysis.forecast.beta.toFixed(2)}, damping {analysis.forecast.phi}). The shaded 95% range comes from the stock's own daily swings.
+                In 20 trading days the centre is {cur}{fmt(analysis.forecast.path[19].mid)} and the range {cur}{fmt(analysis.forecast.path[19].lower)}–{fmt(analysis.forecast.path[19].upper)}.
+                {(() => { const t = FORECAST_TEST[/\.HK$/.test(quote.symbol) ? 'HK' : 'US']; return ` Tested on ${t.n.toLocaleString()} past forecasts since ${FORECAST_TEST.from}, the centre line was ${t.theilU >= 1 ? `${Math.round((t.theilU - 1) * 100)}% less` : `${Math.round((1 - t.theilU) * 100)}% more`} accurate than assuming no change, and got the direction right ${t.hitRate}% of the time, a coin flip. The range held the outcome ${t.coverage95}% of the time, close to the 95% it claims. So read the range, not the line.`; })()}
               </p>
             )}
           </div>
