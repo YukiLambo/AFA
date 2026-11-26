@@ -200,6 +200,53 @@ export const TP_CSS = `
 .afl.page .nav .pill, .afl.lightnav .nav .pill { background: #47c4b2; color: #081b2c; border-radius: 0; font-family: "DM Sans", var(--ui); font-size: 12.5px; letter-spacing: 0.03em; padding: 14px 20px; }
 .afl.page .nav .pill:hover, .afl.lightnav .nav .pill:hover { background: #6bd6c6; }
 
+/* Product previews on the Features page: small, static versions of the app's charts and tables (sample numbers) */
+.afl .tp .show { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 24px; margin-bottom: 48px; }
+.afl .tp .pv { background: #fff; border: 1px solid var(--tline); color: var(--tink); box-shadow: 0 40px 80px -60px rgba(8,27,44,0.45); font-variant-numeric: tabular-nums; min-width: 0; }
+.afl .tp .t-navy .pv { border-color: rgba(255,255,255,0.12); box-shadow: 0 40px 80px -50px rgba(0,0,0,0.6); }
+.afl .tp .pv-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; height: 38px; padding: 0 16px; border-bottom: 1px solid var(--tline); font: 600 9.5px/1 var(--tbody); letter-spacing: 0.16em; text-transform: uppercase; color: #6d7c84; }
+.afl .tp .pv-bar .tag { color: var(--teal-ink); border: 1px solid rgba(71,196,178,0.5); padding: 4px 7px; white-space: nowrap; }
+.afl .tp .pv-bar .tag.buy { color: #fff; background: var(--teal-ink); border-color: var(--teal-ink); }
+.afl .tp .pv-body { padding: 16px; }
+.afl .tp .pv svg { display: block; width: 100%; }
+.afl .tp .pv-kpis { display: flex; gap: 28px; margin-bottom: 12px; }
+.afl .tp .pv-kpis label { display: block; font: 600 8.5px/1 var(--tbody); letter-spacing: 0.15em; text-transform: uppercase; color: #6d7c84; }
+.afl .tp .pv-kpis b { display: block; margin-top: 8px; font: 500 24px/1 var(--tsans); letter-spacing: -0.04em; color: var(--navy); }
+.afl .tp .pv-kpis b small { font-size: 12px; color: #138a75; letter-spacing: 0; margin-left: 6px; }
+.afl .tp .pv-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+.afl .tp .pv-tbl th { padding: 10px 16px; border-bottom: 1px solid var(--tline); text-align: left; font: 600 8.5px/1 var(--tbody); letter-spacing: 0.15em; text-transform: uppercase; color: #6d7c84; }
+.afl .tp .pv-tbl td { padding: 11px 16px; border-bottom: 1px solid var(--tline); color: #3d4f5c; white-space: nowrap; }
+.afl .tp .pv-tbl tr:last-child td { border-bottom: 0; }
+.afl .tp .pv-tbl .r { text-align: right; font-family: var(--tsans); font-weight: 500; color: var(--navy); }
+.afl .tp .pv-tbl .up { color: #138a75; } .afl .tp .pv-tbl .dn { color: #bd605e; }
+.afl .tp .pv-tbl .cat { display: inline-flex; align-items: center; gap: 8px; }
+.afl .tp .pv-tbl .cat i { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
+.afl .tp .hbars { display: grid; gap: 11px; }
+.afl .tp .hbar { display: grid; grid-template-columns: 112px minmax(0, 1fr) 70px; gap: 12px; align-items: center; font-size: 12.5px; color: #3d4f5c; }
+.afl .tp .hbar .tr { height: 8px; background: #edf0f0; position: relative; }
+.afl .tp .hbar .tr i { position: absolute; inset: 0 auto 0 0; background: var(--teal); }
+.afl .tp .hbar .tr i.warn { background: #d9a35b; }
+.afl .tp .hbar .tr b { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--navy); opacity: 0.45; }
+.afl .tp .hbar span:last-child { text-align: right; font: 500 12.5px/1 var(--tsans); color: var(--navy); }
+.afl .tp .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; font: 600 8.5px/1 var(--tbody); letter-spacing: 0.13em; text-transform: uppercase; color: #6d7c84; }
+.afl .tp .legend i { display: inline-block; width: 14px; height: 2px; margin-right: 7px; vertical-align: 3px; background: var(--teal); }
+.afl .tp .legend i.d { background: none; border-top: 1px dashed #bd605e; }
+.afl .tp .legend i.n { background: var(--navy); }
+.afl .tp .legend i.g { background: #9aa8ae; }
+.afl .tp .chat { display: grid; gap: 12px; }
+.afl .tp .bub { max-width: 88%; padding: 12px 14px; font-size: 13px; line-height: 1.55; }
+.afl .tp .bub.me { justify-self: end; background: var(--navy); color: #fff; }
+.afl .tp .bub.ai { background: #f3f1eb; color: #3d4f5c; border-left: 2px solid var(--teal); }
+.afl .tp .bub.ai b { color: var(--navy); font-weight: 600; }
+.afl .tp .plan { list-style: none; margin: 0; padding: 0; }
+.afl .tp .plan li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px 16px; border-bottom: 1px solid var(--tline); font-size: 13px; line-height: 1.5; color: #3d4f5c; }
+.afl .tp .plan li:last-child { border-bottom: 0; }
+.afl .tp .plan li > b { font: 500 11px/1.6 var(--tsans); color: var(--teal-ink); }
+.afl .tp .plan li strong { display: block; font: 500 14px/1.35 var(--tsans); color: var(--navy); }
+.afl .tp .plan li em { font: 600 12px/1.6 var(--tsans); font-style: normal; color: #138a75; white-space: nowrap; }
+.afl .tp .pv-note { padding: 9px 16px; border-top: 1px solid var(--tline); font-size: 10.5px; color: #89959d; }
+@media (max-width: 1000px) { .afl .tp .show { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 700px) { .afl .tp .hbar { grid-template-columns: 88px minmax(0, 1fr) 58px; font-size: 12px; } .afl .tp .pv-tbl th, .afl .tp .pv-tbl td { padding-left: 12px; padding-right: 12px; } .afl .tp .pv-kpis { gap: 18px; } .afl .tp .pv-kpis b { font-size: 20px; } }
 @media (max-width: 1000px) {
 .afl .tp .aside { display: none; }
 .afl .tp .t-hero .in { max-width: none; padding-right: 8.5vw; }
@@ -415,6 +462,127 @@ function LiveBar() {
   );
 }
 
+// --- Product previews (sample numbers, drawn like the app's own charts and tables) ---
+const pts2path = (pts, w, h, lo, hi) => pts.map((v, i) => `${i ? 'L' : 'M'}${(i / (pts.length - 1) * w).toFixed(1)} ${(h - (v - lo) / (hi - lo) * h).toFixed(1)}`).join(' ');
+const Pv = ({ title, tag, tagCls = '', children, note }) => (
+  <div className="pv"><div className="pv-bar"><span>{title}</span>{tag && <span className={'tag ' + tagCls}>{tag}</span>}</div>{children}{note && <div className="pv-note">{note}</div>}</div>
+);
+
+function EverydayShow() {
+  const cats = [['Rent', 9800, 10000], ['Food & dining', 3420, 3000, true], ['Transport', 980, 1200], ['Shopping', 1650, 2000], ['Utilities', 480, 600], ['Entertainment', 720, 800]];
+  const max = 10000;
+  return (
+    <div className="show">
+      <Pv title="Spending this month" tag="vs budget" note="Sample user. Lines mark each category's budget.">
+        <div className="pv-body">
+          <div className="pv-kpis"><div><label>Spent</label><b>$17,050</b></div><div><label>Saved</label><b>$6,720<small>▲ 24%</small></b></div><div><label>Financial health</label><b>78</b></div></div>
+          <div className="hbars">
+            {cats.map(([k, v, b, warn]) => (
+              <div className="hbar" key={k}><span>{k}</span><span className="tr"><i className={warn ? 'warn' : ''} style={{ width: `${Math.min(100, v / max * 100)}%` }} /><b style={{ left: `${b / max * 100}%` }} /></span><span>${v.toLocaleString()}</span></div>
+            ))}
+          </div>
+        </div>
+      </Pv>
+      <Pv title="Transactions" tag="Repeating on">
+        <table className="pv-tbl"><thead><tr><th>Date</th><th>Category</th><th className="r">Amount</th></tr></thead><tbody>
+          <tr><td>Nov 25</td><td><span className="cat"><i />Food & dining</span></td><td className="r dn">−$68</td></tr>
+          <tr><td>Nov 24</td><td><span className="cat"><i style={{ background: '#5b8def' }} />Transport</span></td><td className="r dn">−$12</td></tr>
+          <tr><td>Nov 22</td><td><span className="cat"><i style={{ background: '#d9a35b' }} />Shopping</span></td><td className="r dn">−$420</td></tr>
+          <tr><td>Nov 01</td><td><span className="cat"><i style={{ background: '#081b2c' }} />Rent</span></td><td className="r dn">−$9,800</td></tr>
+          <tr><td>Nov 01</td><td><span className="cat"><i style={{ background: '#138a75' }} />Salary</span></td><td className="r up">+$28,000</td></tr>
+        </tbody></table>
+      </Pv>
+    </div>
+  );
+}
+
+function InvestingShow() {
+  const px = [182, 179, 184, 181, 186, 190, 188, 193, 191, 196, 194, 199, 203, 201, 206, 204, 209, 212];
+  const lo = 170, hi = 232, W = 520, H = 170, y = (v) => H - (v - lo) / (hi - lo) * H;
+  return (
+    <div className="show">
+      <Pv title="Stock analysis · Trade plan" tag="Buy" tagCls="buy" note="Illustrative example, not a recommendation.">
+        <div className="pv-body">
+          <div className="pv-kpis"><div><label>Price</label><b>$212.40<small>▲ 1.4%</small></b></div><div><label>Fair value</label><b>$236</b></div><div><label>Signals</label><b>9/12</b></div></div>
+          <svg viewBox={`0 0 ${W} ${H}`} height="170" preserveAspectRatio="none" aria-hidden="true">
+            <defs><linearGradient id="pv-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#47c4b2" stopOpacity="0.22" /><stop offset="100%" stopColor="#47c4b2" stopOpacity="0" /></linearGradient></defs>
+            {[[226, '#138a75', 'Target 226'], [205, '#081b2c', 'Entry 205'], [192, '#bd605e', 'Stop 192']].map(([v, c, t]) => (
+              <g key={t}><line x1="0" x2={W} y1={y(v)} y2={y(v)} stroke={c} strokeDasharray="4 4" strokeWidth="1" opacity="0.7" vectorEffect="non-scaling-stroke" /><text x={W - 4} y={y(v) - 5} textAnchor="end" fontSize="10" fill={c} fontFamily="DM Sans, sans-serif">{t}</text></g>
+            ))}
+            <path d={pts2path(px, W, H, lo, hi) + ` L${W} ${H} L0 ${H} Z`} fill="url(#pv-a)" />
+            <path d={pts2path(px, W, H, lo, hi)} fill="none" stroke="#47c4b2" strokeWidth="1.8" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div className="legend"><span><i />Price</span><span><i className="n" />Entry</span><span><i style={{ background: '#138a75' }} />Target</span><span><i className="d" />Stop</span></div>
+        </div>
+      </Pv>
+      <Pv title="Portfolio" tag="In your currency">
+        <table className="pv-tbl"><thead><tr><th>Holding</th><th className="r">Value</th><th className="r">Return</th></tr></thead><tbody>
+          <tr><td>Apple</td><td className="r">$8,496</td><td className="r up">+18.2%</td></tr>
+          <tr><td>Microsoft</td><td className="r">$6,210</td><td className="r up">+9.6%</td></tr>
+          <tr><td>Tencent</td><td className="r">$4,385</td><td className="r dn">−3.1%</td></tr>
+          <tr><td>Bitcoin</td><td className="r">$3,940</td><td className="r up">+42.0%</td></tr>
+          <tr><td>Gold</td><td className="r">$2,100</td><td className="r up">+6.4%</td></tr>
+        </tbody></table>
+      </Pv>
+    </div>
+  );
+}
+
+function PlanningShow() {
+  const W = 520, H = 160;
+  const aval = [24, 22.2, 20.3, 18.2, 16, 13.6, 11.1, 8.4, 5.6, 2.7, 0];
+  const snow = [24, 22.4, 20.7, 18.9, 16.9, 14.8, 12.5, 10.1, 7.5, 4.8, 1.9, 0];
+  const wealth = [[25, 12], [30, 46], [35, 98], [40, 172], [45, 276], [50, 418], [55, 610]];
+  return (
+    <div className="show">
+      <Pv title="Debt health · Payoff plan" tag="Debt-free Sep 2027" note="Sample: $24k across two cards and a personal loan.">
+        <div className="pv-body">
+          <svg viewBox={`0 0 ${W} ${H}`} height="160" preserveAspectRatio="none" aria-hidden="true">
+            {[0.25, 0.5, 0.75].map(f => <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} stroke="rgba(11,30,44,0.08)" strokeDasharray="2 4" />)}
+            <path d={pts2path(snow, W, H, 0, 25)} fill="none" stroke="#9aa8ae" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+            <path d={pts2path(aval, W * 10 / 11, H, 0, 25)} fill="none" stroke="#47c4b2" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div className="legend"><span><i />Avalanche · saves $1,240 interest</span><span><i className="g" />Snowball</span></div>
+        </div>
+      </Pv>
+      <Pv title="Wealth planner" tag="7% a year">
+        <div className="pv-body">
+          <svg viewBox="0 0 300 160" height="160" aria-hidden="true">
+            {wealth.map(([age, v], i) => { const h = v / 610 * 120; const x = 12 + i * 41; return (
+              <g key={age}><rect x={x} y={130 - h} width="26" height={h} fill={i === wealth.length - 1 ? '#47c4b2' : '#081b2c'} opacity={i === wealth.length - 1 ? 1 : 0.18 + i * 0.1} /><text x={x + 13} y="148" textAnchor="middle" fontSize="10" fill="#6d7c84" fontFamily="DM Sans, sans-serif">{age}</text></g>
+            ); })}
+            <text x="286" y={130 - 120 - 6} textAnchor="end" fontSize="11" fill="#081b2c" fontFamily="Manrope, sans-serif" fontWeight="600">$610k at 55</text>
+          </svg>
+          <div className="legend"><span><i className="n" />Projected savings by age, $500 a month</span></div>
+        </div>
+      </Pv>
+    </div>
+  );
+}
+
+function AssistantShow() {
+  return (
+    <div className="show">
+      <Pv title="A.F.A. AI chat">
+        <div className="pv-body chat">
+          <div className="bub me">Can I afford a $1,500 trip in December?</div>
+          <div className="bub ai">Yes, if you trim shopping. You've saved <b>$6,720</b> this month, and your emergency fund covers <b>4.2 months</b>. Moving <b>$300</b> from shopping keeps your savings rate above 20%.</div>
+          <div className="bub me">What should I do with the rest?</div>
+        </div>
+      </Pv>
+      <Pv title="Action plan · November" tag="Ranked">
+        <ol className="plan">
+          <li><b>01</b><span><strong>Clear the card balance</strong>Avoid 36% interest on $2,300.</span><em>−$69/mo</em></li>
+          <li><b>02</b><span><strong>Top up retirement savings</strong>Claim this year's tax relief.</span><em>+$4,500</em></li>
+          <li><b>03</b><span><strong>Build the emergency fund</strong>From 4.2 to 6 months of costs.</span><em>+$800/mo</em></li>
+        </ol>
+      </Pv>
+    </div>
+  );
+}
+
+const SHOWS = { Everyday: EverydayShow, Investing: InvestingShow, Planning: PlanningShow, Assistant: AssistantShow };
+
 // The sections under the landing hero on Home (the template's homepage below its hero)
 export function HomeSections({ go, enter }) {
   return (
@@ -536,6 +704,7 @@ export default function TemplatePages({ page, go, enter }) {
               <div><div className={'kick' + (g.cls === 't-navy' ? ' light' : '')}>{g.kicker}</div><h2>{g.title}</h2></div>
               <p>{g.text}</p>
             </div>
+            {SHOWS[g.kicker] && React.createElement(SHOWS[g.kicker])}
             <CardGrid items={g.items} />
           </section>
         ))}

@@ -70,7 +70,7 @@ const CSS = `
 .afl .app p { margin: 0; color: var(--muted); line-height: 1.6; font-size: 14px; }
 /* Desktop hero: copy on the left over the calm end of the cube field, the particle assistant floating on the right */
 .afl .dhero { position: fixed; inset: calc(var(--nav-h) + env(safe-area-inset-top, 0px)) 0 0 0; z-index: 4; pointer-events: none; display: grid; grid-template-rows: 1fr auto; }
-.afl .dhero #afl-bot { position: fixed; left: 60vw; top: 50vh; width: min(46vh, 25vw); height: min(46vh, 25vw); transform: translate(-50%, -50%); pointer-events: none; display: block; }
+.afl .dhero #afl-bot { position: fixed; left: 67vw; top: 50vh; width: min(46vh, 25vw); height: min(46vh, 25vw); transform: translate(-50%, -50%); pointer-events: none; display: block; }
 .afl .dhero-copy { position: relative; align-self: center; max-width: 560px; margin-left: max(64px, calc((100vw - 1180px) / 2 + 28px)); pointer-events: auto; animation: afl-copy .9s .35s both cubic-bezier(.16,1,.3,1); }
 @keyframes afl-copy { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .afl .dhero-tag { display: inline-flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(8, 11, 16, 0.6); font: 500 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft); }
@@ -239,9 +239,9 @@ export default function IntroLanding({ onEnter }) {
         <section className="dhero" aria-label="A.F.A.">
             <canvas id="afl-bot" aria-hidden="true"></canvas>
             <div className="dhero-copy">
-              <div className="dhero-tag">Automated Financial Assistant</div>
-              <h1>Your personal <em>financial</em> assistant</h1>
-              <p>Record what you earn and spend. A.F.A. scores your position, explains every figure and shows what to do next, from retirement savings and tax to your first investment.</p>
+              <div className="dhero-tag">Meet A.F.A. · your money sidekick</div>
+              <h1>Your money, <em>finally</em> making sense</h1>
+              <p>Log what comes in and what goes out. A.F.A. turns it into a score, a story and a plan, explains every number, and nudges you toward your next smart move, from saving and tax to your very first investment.</p>
               <div className="actions"><button className="pill" type="button" onClick={enter}>Get started <svg className="ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" /></svg></button><a className="btn-line" href="#overview" onClick={go('overview')}>See how it works</a></div>
             </div>
             <ol className="dhero-steps" aria-label="How A.F.A. works">
