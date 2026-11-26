@@ -103,6 +103,11 @@ export const TP_CSS = `
 .afl .tp .sc:nth-child(3n+1) { border-left: 1px solid rgba(255,255,255,0.16); }
 .afl .tp .sc:nth-child(n+4) { border-top: 1px solid rgba(255,255,255,0.16); }
 .afl .tp .t-light .sc:nth-child(n+4) { border-top-color: var(--tline); }
+.afl .tp .grid3.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.afl .tp .grid3.two .sc:nth-child(3n+1) { border-left-width: 0; }
+.afl .tp .grid3.two .sc:nth-child(2n+1) { border-left-width: 1px; border-left-style: solid; }
+.afl .tp .grid3.two .sc:nth-child(3) { border-top: 1px solid rgba(255,255,255,0.16); }
+.afl .tp .t-light .grid3.two .sc:nth-child(3) { border-top-color: var(--tline); }
 .afl .tp .sc.on { background: var(--teal); color: var(--navy); transform: translateY(-10px); }
 .afl .tp .sc .top { display: flex; justify-content: space-between; align-items: center; font: 400 10.5px/1 var(--tsans); letter-spacing: 0.12em; color: #8ca1ad; }
 .afl .tp .sc.on .top { color: var(--navy); }
@@ -209,10 +214,12 @@ export const TP_CSS = `
 .afl .tp .t-bar .ls { min-width: 760px; }
 .afl .tp .t-intro { grid-template-columns: minmax(0, 1fr); }
 .afl .tp .t-rows { grid-template-columns: minmax(0, 1fr); gap: 36px; }
-.afl .tp .grid3 { grid-template-columns: minmax(0, 1fr); }
+.afl .tp .grid3, .afl .tp .grid3.two { grid-template-columns: minmax(0, 1fr); }
 .afl .tp .sc, .afl .tp .t-light .sc { min-height: 0; border: 1px solid rgba(255,255,255,0.16); border-top: 0; }
 .afl .tp .t-light .sc { border-color: var(--tline); }
 .afl .tp .sc.on { transform: none; }
+.afl .tp .grid3.two .sc:nth-child(n) { border-left-width: 1px; border-left-style: solid; }
+.afl .tp .grid3.two .sc:nth-child(3) { border-top: 0; }
 .afl .tp .t-head { display: block; }
 .afl .tp .t-head > p { margin-top: 22px; }
 }
@@ -256,7 +263,7 @@ const Arrow = ({ diagonal = false }) => (
 function CardGrid({ items, light = false }) {
   const [on, setOn] = useState(0);
   return (
-    <div className="grid3">
+    <div className={'grid3' + (items.length === 4 ? ' two' : '')}>
       {items.map((c, i) => (
         <article key={c.title} className={'sc' + (on === i ? ' on' : '')} onMouseEnter={() => setOn(i)} onFocus={() => setOn(i)}>
           <div className="top"><span>{String(i + 1).padStart(2, '0')}</span><button type="button" aria-label={c.title} onClick={() => setOn(i)}><Arrow diagonal /></button></div>
@@ -339,6 +346,12 @@ const GROUPS = [
   ] },
 ];
 
+// The four areas of the app, summarised on the Overview page (counts come from GROUPS)
+const AREAS = GROUPS.map((g) => ({
+  title: { Everyday: 'Everyday money', Investing: 'Investing', Planning: 'Planning ahead', Assistant: 'A.F.A. AI' }[g.kicker],
+  text: g.text + ' ' + g.items.map((i) => i.title).join(', ') + '.',
+  stat: String(g.items.length), label: 'Tools',
+}));
 
 // Live market bar (the template's market pulse): US indices from Tencent quotes with the latest session's minute line,
 // Bitcoin and Ether from CoinGecko with their 7-day line. Refreshes every minute; a failed source keeps its last values.
@@ -461,6 +474,50 @@ export default function TemplatePages({ page, go, enter }) {
   const view = (p) => 'tp' + (page === p ? ' on' : '');
   return (
     <>
+      {/* Overview */}
+      <main className={view('overview')} aria-label="Overview">
+        <section className="t-hero short">
+          <img src={cityPhoto} alt="" />
+          <div className="ov" /><div className="cols" aria-hidden="true" />
+          <div className="in">
+            <p className="eyebrow2">Overview</p>
+            <h1>Your whole money life, <em>on one screen.</em></h1>
+            <p className="copy">See where every dollar goes, how healthy your finances are and exactly what to do next. One app for spending, saving, investing and planning ahead.</p>
+          </div>
+        </section>
+
+        <section className="t-intro pad">
+          <div className="kick">The dashboard</div>
+          <div className="body">
+            <h2>Know where you stand<br /><em>in five seconds.</em></h2>
+            <p>Open A.F.A. and the most useful next step sits at the top, followed by this month's income, spending, savings and your budget score. Every number links to the detail behind it.</p>
+            <a className="t-dark" href="#features" onClick={go('features')}>See every feature <Arrow /></a>
+          </div>
+          <Shot src={shotOverview} label="A.F.A. · Dashboard" alt="The A.F.A. dashboard: next step, balances, cash flow and budget score" w={1400} h={759} />
+        </section>
+
+        <section className="t-navy pad">
+          <div className="t-head">
+            <div><div className="kick light">How it works</div><h2>From your first record<br /><em>to a plan you can act on.</em></h2></div>
+            <p>Three steps, repeated every month. Your position and priorities update as your finances change.</p>
+          </div>
+          <CardGrid items={STEPS} />
+        </section>
+
+        <section className="t-light paper pad">
+          <div className="t-head">
+            <div><div className="kick">Inside the app</div><h2>Four areas,<br /><em>one assistant.</em></h2></div>
+            <p>Everything A.F.A. does, grouped the way you think about money.</p>
+          </div>
+          {SHOWS.Investing()}
+          <CardGrid items={AREAS} />
+          <p className="t-note">Screens show a sample account. A.F.A. provides educational information, not licensed financial advice.</p>
+        </section>
+
+        <Closing kicker="Get started" title={<>Your future self<br />will <em>thank you.</em></>} enter={enter} />
+        <Footer go={go} />
+      </main>
+
       {/* Why A.F.A. */}
       <main className={view('why-afa')} aria-label="Why A.F.A.">
         <section className="t-hero short">

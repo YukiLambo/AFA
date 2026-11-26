@@ -49,6 +49,17 @@ const CSS = `
 .afl .link[aria-current="page"] { color: #fff; }
 .afl .link[aria-current="page"]::after { transform: scaleX(1); }
 .afl .cta-wrap { justify-self: end; display: flex; align-items: center; gap: 18px; }
+.afl .menu-btn { display: none; flex-direction: column; justify-content: center; gap: 6px; width: 42px; height: 42px; padding: 0 11px; border: 1px solid rgba(220, 232, 240, 0.22); background: transparent; color: #e6eef4; cursor: pointer; }
+.afl .menu-btn i { display: block; height: 1.5px; background: currentColor; transition: transform .3s cubic-bezier(.16,1,.3,1); }
+.afl .menu-btn.open i:first-child { transform: translateY(3.75px) rotate(45deg); }
+.afl .menu-btn.open i:last-child { transform: translateY(-3.75px) rotate(-45deg); }
+.afl.page .menu-btn, .afl.lightnav .menu-btn { color: #081b2c; border-color: #d5dadd; }
+.afl .mmenu { position: fixed; z-index: 9; left: 0; right: 0; top: calc(var(--nav-h) + env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; padding: 8px max(16px, env(safe-area-inset-right, 0px)) 18px max(16px, env(safe-area-inset-left, 0px)); background: #081b2c; border-bottom: 1px solid rgba(255,255,255,0.08); opacity: 0; visibility: hidden; transform: translateY(-8px); transition: opacity .25s, transform .3s cubic-bezier(.16,1,.3,1), visibility 0s .3s; }
+.afl .mmenu.open { opacity: 1; visibility: visible; transform: none; transition: opacity .25s, transform .3s cubic-bezier(.16,1,.3,1); }
+.afl .mmenu a { display: flex; align-items: center; gap: 16px; padding: 17px 2px; border-bottom: 1px solid rgba(255,255,255,0.08); color: #fff; text-decoration: none; font: 500 18px/1 "Manrope", var(--ui); letter-spacing: -0.02em; }
+.afl .mmenu a span { font: 500 10px/1 "DM Sans", var(--ui); letter-spacing: 0.14em; color: #47c4b2; }
+.afl .mmenu a svg { margin-left: auto; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.5; }
+.afl .mmenu a[aria-current="page"] { color: #47c4b2; }
 .afl .pill { font: 600 14px/1 var(--ui); letter-spacing: 0.005em; color: #03141a; background: var(--cyan); border: 0; border-radius: 4px; padding: 12px 20px; cursor: pointer; transition: background .2s, transform .2s; }
 .afl .pill:hover { background: #7ef8ff; }
 .afl .pill:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
@@ -58,9 +69,6 @@ const CSS = `
 .afl .btn-line:hover::after { transform: translateX(3px); }
 
 .afl .home-text { transition: opacity .4s ease; }
-.afl .mlinks { display: none; position: fixed; z-index: 4; left: 0; right: 0; bottom: calc(7vh + env(safe-area-inset-bottom, 0px)); justify-content: center; gap: 6px; }
-.afl .mlinks a { font: 500 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(220, 232, 240, 0.7); text-decoration: none; padding: 12px 12px; }
-.afl .mlinks a:active { color: #fff; }
 .afl.page .home-text { opacity: 0; pointer-events: none; }
 .afl .app { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; background: var(--bg); opacity: 0; pointer-events: none; transition: opacity .7s ease;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -133,16 +141,16 @@ const CSS = `
 .afl .link.hide-sm { display: none; }
 .afl .pill { padding: 11px 15px; font-size: 13.5px; }
 }
-@media (max-width: 520px) {
+@media (max-width: 760px) {
 .afl .links { display: none; }
-.afl .mlinks { display: flex; }
+.afl .menu-btn { display: flex; }
+.afl .cta-wrap { gap: 10px; }
 }
 @media (max-width: 767px) {
 .afl .dhero { display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 calc(12vh + env(safe-area-inset-bottom, 0px)); }
 .afl .dhero #afl-bot { left: 50vw; top: calc(var(--nav-h) + 40vh); width: min(28vh, 56vw); height: min(28vh, 56vw); }
 /* Phones: just the headline and the two buttons */
 .afl .dhero-tag, .afl .dhero p { display: none; }
-.afl .mlinks { display: none !important; }
 .afl .dhero-copy { align-self: stretch; max-width: none; margin: 0; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); text-align: center; }
 .afl .dhero-tag { font-size: 9.5px; justify-content: center; }
 .afl .dhero h1 { margin-top: 0; font-size: clamp(17px, 5.4vw, 26px); line-height: 1.2; letter-spacing: -0.035em; white-space: nowrap; text-wrap: nowrap; }
@@ -161,6 +169,7 @@ export default function IntroLanding({ onEnter }) {
   const rootRef = useRef(null);
   const apiRef = useRef(null);
   const [page, setPage] = useState('home');
+  const [menu, setMenu] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const leavingRef = useRef(false);
 
@@ -200,17 +209,13 @@ export default function IntroLanding({ onEnter }) {
     if (apiRef.current) apiRef.current.setHome(page === 'home' && !covered);
   }, [page, covered]);
 
-  const scrollToSections = () => requestAnimationFrame(() => {
-    const el = rootRef.current && rootRef.current.querySelector('#afl-figures');
-    if (el) rootRef.current.scrollTo({ top: el.offsetTop - 64, behavior: 'smooth' });
-  });
   const go = (p) => (e) => {
     e.preventDefault();
-    if (p === 'overview') { setPage('home'); scrollToSections(); return; }
+    setMenu(false);
     setPage(p); setCovered(false);
     if (rootRef.current) rootRef.current.scrollTop = 0;
   };
-  const cur = (p) => (p === 'overview' ? (page === 'home' && covered ? 'page' : undefined) : p === 'home' ? (page === 'home' && !covered ? 'page' : undefined) : (page === p ? 'page' : undefined));
+  const cur = (p) => (page === p ? 'page' : undefined);
   const enter = () => { if (apiRef.current) apiRef.current.startExit(); else finish(); };
 
   return (
@@ -238,17 +243,26 @@ export default function IntroLanding({ onEnter }) {
           <a className="link" href="#why-afa" onClick={go('why-afa')} aria-current={cur('why-afa')}>Why A.F.A.</a>
           <a className="link" href="#features" onClick={go('features')} aria-current={cur('features')}>Features</a>
         </nav>
-        <div className="cta-wrap"><button className="pill" type="button" onClick={enter}>Log in</button></div>
+        <div className="cta-wrap">
+          <button className="pill" type="button" onClick={enter}>Log in</button>
+          <button className={'menu-btn' + (menu ? ' open' : '')} type="button" aria-label={menu ? 'Close menu' : 'Open menu'} aria-expanded={menu} aria-controls="afl-menu" onClick={() => setMenu((m) => !m)}><i /><i /></button>
+        </div>
       </header>
+      {/* Phone menu: the page links, which don't fit in the top bar */}
+      <nav id="afl-menu" className={'mmenu' + (menu ? ' open' : '')} aria-label="Pages" aria-hidden={!menu}>
+        {[['home', 'Home', '#'], ['overview', 'Overview', '#overview'], ['why-afa', 'Why A.F.A.', '#why-afa'], ['features', 'Features', '#features']].map(([id, label, href], i) => (
+          <a key={id} href={href} onClick={go(id)} aria-current={cur(id)} tabIndex={menu ? 0 : -1}><span>0{i + 1}</span>{label}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" /></svg></a>
+        ))}
+      </nav>
 
       {/* Home */}
       <div className="home-text">
         <section className="dhero" aria-label="A.F.A.">
             <canvas id="afl-bot" aria-hidden="true"></canvas>
             <div className="dhero-copy">
-              <div className="dhero-tag">Meet A.F.A. · your money sidekick</div>
+              <div className="dhero-tag">Plan your future · start today</div>
               <h1>Your Personal <em>Financial</em> Assistant</h1>
-              <p>Log what comes in and what goes out. A.F.A. turns it into a score, a story and a plan, explains every number, and nudges you toward your next smart move, from saving and tax to your very first investment.</p>
+              <p>Every smart money move starts here. Track what you earn and spend, watch your financial health grow, and get a clear next step every month, from your first budget to your first investment.</p>
               <div className="actions"><button className="pill" type="button" onClick={enter}>Get started <svg className="ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" /></svg></button><a className="btn-line" href="#overview" onClick={go('overview')}>See how it works</a></div>
             </div>
             <ol className="dhero-steps" aria-label="How A.F.A. works">
@@ -257,11 +271,6 @@ export default function IntroLanding({ onEnter }) {
               <li><b>03</b><span><strong>Act</strong>A ranked plan for this month, with the reasons shown.</span></li>
             </ol>
         </section>
-        <nav className="mlinks" aria-label="About A.F.A.">
-          <a href="#overview" onClick={go('overview')}>Overview</a>
-          <a href="#why-afa" onClick={go('why-afa')}>Why A.F.A.</a>
-          <a href="#features" onClick={go('features')}>Features</a>
-        </nav>
       </div>
 
       {page === 'home' && <div className="home-scroll"><div className="hero-space" aria-hidden="true" /><HomeSections go={go} enter={enter} /></div>}
