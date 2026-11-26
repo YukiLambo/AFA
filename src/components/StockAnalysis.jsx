@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useMoney } from '../lib/currency';
 import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Cell, ReferenceLine, ReferenceArea } from 'recharts';
 import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
 import { aggregateNews, companySearchName } from '../lib/newsSentiment';
@@ -33,7 +34,7 @@ const MAS = [
 const RANGES = [['3M', 63], ['6M', 126], ['1Y', 252], ['2Y', 504]];
 const GREEN = '#16c784', RED = '#ea3943'; // green = up, red = down (as elsewhere in A.F.A.)
 
-const fmt = (n, d = 2) => (n === null || n === undefined || Number.isNaN(n) ? '—' : Number(n).toLocaleString('en-HK', { minimumFractionDigits: d, maximumFractionDigits: d }));
+const fmt = (n, d = 2) => (n === null || n === undefined || Number.isNaN(n) ? '—' : Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const pctTxt = (r, d = 1) => (r === null || r === undefined ? '—' : `${r >= 0 ? '+' : ''}${(r * 100).toFixed(d)}%`);
 const tone = (score) => (score > 0 ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : score < 0 ? 'bg-rose-500/15 text-rose-300 border-rose-500/30' : 'bg-slate-500/15 text-slate-300 border-slate-500/30');
 
@@ -77,6 +78,7 @@ function nextTradingDays(lastDate, n) {
 }
 
 export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, fetchHistory, searchSymbols, onTrade, watchlist = [], onWatchlistChange, fetchNews, generalNews = [], portfolioValue = 0 }) {
+  const money = useMoney(); // portfolioValue and position sizes are in the home currency
   const [symbol, setSymbol] = useState(initialSymbol);
   useEffect(() => { if (initialSymbol) setSymbol(initialSymbol); }, [initialSymbol]);
   const [quote, setQuote] = useState(null);
@@ -570,12 +572,12 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                         {[0.5, 1, 2].map(r => <option key={r} value={r}>{r}%</option>)}
                       </select>
                       of
-                      <input type="number" min="0" value={sizeBase} onChange={e => setSizeBase(e.target.value)} placeholder={portfolioValue ? Math.round(portfolioValue).toString() : 'portfolio HK$'} className="w-24 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-white text-[11px] font-mono" />
+                      <input type="number" min="0" value={sizeBase} onChange={e => setSizeBase(e.target.value)} placeholder={portfolioValue ? Math.round(portfolioValue).toString() : `portfolio ${money.currency}`} className="w-24 bg-[#161b22] border border-slate-700 rounded px-1.5 py-0.5 text-white text-[11px] font-mono" />
                     </div>
                     {sizingBase > 0 && sel.entry > sel.stop ? (() => {
-                      const fx = quote.currency === 'USD' ? 7.8 : 1;
+                      const fx = money.toHome(1, quote.currency || 'HKD'); // share currency -> home currency
                       const shares = Math.floor((sizingBase * riskPct / 100) / ((sel.entry - sel.stop) * fx));
-                      return <div className="mt-1 text-slate-300">→ up to <span className="font-mono font-bold text-white">{shares.toLocaleString()}</span> shares (≈HK${Math.round(shares * sel.entry * fx).toLocaleString()}, {((shares * sel.entry * fx) / sizingBase * 100).toFixed(0)}% of the portfolio); a stop-out loses ≈HK${Math.round(sizingBase * riskPct / 100).toLocaleString()}.</div>;
+                      return <div className="mt-1 text-slate-300">→ up to <span className="font-mono font-bold text-white">{shares.toLocaleString()}</span> shares (≈{money.fmt0(shares * sel.entry * fx)}, {((shares * sel.entry * fx) / sizingBase * 100).toFixed(0)}% of the portfolio); a stop-out loses ≈{money.fmt0(sizingBase * riskPct / 100)}.</div>;
                     })() : <div className="mt-1 text-slate-500">Enter your portfolio size to get a position size.</div>}
                     {onTrade && (
                       <button onClick={() => onTrade(quote.symbol)} className="mt-3 w-full py-2 rounded-xl text-[11px] font-black uppercase tracking-wider bg-[#00f2fe]/10 border border-[#00f2fe]/30 text-[#00f2fe] cursor-pointer hover:bg-[#00f2fe]/20">Practise this plan in the simulator</button>

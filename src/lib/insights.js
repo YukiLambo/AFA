@@ -1,3 +1,4 @@
+import { formatMoney, niceAmount } from './currency';
 // Personal finance review: turns the user's profile, transactions, assets and debts into a scored
 // snapshot and a ranked list of concrete recommendations. Pure functions, no network, easy to test.
 //
@@ -57,7 +58,8 @@ export function monthlyNeeded(start, target, months, r) {
 }
 
 const round = (n, step = 10) => Math.round(n / step) * step;
-const hkd = (n) => `HK$${Math.round(n).toLocaleString('en-HK')}`;
+// Hong Kong MPF / salaries-tax figures are always in HK$
+const hkTax = (n) => formatMoney(Math.round(n), 'HKD', { dp: 0 });
 const pct = (n) => `${Math.round(n)}%`;
 const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
 
@@ -66,16 +68,22 @@ const clamp = (n, lo = 0, hi = 100) => Math.max(lo, Math.min(hi, n));
  *  profile        { name, birthday, goal, riskTolerance, targetAmount, goalYears, monthlyIncome, dependants, weeklyMaxSpend }
  *  transactions   [{ date, type, category, amount, account }]
  *  recurringRules [{ template, frequency, active }]
- *  liquidCash     HKD in bank / cash / Octopus (from the ledger)
- *  stocks         [{ symbol, valueHkd }]
- *  assets         [{ type, name, valueHkd, maturity, rate }]
+ *  money          home-currency helpers from lib/currency.js (makeMoney); all amounts below are in that currency
+ *  liquidCash     cash in bank / wallet accounts (from the ledger)
+ *  stocks         [{ symbol, valueHome }]
+ *  assets         [{ type, name, valueHome, maturity, rate }]
  *  debts          [{ name, balance, apr, minPay }]
  *  debtPlan       { totalMonths, totalInterest, stuck, debtFreeLabel }
  *  weeklySpent    spending so far this week
- *  tax            { tvcMonthly, savedNow, savedAtMax }
+ *  tax            { tvcMonthly, savedNow, savedAtMax }  (Hong Kong MPF/TVC, in HKD)
  *  paper          { equity, startingCash, trades } | null
  */
 export function buildInsights(ctx, now = new Date()) {
+  const money = ctx.money;
+  const currency = money?.currency || 'HKD';
+  const hkd = (n) => formatMoney(Math.round(n), currency, { dp: 0 });
+  // Thresholds were set in HK$; scale them to the home currency (HK$20,000 -> about US$2,600)
+  const local = (hkAmount) => (money && currency !== 'HKD' ? niceAmount(money.toHome(hkAmount, 'HKD')) : hkAmount);
   const p = ctx.profile || {};
   const tx = ctx.transactions || [];
   const risk = riskProfileOf(p.riskTolerance);
@@ -124,8 +132,8 @@ export function buildInsights(ctx, now = new Date()) {
 
   // ---- Balance sheet ----
   const assets = ctx.assets || [];
-  const sumType = (...types) => assets.filter(a => types.includes(a.type)).reduce((s, a) => s + (a.valueHkd || 0), 0);
-  const stocksValue = (ctx.stocks || []).reduce((s, h) => s + (h.valueHkd || 0), 0);
+  const sumType = (...types) => assets.filter(a => types.includes(a.type)).reduce((s, a) => s + (a.valueHome || 0), 0);
+  const stocksValue = (ctx.stocks || []).reduce((s, h) => s + (h.valueHome || 0), 0);
   const crypto = sumType('crypto');
   const warrants = sumType('warrant');
   const funds = sumType('fund');
@@ -141,7 +149,7 @@ export function buildInsights(ctx, now = new Date()) {
   const debts = (ctx.debts || []).filter(d => Number(d.balance) > 0);
   const debtTotal = debts.reduce((s, d) => s + Number(d.balance), 0);
   const debtPayments = debts.reduce((s, d) => s + (Number(d.minPay) || 0), 0);
-  const netWorth = Math.max(0, ctx.liquidCash || 0) + stocksValue + assets.reduce((s, a) => s + (a.valueHkd || 0), 0) - debtTotal;
+  const netWorth = Math.max(0, ctx.liquidCash || 0) + stocksValue + assets.reduce((s, a) => s + (a.valueHome || 0), 0) - debtTotal;
   const emergencyTargetMonths = dependants > 0 || (incomeByCat.Freelance || 0) + (incomeByCat['Part Time'] || 0) > incomeSum * 0.5 ? 6 : 3;
   const emergencyMonths = essentials > 0 ? liquid / essentials : (liquid > 0 ? 12 : 0);
   const growthPct = investable > 0 ? (growth / investable) * 100 : 0;
@@ -188,7 +196,7 @@ export function buildInsights(ctx, now = new Date()) {
         'Stop new credit-card spending until the card is cleared, and set up autopay so you never miss a minimum',
         ...(income > 0 ? [`Adding ${hkd(round(income * 0.05, 100))}/month (5% of income) speeds this up noticeably`] : [])
       ],
-      impact: `Every HK$10,000 repaid at ${first.apr}% saves ${hkd(100 * first.apr)}/year`,
+      impact: `Every ${hkd(local(10000))} repaid at ${first.apr}% saves ${hkd(local(10000) * first.apr / 100)}/year`,
       cta: { label: 'Open Debt Health', tab: 'debt' }
     });
   }
@@ -237,7 +245,7 @@ export function buildInsights(ctx, now = new Date()) {
       actions: [
         `Set a monthly cap of ${hkd(round(income * 0.3, 100))} for dining, shopping and entertainment combined`,
         `Try a no-spend weekend twice a month: about ${hkd(round(wants * 0.1, 10))} saved`,
-        'Wait 48 hours before any non-essential purchase over HK$500'
+        `Wait 48 hours before any non-essential purchase over ${hkd(local(500))}`
       ],
       impact: `Bringing wants to 30% frees ${hkd(wants - income * 0.3)}/month`,
       cta: { label: 'See analytics', tab: 'dashboard' }
@@ -261,7 +269,7 @@ export function buildInsights(ctx, now = new Date()) {
   const dayOfMonth = now.getDate();
   const spikes = Object.entries(thisMonth)
     .map(([c, v]) => ({ c, v, avg: monthlyByCat[c] || 0 }))
-    .filter(s => s.avg > 0 && months >= 1.5 && s.v > s.avg * 1.4 && s.v - s.avg > 500)
+    .filter(s => s.avg > 0 && months >= 1.5 && s.v > s.avg * 1.4 && s.v - s.avg > local(500))
     .sort((a, b) => (b.v - b.avg) - (a.v - a.avg)).slice(0, 2);
   if (spikes.length) {
     add({
@@ -300,7 +308,7 @@ export function buildInsights(ctx, now = new Date()) {
   const safeToInvest = emergencyMonths >= emergencyTargetMonths && highDebts.length === 0;
 
   // 10. Start investing
-  if (growth < 1000 && safeToInvest && income > 0 && income > expense) {
+  if (growth < local(1000) && safeToInvest && income > 0 && income > expense) {
     const monthly = round(Math.min(income - expense, income * 0.1), 100);
     const in10 = futureValue(0, monthly, risk.expectedReturn, 120);
     add({
@@ -308,7 +316,7 @@ export function buildInsights(ctx, now = new Date()) {
       finding: `Emergency fund covered and no expensive debt. ${hkd(monthly)}/month at a ${pct(risk.expectedReturn * 100)} yearly return (${risk.label.toLowerCase()} assumption) could grow to about ${hkd(in10)} in 10 years.`,
       actions: [
         `Invest ${hkd(monthly)} automatically each month after payday (dollar-cost averaging)`,
-        'Use a low-cost, diversified index fund as the core, e.g. Tracker Fund (2800.HK) or an S&P 500 ETF',
+        'Use a low-cost, diversified index fund as the core, e.g. a world or S&P 500 ETF',
         'Practise first in Simulated Trading if you are new to buying stocks'
       ],
       cta: { label: 'Try Simulated Trading', tab: 'portfolio', view: 'simulation' }
@@ -316,7 +324,7 @@ export function buildInsights(ctx, now = new Date()) {
   }
 
   // 11. Allocation vs risk profile
-  if (investable >= 20000 && Math.abs(growthPct - targetGrowth) > 15) {
+  if (investable >= local(20000) && Math.abs(growthPct - targetGrowth) > 15) {
     const move = Math.abs(growthPct - targetGrowth) / 100 * investable;
     const tooMuchGrowth = growthPct > targetGrowth;
     add({
@@ -324,7 +332,7 @@ export function buildInsights(ctx, now = new Date()) {
       title: tooMuchGrowth ? 'Your investments are riskier than your profile' : 'Your investments are more cautious than your profile',
       finding: `Growth assets (stocks, funds, crypto) are ${pct(growthPct)} of ${hkd(investable)} invested. For a ${risk.label.toLowerCase()} investor${age ? ` aged ${age}` : ''} a typical mix is about ${pct(targetGrowth)} growth / ${pct(100 - targetGrowth)} defensive (bonds, deposits, gold).`,
       actions: tooMuchGrowth
-        ? [`Direct new money into bonds or deposits until the mix is closer (about ${hkd(move)} to rebalance)`, 'Consider HK Government Silver Bonds / iBonds or short-term bond funds for the defensive part', 'Rebalance once or twice a year rather than reacting to daily moves']
+        ? [`Direct new money into bonds or deposits until the mix is closer (about ${hkd(move)} to rebalance)`, 'Consider government bonds or short-term bond funds for the defensive part', 'Rebalance once or twice a year rather than reacting to daily moves']
         : [`Gradually move about ${hkd(move)} into a diversified equity index fund over 6–12 months`, 'Keep your emergency fund separate; only invest money you will not need for 5+ years'],
       cta: { label: 'View portfolio', tab: 'portfolio' }
     });
@@ -335,7 +343,7 @@ export function buildInsights(ctx, now = new Date()) {
     add({
       id: 'crypto', priority: cryptoPct > risk.cryptoCap * 3 ? 'high' : 'medium', area: 'Investing', title: 'Crypto is a large slice of your investments',
       finding: `Crypto is ${pct(cryptoPct)} of investments (${hkd(crypto)}). For a ${risk.label.toLowerCase()} profile it is usually kept under ${risk.cryptoCap}%: prices can fall 50%+ in a year.`,
-      actions: [`Trimming to ${risk.cryptoCap}% means taking about ${hkd(crypto - investable * risk.cryptoCap / 100)} off the table`, 'Hold crypto only on regulated platforms (SFC-licensed in Hong Kong) and enable 2FA', 'Never use borrowed money for crypto'],
+      actions: [`Trimming to ${risk.cryptoCap}% means taking about ${hkd(crypto - investable * risk.cryptoCap / 100)} off the table`, 'Hold crypto only on platforms licensed by your local regulator and enable 2FA', 'Never use borrowed money for crypto'],
       cta: { label: 'View assets', tab: 'portfolio' }
     });
   }
@@ -369,10 +377,10 @@ export function buildInsights(ctx, now = new Date()) {
   }
 
   // 13. Single-stock concentration
-  const biggest = [...(ctx.stocks || [])].sort((a, b) => b.valueHkd - a.valueHkd)[0];
-  if (biggest && stocksValue > 20000 && biggest.valueHkd / stocksValue > 0.3 && (ctx.stocks || []).length > 0) {
+  const biggest = [...(ctx.stocks || [])].sort((a, b) => b.valueHome - a.valueHome)[0];
+  if (biggest && stocksValue > local(20000) && biggest.valueHome / stocksValue > 0.3 && (ctx.stocks || []).length > 0) {
     add({
-      id: 'concentration', priority: 'medium', area: 'Investing', title: `${biggest.symbol} is ${pct((biggest.valueHkd / stocksValue) * 100)} of your stocks`,
+      id: 'concentration', priority: 'medium', area: 'Investing', title: `${biggest.symbol} is ${pct((biggest.valueHome / stocksValue) * 100)} of your stocks`,
       finding: `A single company above 30% means one bad earnings report can move your whole portfolio.`,
       actions: [`Stop adding to ${biggest.symbol}; send new money to a broad index fund instead`, 'Consider trimming back towards 10–20% of your stock holdings'],
       cta: { label: 'View holdings', tab: 'portfolio' }
@@ -396,20 +404,20 @@ export function buildInsights(ctx, now = new Date()) {
   if (soon.length) {
     add({
       id: 'maturity', priority: 'low', area: 'Investing', title: `${soon.length === 1 ? soon[0].name : `${soon.length} holdings`} mature${soon.length === 1 ? 's' : ''} soon`,
-      finding: soon.map(a => `${a.name}: ${hkd(a.valueHkd)} on ${a.maturity}`).join('; '),
+      finding: soon.map(a => `${a.name}: ${hkd(a.valueHome)} on ${a.maturity}`).join('; '),
       actions: ['Decide now: roll over, move to a better rate, or use it for your goal', 'Compare current time-deposit and Government bond rates before the maturity date'],
       cta: { label: 'View assets', tab: 'portfolio' }
     });
   }
 
   // 16. Tax: TVC
-  if (ctx.tax && ctx.tax.savedAtMax - ctx.tax.savedNow >= 500) {
+  if (currency === 'HKD' && ctx.tax && ctx.tax.savedAtMax - ctx.tax.savedNow >= 500) {
     add({
-      id: 'tvc', priority: 'medium', area: 'Tax', title: `Save up to ${hkd(ctx.tax.savedAtMax - ctx.tax.savedNow)} salaries tax with TVC`,
-      finding: `Tax-Deductible Voluntary Contributions to MPF are deductible up to HK$60,000 a year. ${ctx.tax.tvcMonthly > 0 ? `You plan ${hkd(ctx.tax.tvcMonthly)}/month now.` : 'You are not using TVC yet.'}`,
-      actions: ['Open a TVC account with your MPF trustee (or any trustee)', `Contribute ${hkd(5000)}/month, or a lump sum before 31 March, to use the full HK$60,000 allowance`, 'Pick a fund that matches your risk profile; the money stays invested until 65'],
-      impact: `${hkd(ctx.tax.savedAtMax - ctx.tax.savedNow)} less tax per year`,
-      cta: { label: 'Open MPF & Tax', tab: 'mpf' }
+      id: 'tvc', priority: 'medium', area: 'Tax', title: `Save up to ${hkTax(ctx.tax.savedAtMax - ctx.tax.savedNow)} Hong Kong salaries tax with TVC`,
+      finding: `Tax-Deductible Voluntary Contributions to MPF are deductible up to HK$60,000 a year. ${ctx.tax.tvcMonthly > 0 ? `You plan ${hkTax(ctx.tax.tvcMonthly)}/month now.` : 'You are not using TVC yet.'}`,
+      actions: ['Open a TVC account with your MPF trustee (or any trustee)', `Contribute ${hkTax(5000)}/month, or a lump sum before 31 March, to use the full HK$60,000 allowance`, 'Pick a fund that matches your risk profile; the money stays invested until 65'],
+      impact: `${hkTax(ctx.tax.savedAtMax - ctx.tax.savedNow)} less tax per year`,
+      cta: { label: 'Open HK MPF & Tax', tab: 'mpf' }
     });
   }
 
@@ -438,7 +446,7 @@ export function buildInsights(ctx, now = new Date()) {
     add({
       id: 'goal-set', priority: 'low', area: 'Goal', title: 'Set a savings target',
       finding: 'Without a target amount and year, A.F.A. cannot tell whether you are on track.',
-      actions: ['Open your profile and add a target amount and target year', 'Typical first goals: an emergency fund, a down payment, or HK$1M by 35'],
+      actions: ['Open your profile and add a target amount and target year', `Typical first goals: an emergency fund, a down payment, or ${hkd(local(1000000))} by 35`],
       cta: { label: 'Edit profile', action: 'profile' }
     });
   }
