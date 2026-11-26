@@ -61,5 +61,14 @@ try {
   else src = src.replace(/(export const STUDY3 = \{[\s\S]*?\n\};)/, `$1\n\n// Cross-sectional test (research/crosssection.mjs): each month, rank a market's stocks by the score and compare the\n// top 20% with the bottom 20% over the hold, return vs the index in % points. Written by update_app_constants.mjs.\n${cs}`);
 } catch (e) { console.warn('No crosssection.json: CROSS_SECTION not written'); }
 
+// FORECAST_TEST from results/forecast.json: the price projection vs a random walk, 20 trading days ahead
+try {
+  const F = JSON.parse(readFileSync(join(RESEARCH_DIR, 'results/forecast.json'), 'utf8'));
+  const one = (m) => { const r = F.markets[m][20].logDamped, o = F.markets[m][20].holt; return `{ theilU: ${r.theilU}, hitRate: ${r.hitRate}, coverage95: ${r.coverage95}, n: ${r.n}, oldHoltU: ${o.theilU} }`; };
+  const ft = `export const FORECAST_TEST = { hold: 20, from: '${F.start.slice(0, 4)}', HK: ${one('HK')}, US: ${one('US')} };`;
+  if (/export const FORECAST_TEST = .*;/.test(src)) src = src.replace(/export const FORECAST_TEST = .*;/, ft);
+  else src += `\n// Price projection vs a random walk (research/forecast.mjs), 20 trading days ahead. Theil's U = error ÷ the error of\n// assuming no change. Written by update_app_constants.mjs.\n${ft}\n`;
+} catch (e) { console.warn('No forecast.json: FORECAST_TEST not written'); }
+
 writeFileSync(appFile, src);
 console.log(`Updated ${n} EVIDENCE rows, CALIB and STUDY3 in src/lib/horizonModel.js from ${resFile}`);
