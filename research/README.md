@@ -146,3 +146,7 @@ The app's reliability box now shows these numbers (`CROSS_SECTION` in `horizonMo
 - Source: `web.ifzq.gtimg.cn/appstock/app/fqkline/get`, the same endpoint the app uses for history. The feed has no service-level agreement. Re-downloads can differ slightly if Tencent revises its history, so studies run on the committed snapshot.
 - Stock splits are detected with the app's rule from `adjustSplits` in `src/App.jsx`.
 - **App bug found:** in `adjustSplits` the 1.5-for-1 branch sits inside `ratio >= 1.8`, so it can never run. Bonus issues in that range are missed: Sino Biopharm (2018 and 2020) and CSPC (2020). The research loader handles them through `corporate_actions.json`. The live app still shows a false one-day crash of about 33–40% in those charts.
+
+## Kronos benchmark (step 13)
+
+[Kronos](https://github.com/shiyu-coder/Kronos) (MIT licence) is a transformer pre-trained on candlestick data. `research/kronos/benchmark.py` forecasts 20-day returns with it on the snapshot stocks and dates and scores the forecasts with the same measures as `forecast.mjs`: Theil's U vs a random walk, direction, and cross-sectional rank IC. It needs PyTorch and the Hugging Face weights, so it runs as the manual GitHub Action "Kronos benchmark" and uploads `kronos.{json,md}` as an artifact. Kronos is only a benchmark, and the app doesn't depend on it. To test the pipeline offline with an untrained tiny model, pass `--random-init --limit-dates 2`.
