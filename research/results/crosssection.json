@@ -2,8 +2,8 @@
  "snapshot": "snapshot-2026-11-25",
  "start": "2019-10-01",
  "costsOneWayPct": {
-  "HK": 0.25,
-  "US": 0.05
+  "HK": 0.206,
+  "US": 0.007
  },
  "markets": {
   "HK": {
@@ -23,8 +23,8 @@
      "ic": -0.043,
      "icT": -1.6,
      "topTurnover": 0.58,
-     "spreadAfterCosts": -1.31,
-     "sharpeLS": -0.6
+     "spreadAfterCosts": -1.21,
+     "sharpeLS": -0.55
     },
     "126": {
      "periods": 78,
@@ -41,7 +41,7 @@
      "ic": -0.063,
      "icT": -1.8,
      "topTurnover": 0.58,
-     "spreadAfterCosts": -6.5,
+     "spreadAfterCosts": -6.32,
      "sharpeLS": null
     }
    },
@@ -61,8 +61,8 @@
      "ic": -0.052,
      "icT": -1.9,
      "topTurnover": 0.53,
-     "spreadAfterCosts": -1.56,
-     "sharpeLS": -0.71
+     "spreadAfterCosts": -1.46,
+     "sharpeLS": -0.67
     },
     "126": {
      "periods": 78,
@@ -79,7 +79,7 @@
      "ic": -0.076,
      "icT": -2,
      "topTurnover": 0.54,
-     "spreadAfterCosts": -7.68,
+     "spreadAfterCosts": -7.51,
      "sharpeLS": null
     }
    },
@@ -99,8 +99,8 @@
      "ic": -0.039,
      "icT": -1.8,
      "topTurnover": 0.7,
-     "spreadAfterCosts": -1.73,
-     "sharpeLS": -0.94
+     "spreadAfterCosts": -1.61,
+     "sharpeLS": -0.87
     },
     "126": {
      "periods": 78,
@@ -117,7 +117,7 @@
      "ic": -0.039,
      "icT": -1.4,
      "topTurnover": 0.71,
-     "spreadAfterCosts": -5.91,
+     "spreadAfterCosts": -5.73,
      "sharpeLS": null
     }
    },
@@ -137,8 +137,8 @@
      "ic": 0.077,
      "icT": 2.5,
      "topTurnover": 0.26,
-     "spreadAfterCosts": 0.95,
-     "sharpeLS": 0.39
+     "spreadAfterCosts": 1,
+     "sharpeLS": 0.41
     },
     "126": {
      "periods": 78,
@@ -155,7 +155,7 @@
      "ic": 0.149,
      "icT": 3.4,
      "topTurnover": 0.27,
-     "spreadAfterCosts": 7.21,
+     "spreadAfterCosts": 7.39,
      "sharpeLS": null
     }
    },
@@ -175,8 +175,8 @@
      "ic": 0.057,
      "icT": 1.8,
      "topTurnover": 0.21,
-     "spreadAfterCosts": 0.88,
-     "sharpeLS": 0.38
+     "spreadAfterCosts": 0.92,
+     "sharpeLS": 0.39
     },
     "126": {
      "periods": 78,
@@ -193,7 +193,7 @@
      "ic": 0.095,
      "icT": 1.8,
      "topTurnover": 0.21,
-     "spreadAfterCosts": 6.34,
+     "spreadAfterCosts": 6.52,
      "sharpeLS": null
     }
    }
@@ -215,8 +215,8 @@
      "ic": -0.022,
      "icT": -0.7,
      "topTurnover": 0.59,
-     "spreadAfterCosts": -0.9,
-     "sharpeLS": -0.42
+     "spreadAfterCosts": -0.8,
+     "sharpeLS": -0.37
     },
     "126": {
      "periods": 80,
@@ -233,7 +233,7 @@
      "ic": -0.038,
      "icT": -0.8,
      "topTurnover": 0.59,
-     "spreadAfterCosts": -3.39,
+     "spreadAfterCosts": -3.22,
      "sharpeLS": null
     }
    },
@@ -253,8 +253,8 @@
      "ic": -0.026,
      "icT": -0.8,
      "topTurnover": 0.54,
-     "spreadAfterCosts": -0.96,
-     "sharpeLS": -0.44
+     "spreadAfterCosts": -0.87,
+     "sharpeLS": -0.4
     },
     "126": {
      "periods": 80,
@@ -271,7 +271,7 @@
      "ic": -0.046,
      "icT": -0.9,
      "topTurnover": 0.55,
-     "spreadAfterCosts": -4.87,
+     "spreadAfterCosts": -4.69,
      "sharpeLS": null
     }
    },
@@ -291,8 +291,8 @@
      "ic": -0.014,
      "icT": -0.5,
      "topTurnover": 0.7,
-     "spreadAfterCosts": -0.75,
-     "sharpeLS": -0.37
+     "spreadAfterCosts": -0.63,
+     "sharpeLS": -0.31
     },
     "126": {
      "periods": 80,
@@ -309,7 +309,7 @@
      "ic": -0.035,
      "icT": -0.9,
      "topTurnover": 0.7,
-     "spreadAfterCosts": -3.8,
+     "spreadAfterCosts": -3.63,
      "sharpeLS": null
     }
    },
@@ -329,8 +329,8 @@
      "ic": 0.01,
      "icT": 0.3,
      "topTurnover": 0.32,
-     "spreadAfterCosts": -0.3,
-     "sharpeLS": -0.13
+     "spreadAfterCosts": -0.25,
+     "sharpeLS": -0.11
     },
     "126": {
      "periods": 80,
@@ -347,7 +347,7 @@
      "ic": 0.016,
      "icT": 0.3,
      "topTurnover": 0.32,
-     "spreadAfterCosts": -3.18,
+     "spreadAfterCosts": -3.01,
      "sharpeLS": null
     }
    },
@@ -367,8 +367,8 @@
      "ic": 0.028,
      "icT": 0.9,
      "topTurnover": 0.23,
-     "spreadAfterCosts": 0.6,
-     "sharpeLS": 0.24
+     "spreadAfterCosts": 0.64,
+     "sharpeLS": 0.25
     },
     "126": {
      "periods": 80,
@@ -385,7 +385,7 @@
      "ic": 0.073,
      "icT": 1.2,
      "topTurnover": 0.22,
-     "spreadAfterCosts": 5.17,
+     "spreadAfterCosts": 5.34,
      "sharpeLS": null
     }
    }
