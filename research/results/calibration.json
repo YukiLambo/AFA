@@ -115,7 +115,7 @@
     "brier": 0.2168,
     "brierBaseline": 0.2126,
     "avgReturnPct": 0.12,
-    "statedReturnPct": 0.14,
+    "statedReturnPct": 0.2,
     "bySignal": {
      "Hold": {
       "n": 10678,
@@ -162,7 +162,7 @@
     "brier": 0.2142,
     "brierBaseline": 0.2051,
     "avgReturnPct": 0.3,
-    "statedReturnPct": 0.26,
+    "statedReturnPct": 0.35,
     "bySignal": {
      "Hold": {
       "n": 7440,
@@ -209,7 +209,7 @@
     "brier": 0.2158,
     "brierBaseline": 0.2096,
     "avgReturnPct": 0.2,
-    "statedReturnPct": 0.19,
+    "statedReturnPct": 0.26,
     "bySignal": {
      "Hold": {
       "n": 18118,

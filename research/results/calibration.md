@@ -13,7 +13,7 @@ Table fitted on plans before 2023-01-01, scored on plans after. Brier score: low
 
 ## Short-term plan (10 days) · HK
 
-10678 plans. Target first 30.7% (plans said 35.6%), stop first 31.4%, neither by the end 37.9%. Brier 0.2168 vs 0.2126 for always predicting the average. Average result 0.12% per trade (plans said 0.14%).
+10678 plans. Target first 30.7% (plans said 35.6%), stop first 31.4%, neither by the end 37.9%. Brier 0.2168 vs 0.2126 for always predicting the average. Average result 0.12% per trade (plans said 0.2%).
 
 By signal: Hold 10678 (target first 30.7%, average 0.12%).
 
@@ -25,7 +25,7 @@ By signal: Hold 10678 (target first 30.7%, average 0.12%).
 
 ## Short-term plan (10 days) · US
 
-7440 plans. Target first 28.8% (plans said 37.8%), stop first 30.4%, neither by the end 40.8%. Brier 0.2142 vs 0.2051 for always predicting the average. Average result 0.3% per trade (plans said 0.26%).
+7440 plans. Target first 28.8% (plans said 37.8%), stop first 30.4%, neither by the end 40.8%. Brier 0.2142 vs 0.2051 for always predicting the average. Average result 0.3% per trade (plans said 0.35%).
 
 By signal: Hold 7440 (target first 28.8%, average 0.3%).
 
@@ -37,7 +37,7 @@ By signal: Hold 7440 (target first 28.8%, average 0.3%).
 
 ## Short-term plan (10 days) · all
 
-18118 plans. Target first 29.9% (plans said 36.5%), stop first 31%, neither by the end 39.1%. Brier 0.2158 vs 0.2096 for always predicting the average. Average result 0.2% per trade (plans said 0.19%).
+18118 plans. Target first 29.9% (plans said 36.5%), stop first 31%, neither by the end 39.1%. Brier 0.2158 vs 0.2096 for always predicting the average. Average result 0.2% per trade (plans said 0.26%).
 
 By signal: Hold 18118 (target first 29.9%, average 0.2%).
 
