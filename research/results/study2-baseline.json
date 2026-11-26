@@ -1,4 +1,5 @@
 {
+ "method": "baseline",
  "snapshot": "snapshot-2026-11-25",
  "periods": {
   "train": [

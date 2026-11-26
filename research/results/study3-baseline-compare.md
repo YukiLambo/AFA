@@ -1,4 +1,6 @@
-# Study 3 re-run vs the numbers in the app
+# Study 3 re-run (baseline method) vs the numbers in the app
+
+Original method: excess vs the stock's own full-period average (look-ahead).
 
 Snapshot: `snapshot-2026-11-25` · 60 HK + 40 US stocks · tuning 2019-10-01 to 2023-06-30, test from 2023-07-01
 

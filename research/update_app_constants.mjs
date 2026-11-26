@@ -1,0 +1,39 @@
+// Writes the evidence numbers from a study3 result into src/lib/horizonModel.js (EVIDENCE values, CALIB and
+// the numeric parts of STUDY3), so the app never carries hand-typed study numbers.
+//
+//   node research/update_app_constants.mjs                       # uses results/study3-market.json
+//   node research/update_app_constants.mjs results/study3-market.json
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { RESEARCH_DIR } from './lib/data.mjs';
+
+const resFile = join(RESEARCH_DIR, process.argv[2] || 'results/study3-market.json');
+const R = JSON.parse(readFileSync(resFile, 'utf8'));
+const appFile = join(RESEARCH_DIR, '..', 'src/lib/horizonModel.js');
+let src = readFileSync(appFile, 'utf8');
+
+// EVIDENCE: replace each `key: [ ... ]` inside the EVIDENCE block, keeping comments and layout
+const start = src.indexOf('export const EVIDENCE = {'), end = src.indexOf('\n};', start);
+let block = src.slice(start, end);
+let n = 0;
+for (const [key, row] of Object.entries(R.evidence)) {
+  const re = new RegExp(`(\\b${key}: )\\[[^\\]]*\\]`);
+  if (!re.test(block)) { console.warn(`EVIDENCE has no ${key}`); continue; }
+  block = block.replace(re, `$1[${row.map(v => (v === null ? 0 : v)).join(', ')}]`);
+  n++;
+}
+src = src.slice(0, start) + block + src.slice(end);
+
+// CALIB
+const C = R.calib;
+const calib = `const CALIB = {\n  short: { x: [${C.short.x.join(', ')}], ex: [${C.short.ex.join(', ')}], hit: [${C.short.hit.join(', ')}] },\n  long: { x: [${C.long.x.join(', ')}], ex: [${C.long.ex.join(', ')}], hit: [${C.long.hit.join(', ')}] }\n};`;
+src = src.replace(/const CALIB = \{[\s\S]*?\n\};/, calib);
+
+// STUDY3 numbers
+const ic = R.ic, tb = R.topBottom, num = (s) => s.split(' ')[0];
+const part = (h, H) => `  ${h}: { horizon: ${H}, icTrainHK: ${ic[h]['HK-train'].ic}, icTestHK: ${ic[h]['HK-test'].ic}, icTrainUS: ${ic[h]['US-train'].ic}, icTestUS: ${ic[h]['US-test'].ic}, posTestHK: '${num(ic[h]['HK-test'].positive)} of ${ic[h]['HK-test'].positive.split(' of ')[1]}', posTestUS: '${num(ic[h]['US-test'].positive)} of ${ic[h]['US-test'].positive.split(' of ')[1]}',\n    top: { HK: [${tb[h].HK.top.join(', ')}], US: [${tb[h].US.top.join(', ')}] }, bottom: { HK: [${tb[h].HK.bottom.join(', ')}], US: [${tb[h].US.bottom.join(', ')}] } }`;
+const study = `export const STUDY3 = {\n  universe: '${R.universe.HK} Hang Seng and ${R.universe.US} US large caps',\n  period: 'tuned Oct 2019 – Jun 2023, tested Jul 2023 – Nov 2026',\n  method: '${R.method}', snapshot: '${R.snapshot}',\n${part('short', R.horizons.short)},\n${part('long', R.horizons.long)}\n};`;
+src = src.replace(/export const STUDY3 = \{[\s\S]*?\n\};/, study);
+
+writeFileSync(appFile, src);
+console.log(`Updated ${n} EVIDENCE rows, CALIB and STUDY3 in src/lib/horizonModel.js from ${resFile}`);

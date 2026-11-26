@@ -1,5 +1,7 @@
 {
+ "method": "baseline",
  "snapshot": "snapshot-2026-11-25",
+ "beatRate": {},
  "periods": {
   "train": [
    "2019-10-01",

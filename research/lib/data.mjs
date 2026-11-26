@@ -74,3 +74,16 @@ export function loadSnapshot(dir = snapshotDir()) {
   }
   return { meta, dir, series };
 }
+
+// Index close on a date (or the last close before it), for market-relative returns
+export function indexCloser(snap, market) {
+  const sym = Object.keys(snap.series).find(k => snap.series[k].kind === 'index' && snap.series[k].market === market);
+  if (!sym) throw new Error(`No index for ${market} in the snapshot`);
+  const rows = snap.series[sym].rows, dates = rows.map(r => r.date);
+  return (date) => {
+    let lo = 0, hi = dates.length - 1;
+    if (date < dates[0]) return NaN;
+    while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (dates[mid] <= date) lo = mid; else hi = mid - 1; }
+    return rows[lo].close;
+  };
+}

@@ -1,14 +1,17 @@
 // Study 2: re-runs the timing-score evidence behind src/lib/indicators.js (STUDY2, used by tradePlan) on the
 // snapshot, with the app's own signalSeries() (imported, not copied).
 //
-//   node research/study2.mjs            # writes research/results/study2.json and study2-compare.md
+//   node research/study2.mjs              # market-relative → results/study2-market.json (+ -compare.md)
+//   node research/study2.mjs --baseline   # original method (raw forward returns) → study2-baseline.*
 //
+// market: forward return minus the index (HSI / S&P 500) over the same days, so the score is judged on
+// picking stocks, not on timing the whole market.
 // Method, from the comments above STUDY2 in indicators.js: tuning Oct 2019 – Dec 2023, test 2024 onward,
 // 60-trading-day forward returns. IC = rank correlation of each signal with the forward return inside each
 // stock, averaged over stocks. Top / bottom = average forward return (%) on days with timing ≥ +0.25 / ≤ −0.25.
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import { loadSnapshot, RESEARCH_DIR } from './lib/data.mjs';
+import { loadSnapshot, indexCloser, RESEARCH_DIR } from './lib/data.mjs';
 import { mean, spearman, round } from './lib/stats.mjs';
 import { signalSeries, STUDY2 } from '../src/lib/indicators.js';
 
@@ -18,7 +21,9 @@ const H = 60;
 // separately in the original study and are not re-run here.
 const IND = ['emaX', 'golden', 'macdX', 'diDir', 'ichi', 'tkX', 'superT', 'rev1m'];
 
+const METHOD = process.argv.includes('--baseline') ? 'baseline' : 'market';
 const snap = loadSnapshot();
+const INDEX = { HK: indexCloser(snap, 'HK'), US: indexCloser(snap, 'US') };
 const per = (d) => (d >= PERIODS.train[0] && d <= PERIODS.train[1] ? 'train' : d >= PERIODS.test[0] ? 'test' : null);
 const res = {};
 for (const [sym, s] of Object.entries(snap.series)) {
@@ -28,7 +33,9 @@ for (const [sym, s] of Object.entries(snap.series)) {
     const rows = [];
     for (let i = 252; i + H < R.length; i++) {
       if (per(R[i].date) !== p || sig.timing[i] === null) continue;
-      rows.push({ i, t: sig.timing[i], fwd: c[i + H] / c[i] - 1 });
+      const raw = c[i + H] / c[i] - 1;
+      const ix = INDEX[s.market];
+      rows.push({ i, t: sig.timing[i], fwd: METHOD === 'baseline' ? raw : raw - (ix(R[i + H].date) / ix(R[i].date) - 1) });
     }
     if (rows.length < 60) continue;
     const key = `${s.market}-${p}`;
@@ -49,11 +56,12 @@ for (const [key, c] of Object.entries(res)) {
   };
 }
 const outDir = join(RESEARCH_DIR, 'results'); mkdirSync(outDir, { recursive: true });
-writeFileSync(join(outDir, 'study2.json'), JSON.stringify({ snapshot: basename(snap.dir), periods: PERIODS, horizon: H, cells: out }, null, 1) + '\n');
+writeFileSync(join(outDir, `study2-${METHOD}.json`), JSON.stringify({ method: METHOD, snapshot: basename(snap.dir), periods: PERIODS, horizon: H, cells: out }, null, 1) + '\n');
 
 const A = STUDY2.timingModel, g = (k) => out[k] || {};
 const md = [
-  '# Study 2 re-run vs the numbers in the app', '',
+  `# Study 2 re-run (${METHOD} method) vs the numbers in the app`, '',
+  METHOD === 'market' ? 'Returns are measured relative to the index (HSI / S&P 500) over the same 60 days.' : 'Original method: raw 60-day returns.', '',
   `Snapshot: \`${basename(snap.dir)}\` · 60-day returns · tuning ${PERIODS.train.join(' to ')}, test from ${PERIODS.test[0]}`, '',
   '| Timing score | App | Re-run |', '| --- | --- | --- |',
   `| IC, HK train / test | ${A.trainIC} / ${A.testIC} | ${g('HK-train').ic} / ${g('HK-test').ic} |`,
@@ -66,5 +74,5 @@ const md = [
   ...IND.map(k => `| ${k} | ${STUDY2.indicatorIC[k]} | ${g('HK-test').indicatorIC?.[k]} |`),
   '', 'Not re-run: obvTrend, bbPos, fibPos, stoch (not exposed by signalSeries).', '', 'The app study used 45 Hang Seng blue chips; this re-run uses the 60 HK stocks in universe.json, so small differences are expected.', ''
 ].join('\n');
-writeFileSync(join(outDir, 'study2-compare.md'), md);
+writeFileSync(join(outDir, `study2-${METHOD}-compare.md`), md);
 console.log(md);
