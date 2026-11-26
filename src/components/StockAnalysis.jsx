@@ -11,6 +11,8 @@ import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, lo
 // combined score, a candlestick chart with moving averages / Bollinger bands / a statistical projection,
 // and a valuation calculator (P/E, earnings and cash-flow DCF, dividend discount, peer multiples). Educational only.
 
+import { PLAN_CALIB } from '../lib/horizonModel'; // calibrated trade-plan odds (research/calibration.mjs)
+
 // Sector presets for the valuation calculator (typical long-run assumptions, editable)
 const PRESETS = {
   tech: { label: 'Tech / internet', growthPct: 12, discountPct: 10, terminalPe: 18, divGrowthPct: 5 },
@@ -512,7 +514,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                     <div className="flex justify-between items-baseline"><span className="text-slate-400">Take-profit</span><span className="font-mono font-bold text-[#00f2fe]">{p2(o.target)} <span className="text-[10px] text-slate-500">{pctTxt(o.target / o.entry - 1)}</span></span></div>
                     <div className="flex justify-between items-baseline"><span className="text-slate-400">Stop-loss</span><span className="font-mono font-bold text-rose-400">{p2(o.stop)} <span className="text-[10px] text-slate-500">{pctTxt(o.stop / o.entry - 1)}</span></span></div>
                     <div className="flex justify-between items-baseline"><span className="text-slate-400">Reward : risk</span><span className="font-mono text-white">{o.rr.toFixed(1)} : 1</span></div>
-                    <div className="flex justify-between items-baseline"><span className="text-slate-400">Chance target is hit before stop</span><span className="font-mono text-white">≈{Math.round(o.probTarget * 20) * 5}%</span></div>
+                    <div className="flex justify-between items-baseline"><span className="text-slate-400">Within {h === 'short' ? '2 weeks' : '6 months'}: target first · stop first · neither</span><span className="font-mono text-white">≈{Math.round(o.probTarget * 100)}% · {Math.round(o.probStop * 100)}% · {Math.max(0, Math.round(o.probNeither * 100))}%</span></div>
+                    <div className="text-[10px] text-slate-500 leading-snug">{PLAN_CALIB[h] ? 'Odds corrected with what happened to thousands of past plans like this one (the raw model overstated them).' : 'Odds from simulated price paths; checked against past plans, see research/results/calibration.md.'}</div>
                   </div>
                 </div>
               );

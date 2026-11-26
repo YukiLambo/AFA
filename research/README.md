@@ -151,3 +151,8 @@ The app's reliability box now shows these numbers (`CROSS_SECTION` in `horizonMo
 
 `node research/forecast.mjs` scores the chart projection against a random walk (no change), 5 and 20 trading days ahead, and writes `results/forecast.{json,md}`. Then `node research/update_app_constants.mjs` copies the 20-day result into `FORECAST_TEST`. The finding so far: no method beats a random walk (Theil's U ≈ 1.02–1.05 for the new log-price projection, 1.7–4.9 for the old Holt one). Direction is right about half the time. The new 95% range holds the outcome 93–94% of the time.
 
+## Trade-plan calibration (step 10)
+
+`node research/calibration.mjs` takes about 15 seconds. It replays the stock page's short (10-day) and long (120-day) plans every 10 trading days per stock from 2019. Each plan buys at that day's close and is followed through daily highs and lows, then the script compares the stated odds with what happened. It writes `results/calibration.{json,md}`. Running `update_app_constants.mjs` then writes `PLAN_CALIB`.
+
+The old odds came from a formula that ignored the horizon ("eventually", not "within 2 weeks"). A plan stating 51% hit its target first 29% of the time, and 40% of short plans hit neither level. The odds now come from simulated paths within the horizon. A correction table, fitted with pool-adjacent-violators, is applied only where it beat the raw odds on plans made after 2023, which currently means the short plan only. Replaying history like this replaces the original idea of logging live predictions for 3 months.

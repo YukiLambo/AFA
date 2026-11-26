@@ -70,5 +70,15 @@ try {
   else src += `\n// Price projection vs a random walk (research/forecast.mjs), 20 trading days ahead. Theil's U = error ÷ the error of\n// assuming no change. Written by update_app_constants.mjs.\n${ft}\n`;
 } catch (e) { console.warn('No forecast.json: FORECAST_TEST not written'); }
 
+// PLAN_CALIB from results/calibration.json: stated → observed odds for the trade plans' target and stop
+try {
+  const K = JSON.parse(readFileSync(join(RESEARCH_DIR, 'results/calibration.json'), 'utf8'));
+  const t = (o) => `{ x: [${o.x.join(', ')}], y: [${o.y.join(', ')}] }`;
+  // a horizon gets the correction only if it beat the raw odds on later data (outOfSample); otherwise null
+  const one = (h) => (K.outOfSample?.[h] && K.outOfSample[h].brierCalibrated < K.outOfSample[h].brierRaw ? `{ target: ${t(K.calib[h].target)}, stop: ${t(K.calib[h].stop)} }` : 'null');
+  const pc = `export const PLAN_CALIB = {\n  short: ${one('short')},\n  long: ${one('long')}\n};`;
+  src = src.replace(/export const PLAN_CALIB = \{ short: null, long: null \};|export const PLAN_CALIB = \{\n[\s\S]*?\n\};/, pc);
+} catch (e) { console.warn('No calibration.json: PLAN_CALIB not written'); }
+
 writeFileSync(appFile, src);
 console.log(`Updated ${n} EVIDENCE rows, CALIB and STUDY3 in src/lib/horizonModel.js from ${resFile}`);
