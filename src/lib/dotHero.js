@@ -2,7 +2,7 @@
 // An isometric field of cubes rises in on load and keeps a slow wave running through it. A group of cubes
 // stands up in cyan in the shape of the A.F.A. "A", the field lifts gently around the pointer, and a cool
 // light pools under the assistant. The assistant itself is drawn by dotBot.js on its own canvas, placed over
-// the field at bot.x / bot.y (60% across, halfway down).
+// the field at bot.x / bot.y (centred, below the headline).
 // startDotHero(canvas) returns { exit(done), setActive(on), dispose() }.
 
 // A.F.A. mark as cubes: the "A" chevron with its three nodes (1 = raised, 2 = node, lit brighter)
@@ -33,15 +33,15 @@ export function startDotHero(canvas) {
     dpr = Math.min(window.devicePixelRatio || 1, 1.75);
     w = r.width; h = r.height; canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
     S = Math.max(30, Math.min(46, w / 34));
-    // field centre sits right of centre and low, so the left stays calm for the headline
+    // the headline sits centred at the top and the assistant centred below it
     phone = w < 768; const narrow = w < 1100;
     // matches the #afl-bot position in IntroLanding's CSS
-    bot = phone ? { x: w * 0.5, y: 56 + h * 0.22, H: Math.min(h * 0.44, w * 0.6) } : { x: w * (narrow ? 0.7 : 0.6), y: h * 0.5, H: Math.min(h * 0.44, w * 0.26) };
+    bot = phone ? { x: w * 0.5, y: 56 + h * 0.22, H: Math.min(h * 0.44, w * 0.6) } : { x: w * 0.5, y: h * 0.72, H: Math.min(h * 0.28, w * 0.25) };
     // the field is centred under the assistant
     ox = bot.x; oy = bot.y + bot.H * 0.62 - (N - 1) * S * 0.5;
     markAt.fill(0);
-    // the mark lies in the field behind and to the right of the assistant, drawn in grid space like a floor inlay
-    const mu = (w * 0.815 - ox) / S, mv = (h * 0.34 - oy) / (S * 0.5);
+    // the mark lies in the field to the right of the assistant, drawn in grid space like a floor inlay
+    const mu = (w * 0.84 - ox) / S, mv = (h * 0.6 - oy) / (S * 0.5);
     const ci = Math.round((mu + mv) / 2), cj = Math.round((mv - mu) / 2);
     if (!narrow) MARK.forEach((row, r) => [...row].forEach((ch, c) => {
       if (ch === '.') return;
@@ -73,8 +73,8 @@ export function startDotHero(canvas) {
         let z = (wave + lift[k]) * rise + (m ? (m === 2 ? 30 : 22) * rise + Math.sin(t * 2 + sum * 0.5) * 2 : 0);
         z -= kOut * (m ? 0 : 40) * (sum / (2 * N));
         const ty = y - z;
-        // fade the field out toward the left edge and the top, under the text
-        const side = phone ? clamp((h * 0.66 - y) / (h * 0.22), 0, 1) : clamp((x - w * 0.18) / (w * 0.32), 0, 1);
+        // fade the field out toward the top under the centred text (phones: toward the bottom)
+        const side = phone ? clamp((h * 0.66 - y) / (h * 0.22), 0, 1) : clamp((y - h * 0.46) / (h * 0.16), 0, 1);
         const fade = side * (m ? 1 : clamp((y + S * 4) / (h * 0.35), 0, 1)) * rise * (1 - kOut * 0.8);
         if (fade <= 0.01) continue;
         ctx.globalAlpha = fade;

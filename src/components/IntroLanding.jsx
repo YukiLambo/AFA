@@ -177,15 +177,15 @@ const CSS = `
 .afl .app p { margin: 0; color: var(--muted); line-height: 1.6; font-size: 14px; }
 /* Desktop hero: copy on the left over the calm end of the cube field, the particle assistant floating on the right */
 .afl .dhero { position: fixed; inset: calc(var(--nav-h) + env(safe-area-inset-top, 0px)) 0 0 0; z-index: 4; pointer-events: none; display: grid; grid-template-rows: 1fr auto; }
-.afl .dhero #afl-bot { position: fixed; left: 60vw; top: 50vh; width: min(46vh, 25vw); height: min(46vh, 25vw); transform: translate(-50%, -50%); pointer-events: none; display: block; }
-.afl .dhero-copy { position: relative; align-self: center; max-width: 560px; margin-left: max(64px, calc((100vw - 1180px) / 2 + 28px)); pointer-events: auto; animation: afl-copy .9s .35s both cubic-bezier(.16,1,.3,1); }
+.afl .dhero #afl-bot { position: fixed; left: 50vw; top: 72vh; width: min(29vh, 26vw); height: min(29vh, 26vw); transform: translate(-50%, -50%); pointer-events: none; display: block; }
+.afl .dhero-copy { position: relative; align-self: start; justify-self: center; width: min(1100px, calc(100vw - 64px)); margin-top: clamp(28px, 6vh, 72px); text-align: center; pointer-events: auto; animation: afl-copy .9s .35s both cubic-bezier(.16,1,.3,1); }
 @keyframes afl-copy { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 .afl .dhero-tag { display: inline-flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line-strong); background: rgba(8, 11, 16, 0.6); font: 500 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--soft); }
 .afl .dhero-tag i { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
-.afl .dhero h1 { margin: 22px 0 0; font: 400 clamp(44px, 4.8vw, 74px)/1.02 var(--serif); letter-spacing: -0.026em; text-wrap: balance; }
+.afl .dhero h1 { margin: 20px auto 0; max-width: 13em; font: 400 clamp(44px, min(5.6vw, 8.6vh), 108px)/1 var(--serif); letter-spacing: -0.028em; text-wrap: balance; }
 .afl .dhero h1 em { font-style: italic; color: #d9f6ff; }
-.afl .dhero p { margin: 22px 0 0; max-width: 46ch; font-size: 16.5px; line-height: 1.7; color: var(--soft); }
-.afl .dhero .actions { margin-top: 32px; display: flex; gap: 12px; flex-wrap: wrap; }
+.afl .dhero p { margin: 22px auto 0; max-width: 54ch; font-size: clamp(16px, 1.25vw, 19px); line-height: 1.6; color: var(--soft); text-wrap: balance; }
+.afl .dhero .actions { margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
 .afl .dhero .pill { border-radius: 999px; padding: 13px 24px; box-shadow: 0 8px 30px -10px rgba(0, 242, 254, 0.7); }
 .afl .dhero .btn-line { border-radius: 999px; padding: 13px 22px; background: rgba(8, 11, 16, 0.45); }
 .afl .dhero-steps { position: relative; list-style: none; margin: 0; padding: 0 max(28px, calc((100vw - 1180px) / 2 + 28px)); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); background: linear-gradient(rgba(8,11,16,0.55), rgba(8,11,16,0.9)); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); pointer-events: auto; animation: afl-copy .9s .6s both cubic-bezier(.16,1,.3,1); }
@@ -196,10 +196,6 @@ const CSS = `
 .afl .dhero-steps strong { display: block; margin-bottom: 4px; font: 500 15px/1.3 var(--ui); color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .afl .dhero-copy, .afl .dhero-steps { animation: none; } }
 @media (max-width: 1100px) {
-.afl .dhero-copy { max-width: 46vw; margin-left: 40px; }
-.afl .dhero h1 { font-size: clamp(38px, 5.2vw, 56px); }
-.afl .dhero p { font-size: 15px; }
-.afl .dhero #afl-bot { left: 70vw; width: min(40vh, 34vw); height: min(40vh, 34vw); }
 .afl .dhero-steps li { padding: 18px 16px 20px 0; }
 .afl .dhero-steps li + li { padding-left: 16px; }
 .afl .dhero-steps span { font-size: 12.5px; }
@@ -246,14 +242,14 @@ const CSS = `
 @media (max-width: 767px) {
 .afl .dhero { display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 calc(7vh + 64px + env(safe-area-inset-bottom, 0px)); }
 .afl .dhero #afl-bot { left: 50vw; top: calc(var(--nav-h) + 22vh); width: min(36vh, 72vw); height: min(36vh, 72vw); }
-.afl .dhero-copy { align-self: stretch; max-width: none; margin: 0; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); text-align: center; }
+.afl .dhero-copy { align-self: stretch; width: auto; max-width: none; margin: 0; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); text-align: center; }
 .afl .dhero-tag { font-size: 10px; padding: 6px 10px; }
 .afl .dhero h1 { margin-top: 16px; font-size: clamp(32px, 9vw, 42px); }
 .afl .dhero p { margin: 14px auto 0; font-size: 14.5px; line-height: 1.6; }
 .afl .dhero .actions { margin-top: 22px; justify-content: center; }
 .afl .dhero-steps { display: none; }
 }
-@media (max-width: 767px) and (max-height: 700px) { .afl .dhero p { display: none; } }
+@media (max-width: 767px) and (max-height: 700px), (min-width: 768px) and (max-height: 760px) { .afl .dhero p { display: none; } }
 @media (prefers-reduced-motion: reduce) {
 .afl .view.on { animation: none; }
 }
@@ -333,8 +329,8 @@ export default function IntroLanding({ onEnter }) {
             <canvas id="afl-bot" aria-hidden="true"></canvas>
             <div className="dhero-copy">
               <div className="dhero-tag"><i></i>Automated Financial Assistant</div>
-              <h1>Your personal <em>financial</em> assistant</h1>
-              <p>Record what you earn and spend. A.F.A. scores your position, explains every figure and shows what to do next, from retirement savings and tax to your first investment.</p>
+              <h1>Understand your money. <em>Grow</em> it with confidence.</h1>
+              <p>A.F.A. tracks what you earn and spend, scores your financial health and turns it into a clear plan, from everyday saving and tax to your first investment.</p>
               <div className="actions"><button className="pill" type="button" onClick={enter}>Get started</button><a className="btn-line" href="#overview" onClick={go('overview')}>See how it works</a></div>
             </div>
             <ol className="dhero-steps" aria-label="How A.F.A. works">
