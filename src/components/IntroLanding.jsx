@@ -1,23 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { startIntroScene } from '../lib/introScene';
 import { startDotHero } from '../lib/dotHero';
 import { startDotBot } from '../lib/dotBot';
 
 // Entry screen: the minting animation plus the Overview / Why A.F.A. / Features pages.
 // "Get started" flies the coin into the logo, fades this screen out and calls onEnter().
-const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-
-function loadThree() {
-  if (window.THREE) return Promise.resolve(window.THREE);
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[src="${THREE_URL}"]`);
-    const s = existing || document.createElement('script');
-    s.addEventListener('load', () => resolve(window.THREE));
-    s.addEventListener('error', reject);
-    if (!existing) { s.src = THREE_URL; s.async = true; document.head.appendChild(s); }
-  });
-}
-
 const CSS = `
 .afl { position: fixed; inset: 0; z-index: 60; overflow: hidden; transition: opacity .6s ease; }
 .afl.leaving { opacity: 0; pointer-events: none; }
@@ -75,15 +61,6 @@ const CSS = `
 .afl .mlinks a { font: 500 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: rgba(220, 232, 240, 0.7); text-decoration: none; padding: 12px 12px; }
 .afl .mlinks a:active { color: #fff; }
 .afl.page .home-text { opacity: 0; pointer-events: none; }
-.afl .headline { position: fixed; z-index: 4; left: 0; right: 0; bottom: calc(14vh + env(safe-area-inset-bottom, 0px)); margin: 0; text-align: center;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  font: 400 clamp(15px, 1.7vw, 24px)/1.5 var(--ui); letter-spacing: 0.38em; text-indent: 0.38em; text-transform: uppercase; color: #eef5fa;
-  opacity: 0; transition: opacity .3s ease; }
-.afl .headline.on { opacity: 1; }
-.afl .headline .ch { display: inline-block; text-align: center; text-indent: 0; opacity: 0; transition: color .9s ease, text-shadow .9s ease, opacity .15s ease; }
-.afl .headline .ch.live { opacity: 1; color: #8ff9ff; text-shadow: 0 0 14px rgba(0, 242, 254, 0.9), 0 0 2px rgba(0, 242, 254, 1); }
-.afl .headline .ch.done { color: #eef5fa; text-shadow: none; }
-
 .afl .view { display: none; position: relative; z-index: 2; min-height: 100%; overflow: hidden; }
 .afl .view.on { display: block; animation: afl-rise .6s cubic-bezier(.16,1,.3,1); }
 @keyframes afl-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
@@ -218,6 +195,15 @@ const CSS = `
 .afl .dhero-steps span { font-size: 13.5px; line-height: 1.55; color: var(--muted); }
 .afl .dhero-steps strong { display: block; margin-bottom: 4px; font: 500 15px/1.3 var(--ui); color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .afl .dhero-copy, .afl .dhero-steps { animation: none; } }
+@media (max-width: 1100px) {
+.afl .dhero-copy { max-width: 46vw; margin-left: 40px; }
+.afl .dhero h1 { font-size: clamp(38px, 5.2vw, 56px); }
+.afl .dhero p { font-size: 15px; }
+.afl .dhero #afl-bot { left: 70vw; width: min(40vh, 34vw); height: min(40vh, 34vw); }
+.afl .dhero-steps li { padding: 18px 16px 20px 0; }
+.afl .dhero-steps li + li { padding-left: 16px; }
+.afl .dhero-steps span { font-size: 12.5px; }
+}
 @media (max-width: 980px) {
 .afl .hero { grid-template-columns: minmax(0, 1fr); }
 .afl .section-head { grid-template-columns: minmax(0, 1fr); gap: 14px; }
@@ -239,7 +225,6 @@ const CSS = `
 .afl .link::after { left: 10px; right: 10px; }
 .afl .link.hide-sm { display: none; }
 .afl .pill { padding: 11px 15px; font-size: 13.5px; }
-.afl .headline { bottom: calc(13vh + env(safe-area-inset-bottom, 0px)); letter-spacing: 0.28em; text-indent: 0.28em; font-size: 14px; }
 .afl .wrap { padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px)); }
 .afl .hero { padding-block: calc(128px + env(safe-area-inset-top, 0px)) 48px; gap: 40px; }
 .afl .timeline, .afl .cards.two, .afl .cards.three { grid-template-columns: minmax(0, 1fr); }
@@ -254,11 +239,21 @@ const CSS = `
 @media (max-width: 520px) {
 .afl .links { display: none; }
 .afl .mlinks { display: flex; }
-.afl .headline { bottom: calc(17vh + env(safe-area-inset-bottom, 0px)); }
 .afl .stats { grid-template-columns: minmax(0, 1fr); }
 .afl .stat, .afl .stat + .stat { padding-left: 0; border-left: 0; }
 .afl .stat + .stat { border-top: 1px solid var(--line); }
 }
+@media (max-width: 767px) {
+.afl .dhero { display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 calc(7vh + 64px + env(safe-area-inset-bottom, 0px)); }
+.afl .dhero #afl-bot { left: 50vw; top: calc(var(--nav-h) + 22vh); width: min(36vh, 72vw); height: min(36vh, 72vw); }
+.afl .dhero-copy { align-self: stretch; max-width: none; margin: 0; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); text-align: center; }
+.afl .dhero-tag { font-size: 10px; padding: 6px 10px; }
+.afl .dhero h1 { margin-top: 16px; font-size: clamp(32px, 9vw, 42px); }
+.afl .dhero p { margin: 14px auto 0; font-size: 14.5px; line-height: 1.6; }
+.afl .dhero .actions { margin-top: 22px; justify-content: center; }
+.afl .dhero-steps { display: none; }
+}
+@media (max-width: 767px) and (max-height: 700px) { .afl .dhero p { display: none; } }
 @media (prefers-reduced-motion: reduce) {
 .afl .view.on { animation: none; }
 }
@@ -269,8 +264,6 @@ export default function IntroLanding({ onEnter }) {
   const apiRef = useRef(null);
   const [page, setPage] = useState('home');
   const [leaving, setLeaving] = useState(false);
-  // Wide screens get the cube-field hero with the dotted assistant; phones keep the coin entrance
-  const [desktop] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(min-width: 980px)').matches);
   const leavingRef = useRef(false);
 
   const finish = () => {
@@ -283,32 +276,17 @@ export default function IntroLanding({ onEnter }) {
   finishRef.current = finish;
 
   useEffect(() => {
-    let api = null, cancelled = false;
-    const fallback = () => {
-      // No WebGL or the 3D library could not load: show the headline and let "Get started" go straight in
-      const h = rootRef.current && rootRef.current.querySelector('#afl-headline');
-      if (h) { h.textContent = 'Your personal financial assistant'; h.classList.add('on'); }
-      apiRef.current = { startExit: () => finishRef.current(), setHome() {}, dispose() {} };
+    // The cube field and the particle assistant; if a canvas is missing, "Get started" goes straight in
+    const root = rootRef.current;
+    const botEl = root && root.querySelector('#afl-bot');
+    const sceneEl = root && root.querySelector('#afl-scene');
+    const bg = sceneEl ? startDotHero(sceneEl) : null;
+    const bot = botEl ? startDotBot(botEl) : null;
+    apiRef.current = {
+      startExit: () => { if (bg) bg.exit(() => {}); if (bot) bot.exit(() => finishRef.current()); else finishRef.current(); },
+      setHome: (v) => { if (bg) bg.setActive(v); if (bot) bot.setActive(v); },
     };
-    if (desktop) {
-      const root = rootRef.current;
-      const botEl = root && root.querySelector('#afl-bot');
-      const bg = root ? startDotHero(root.querySelector('#afl-scene')) : null;
-      const bot = botEl ? startDotBot(botEl) : null;
-      apiRef.current = {
-        startExit: () => { if (bg) bg.exit(() => {}); if (bot) bot.exit(() => finishRef.current()); else finishRef.current(); },
-        setHome: (v) => { if (bg) bg.setActive(v); if (bot) bot.setActive(v); },
-        dispose() {},
-      };
-      return () => { if (bg) bg.dispose(); if (bot) bot.dispose(); };
-    }
-    loadThree().then(THREE => {
-      if (cancelled || !rootRef.current) return;
-      if (!THREE) { fallback(); return; }
-      api = startIntroScene(rootRef.current, THREE, { onEnter: () => finishRef.current() });
-      apiRef.current = api;
-    }).catch(fallback);
-    return () => { cancelled = true; if (api) api.dispose(); };
+    return () => { if (bg) bg.dispose(); if (bot) bot.dispose(); };
   }, []);
 
   useEffect(() => {
@@ -351,9 +329,7 @@ export default function IntroLanding({ onEnter }) {
 
       {/* Home */}
       <div className="home-text">
-        {!desktop && <h1 className="headline" id="afl-headline" aria-label="Your personal financial assistant"></h1>}
-        {desktop && (
-          <section className="dhero" aria-label="A.F.A.">
+        <section className="dhero" aria-label="A.F.A.">
             <canvas id="afl-bot" aria-hidden="true"></canvas>
             <div className="dhero-copy">
               <div className="dhero-tag"><i></i>Automated Financial Assistant</div>
@@ -366,8 +342,7 @@ export default function IntroLanding({ onEnter }) {
               <li><b>02</b><span><strong>Review</strong>Your Health Index, savings rate and net worth.</span></li>
               <li><b>03</b><span><strong>Act</strong>A ranked plan for this month, with the reasons shown.</span></li>
             </ol>
-          </section>
-        )}
+        </section>
         <nav className="mlinks" aria-label="About A.F.A.">
           <a href="#overview" onClick={go('overview')}>Overview</a>
           <a href="#why-afa" onClick={go('why-afa')}>Why A.F.A.</a>
