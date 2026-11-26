@@ -1,0 +1,6 @@
+{
+  "note": "Large caps used by the A.F.A. studies. Tencent codes without a market prefix; US codes without an exchange suffix (the fetcher finds .OQ / .N / .AM). Chosen as today's large caps, so the sample has survivorship bias.",
+  "hk": ["00700","09988","00005","01299","00941","03690","00939","01398","03988","02318","00388","00883","00857","00386","01810","09618","09999","01211","02020","00027","01928","00016","00001","01113","00011","00002","00003","00006","00012","00066","00823","00101","00669","00175","02331","02319","00291","01093","01177","02269","00288","00267","00688","01109","02628","02388","03328","00762","00728","01088","02688","00868","00981","02382","00992","01044","00960","00316","06862","02313"],
+  "us": ["AAPL","MSFT","AMZN","GOOGL","META","NVDA","TSLA","AVGO","COST","PEP","ADBE","CSCO","INTC","AMD","QCOM","NFLX","AMGN","TXN","JPM","V","MA","JNJ","PG","UNH","HD","XOM","CVX","KO","MRK","PFE","WMT","DIS","BAC","ABT","MCD","NKE","CRM","ORCL","T","IBM"],
+  "indices": { "HK": "hkHSI", "US": "us.INX" }
+}
