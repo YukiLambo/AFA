@@ -2,14 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Cell, ReferenceLine, ReferenceArea } from 'recharts';
 import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
 import { aggregateNews, companySearchName } from '../lib/newsSentiment';
-import { getFundamentals, growthFromFundamentals, capmDiscount } from '../lib/fundamentals';
+import { getFundamentals, growthFromFundamentals, capmDiscount, getPeerComparison } from '../lib/fundamentals';
 import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, CROSS_SECTION, SIGNAL_SCALE } from '../lib/horizonModel';
 import { valuationScore } from '../lib/indicators';
 import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan, valuationRange, impliedGrowth, dcfValue, pegFairPe, backtestSignals, STUDY_RESULTS, STUDY2, signalSeries, adxSeries, ichimokuSeries, supertrendSeries, stochasticSeries, obvSeries, fibonacciLevels, detectPatterns, ema, macd, rsi } from '../lib/indicators';
 
 // Stock analysis for the simulator: live quote, risk statistics, five technical indicators with a
 // combined score, a candlestick chart with moving averages / Bollinger bands / a statistical projection,
-// and a valuation calculator (P/E, earnings DCF, dividend discount, Graham). Educational only.
+// and a valuation calculator (P/E, earnings and cash-flow DCF, dividend discount, peer multiples). Educational only.
 
 // Sector presets for the valuation calculator (typical long-run assumptions, editable)
 const PRESETS = {
@@ -94,6 +94,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
   const [news, setNews] = useState({ status: 'idle', items: [] });
   const [watchQuotes, setWatchQuotes] = useState({});
   const [fund, setFund] = useState(null); // nightly company data for this symbol (null = not covered)
+  const [peers, setPeers] = useState(null); // multiples vs same-industry companies (null = too few peers)
   const [val, setVal] = useState({ eps: '', fcf: '', growthPct: 8, discountPct: 9, terminalPe: 16, fairPe: pegFairPe(8), fairPeAuto: true, dps: '', divGrowthPct: 4, preset: 'consumer' });
   const [riskPct, setRiskPct] = useState(1);
   const [sizeBase, setSizeBase] = useState('');
@@ -113,6 +114,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
       const f = await getFundamentals(q.symbol);
       if (cancelled) return;
       setFund(f);
+      setPeers(f ? await getPeerComparison(q.symbol) : null);
+      if (cancelled) return;
       if (f) {
         const eps = f.forwardEps > 0 ? f.forwardEps : f.trailingEps > 0 ? f.trailingEps : null;
         const g = growthFromFundamentals(f);
@@ -252,8 +255,9 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
   const valInputs = useMemo(() => ({
     eps: Number(val.eps) || 0, growthPct: Number(val.growthPct) || 0, discountPct: Number(val.discountPct) || 0,
     terminalPe: Number(val.terminalPe) || 0, fairPe: Number(val.fairPe) || 0, dps: Number(val.dps) || 0, divGrowthPct: Number(val.divGrowthPct) || 0,
-    fcfPerShare: Number(val.fcf) || 0
-  }), [val]);
+    fcfPerShare: Number(val.fcf) || 0,
+    peerModels: peers ? peers.metrics.map(m => m.model).filter(Boolean) : []
+  }), [val, peers]);
   const valuation = useMemo(() => valuationModels(valInputs), [valInputs]);
   const capmInfo = useMemo(() => (fund ? capmDiscount(fund, /\.HK$/.test(fund.symbol)) : null), [fund]);
   const fairRange = useMemo(() => valuationRange(valInputs), [valInputs]);
@@ -881,6 +885,25 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   <div className="text-[10px] text-slate-500 mt-0.5">{m.formula}</div>
                 </div>
               ))}
+              {peers && (
+                <div className="p-3 rounded-xl bg-[#0d1117] border border-slate-800">
+                  <div className="text-[10px] font-mono uppercase text-slate-500 mb-1">Compared with {peers.peers.length} {peers.group.by} peers · {peers.group.name}</div>
+                  <table className="w-full text-[10px] font-mono">
+                    <thead><tr className="text-slate-500"><th className="text-left font-normal">Multiple</th><th className="text-right font-normal">This stock</th><th className="text-right font-normal">Peer median</th><th className="text-right font-normal">Rank</th></tr></thead>
+                    <tbody>
+                      {peers.metrics.map(m => (
+                        <tr key={m.key}>
+                          <td className="text-slate-400">{m.label}</td>
+                          <td className="text-right text-white">{m.value ? fmt(m.value, 1) : '—'}</td>
+                          <td className="text-right text-slate-300">{fmt(m.median, 1)}</td>
+                          <td className={`text-right ${m.percentile === null ? 'text-slate-500' : m.percentile <= 33 ? 'text-emerald-400' : m.percentile >= 67 ? 'text-rose-400' : 'text-amber-300'}`}>{m.percentile === null ? '—' : m.percentile <= 33 ? `cheaper than ${100 - m.percentile}%` : m.percentile >= 67 ? `dearer than ${m.percentile}%` : 'middle'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">Peers: {peers.peers.slice(0, 6).map(p => p.name || p.symbol).join(', ')}{peers.peers.length > 6 ? ` and ${peers.peers.length - 6} more` : ''}. A low multiple can mean a bargain or a business the market expects to shrink, so read it with the growth and quality figures. Multiples use trailing figures from the nightly data.</p>
+                </div>
+              )}
               {valInputs.eps > 0 && (() => {
                 const g = valInputs.growthPct, r = valInputs.discountPct;
                 const gs = [g - 4, g, g + 4], rs = [r - 1, r, r + 1];
