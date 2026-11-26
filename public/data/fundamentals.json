@@ -1,0 +1,6 @@
+{
+ "updated": null,
+ "source": "Yahoo Finance quoteSummary (unofficial; for education, may be delayed or wrong)",
+ "note": "Filled by the nightly job in .github/workflows/fundamentals.yml.",
+ "stocks": {}
+}

@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Pushes made by the nightly data job don't trigger `push`, so deploy after it finishes
+  workflow_run:
+    workflows: ['Update company data']
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read

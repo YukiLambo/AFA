@@ -232,8 +232,10 @@ export function technicalReview(rows) {
 //   Earnings DCF:    Σ EPS·(1+g)^t / (1+r)^t, t = 1..5, + EPS·(1+g)^5 × terminal P/E / (1+r)^5
 //   Gordon DDM:      DPS·(1+gd) / (r − gd)            (only when r > gd and DPS > 0)
 //   Graham formula:  EPS × (8.5 + 2g)                  (g in %, the classic 1962 version)
+//   FCF DCF:         Σ FCF·(1+g)^t / (1+r)^t, t = 1..5, + FCF·(1+g)^5·(1+gT) / (r − gT) / (1+r)^5, gT = 2.5%
+//                    (free cash flow to equity per share, from the nightly company data when available)
 // The fair value shown is the median of the models that apply.
-export function valuationModels({ eps, growthPct, discountPct, terminalPe, fairPe, dps, divGrowthPct }) {
+export function valuationModels({ eps, growthPct, discountPct, terminalPe, fairPe, dps, divGrowthPct, fcfPerShare = 0 }) {
   const g = (growthPct || 0) / 100, r = (discountPct || 0) / 100, gd = (divGrowthPct || 0) / 100;
   const out = [];
   if (eps > 0 && fairPe > 0) out.push({ id: 'pe', label: 'P/E multiple', value: eps * fairPe, formula: `EPS ${eps.toFixed(2)} × fair P/E ${fairPe}` });
@@ -242,6 +244,13 @@ export function valuationModels({ eps, growthPct, discountPct, terminalPe, fairP
     for (let t = 1; t <= 5; t++) { e *= 1 + g; pv += e / Math.pow(1 + r, t); }
     pv += (e * terminalPe) / Math.pow(1 + r, 5);
     out.push({ id: 'dcf', label: 'Earnings DCF (5 yr)', value: pv, formula: `EPS grows ${growthPct}% for 5 yrs, discounted at ${discountPct}%, exit P/E ${terminalPe}` });
+  }
+  if (fcfPerShare > 0 && r > 0.025) {
+    const gT = 0.025;
+    let pv = 0, c = fcfPerShare;
+    for (let t = 1; t <= 5; t++) { c *= 1 + g; pv += c / Math.pow(1 + r, t); }
+    pv += (c * (1 + gT)) / (r - gT) / Math.pow(1 + r, 5);
+    out.push({ id: 'fcf', label: 'Free-cash-flow DCF (5 yr)', value: pv, formula: `FCF/share ${fcfPerShare.toFixed(2)} grows ${growthPct}% for 5 yrs, then 2.5%, discounted at ${discountPct}%` });
   }
   if (dps > 0 && r > gd) out.push({ id: 'ddm', label: 'Dividend discount', value: (dps * (1 + gd)) / (r - gd), formula: `DPS ${dps.toFixed(2)} × (1 + ${divGrowthPct}%) ÷ (${discountPct}% − ${divGrowthPct}%)` });
   if (eps > 0) out.push({ id: 'graham', label: 'Graham formula', value: eps * (8.5 + 2 * Math.max(0, Math.min(growthPct || 0, 15))), formula: `EPS × (8.5 + 2 × ${Math.max(0, Math.min(growthPct || 0, 15))})` });
