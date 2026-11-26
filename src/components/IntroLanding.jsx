@@ -240,7 +240,7 @@ export default function IntroLanding({ onEnter }) {
             <canvas id="afl-bot" aria-hidden="true"></canvas>
             <div className="dhero-copy">
               <div className="dhero-tag">Meet A.F.A. · your money sidekick</div>
-              <h1>Your money, <em>finally</em> making sense</h1>
+              <h1>Your personal <em>financial</em> assistant</h1>
               <p>Log what comes in and what goes out. A.F.A. turns it into a score, a story and a plan, explains every number, and nudges you toward your next smart move, from saving and tax to your very first investment.</p>
               <div className="actions"><button className="pill" type="button" onClick={enter}>Get started <svg className="ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" /></svg></button><a className="btn-line" href="#overview" onClick={go('overview')}>See how it works</a></div>
             </div>
