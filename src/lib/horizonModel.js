@@ -1,3 +1,4 @@
+import { volForecast } from './indicators.js';
 // Short-term (about 2 weeks) and long-term (about 6 months) outlook, built from what indicators and chart
 // patterns were actually followed by in the real market, not from their textbook meaning.
 //
@@ -421,11 +422,14 @@ export function horizonOutlook({ rows, price, valScore = null, severe = false })
   const uniq = []; recent.sort((a, b) => a.ago - b.ago).forEach(r => { if (!uniq.some(u => u.key === r.key)) uniq.push(r); });
   const f = featuresAt(S, i);
   const p = S.c[i];
-  const dailyVol = volW(S, i, Math.min(250, i)) || 0.02;
-  const atrNow = S.atr[i] || p * dailyVol;
+  const dailyVolFlat = volW(S, i, Math.min(250, i)) || 0.02;
+  const atrNow = S.atr[i] || p * dailyVolFlat;
 
   const build = (h) => {
     const H = h === 'short' ? 10 : 120;
+    // Volatility expected over this horizon: GARCH(1,1), which beat the flat one-year figure on later data
+    // (research/volatility.mjs). Shadows the flat dailyVol for everything sized to the horizon below.
+    const dailyVol = volForecast(S.lr.slice(1, i + 1), H, 'garch') || dailyVolFlat;
     // the stock's own normal behaviour over this horizon (its past), blended with the market average when short
     let cnt = 0, ups = 0, sum = 0;
     for (let k = Math.max(0, n - 1 - 1000); k + H < n; k++) { const r = S.c[k + H] / S.c[k] - 1; cnt++; sum += r; if (r > 0) ups++; }

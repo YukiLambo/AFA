@@ -16,6 +16,7 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { loadSnapshot, indexCloser, RESEARCH_DIR } from './lib/data.mjs';
 import { mean, sd, nwTstat, spearman, round } from './lib/stats.mjs';
+import { roundTripPct } from '../src/lib/tradingCosts.js';
 import { _research } from '../src/lib/horizonModel.js';
 import { signalSeries, factorValues, relativeStrengthScore } from '../src/lib/indicators.js';
 
@@ -23,9 +24,17 @@ const { series, featuresAt, composite } = _research;
 const HOLDS = [21, 126];
 const START = '2019-10-01';
 const SCORES = ['outlookShort', 'outlookLong', 'timing', 'strength', 'mom12_1'];
-const COST_PCT = { HK: 0.1 + 0.1 + 0.05, US: 0.05 }; // one-way: HK stamp duty 0.1% + ~0.1% fees/spread; US ~0.05%
-
 const snap = loadSnapshot();
+// One-way cost per market from src/lib/tradingCosts.js (stamp duty, fees, assumed broker commission, half the spread),
+// averaged over the stocks at their median price in the test period: half of a buy-plus-sell round trip, in %
+const COST_PCT = {};
+for (const mkt of ['HK', 'US']) {
+  const per = Object.values(snap.series).filter(s => s.kind === 'stock' && s.market === mkt).map(s => {
+    const px = s.rows.filter(r => r.date >= START).map(r => r.close).sort((a, b) => a - b);
+    return px.length ? roundTripPct(mkt, px[Math.floor(px.length / 2)]) / 2 : null;
+  }).filter(Number.isFinite);
+  COST_PCT[mkt] = round(mean(per) * 100, 3);
+}
 const INDEX = { HK: indexCloser(snap, 'HK'), US: indexCloser(snap, 'US') };
 
 // Per stock: date → { scores, fwd vs index per hold }

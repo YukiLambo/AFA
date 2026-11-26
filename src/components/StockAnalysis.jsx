@@ -275,6 +275,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
   // Buy / hold / sell plan from indicators + valuation + volatility (see tradePlan in lib/indicators.js)
   const newsSummary = useMemo(() => aggregateNews(news.items), [news.items]);
   const plan = useMemo(() => (analysis && quote ? tradePlan({
+    market: /\.HK$/.test(quote.symbol) ? 'HK' : 'US',
     rows, price: quote.price, fairRange, review: analysis.review, forecast: analysis.forecast,
     news: news.status === 'ok' ? newsSummary : null,
     // The stock's own track record nudges the timing / strength weights once there are enough past samples

@@ -156,3 +156,16 @@ The app's reliability box now shows these numbers (`CROSS_SECTION` in `horizonMo
 `node research/calibration.mjs` takes about 15 seconds. It replays the stock page's short (10-day) and long (120-day) plans every 10 trading days per stock from 2019. Each plan buys at that day's close and is followed through daily highs and lows, then the script compares the stated odds with what happened. It writes `results/calibration.{json,md}`. Running `update_app_constants.mjs` then writes `PLAN_CALIB`.
 
 The old odds came from a formula that ignored the horizon ("eventually", not "within 2 weeks"). A plan stating 51% hit its target first 29% of the time, and 40% of short plans hit neither level. The odds now come from simulated paths within the horizon. A correction table, fitted with pool-adjacent-violators, is applied only where it beat the raw odds on plans made after 2023, which currently means the short plan only. Replaying history like this replaces the original idea of logging live predictions for 3 months.
+
+## Volatility forecasts (step 11)
+
+`node research/volatility.mjs` takes about 10 seconds. It compares three ways of estimating a stock's volatility over the next 10 and 120 days: the old flat one-year figure, EWMA and GARCH(1,1). It writes `results/volatility.{json,md}`. GARCH was best in both markets at both horizons, with QLIKE 8–27% lower and RMSE 3–13% lower than flat. EWMA was worse than flat over 120 days, because it forgets the long-run level. The app now uses GARCH to size the trade plans' stops, ranges and odds.
+
+## Trading costs (step 12)
+
+`src/lib/tradingCosts.js` holds the cost rules used everywhere:
+- HK: stamp duty 0.1% on each side (rounded up to HK$1), HKEX, SFC and AFRC fees, and CCASS settlement.
+- US: SEC and FINRA fees on sales.
+- Both: an assumed broker commission (0.03% with a HK$3 minimum in HK, zero in the US) and half of one price step for the spread.
+
+A HK round trip at HK$400 costs about 0.33%. `crosssection.mjs` now takes its costs from this file: HK 0.21% one-way, and US about 0.01%, since US large caps trade a cent wide with no commission. The trade plan subtracts the round-trip cost from its expected profit, and paper trading fills at the bid or ask and charges the itemised fees. Test: `node scripts/tests/tradingCosts.test.mjs`.
