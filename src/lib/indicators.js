@@ -126,6 +126,8 @@ export function maxDrawdown(closes) {
 
 // Holt's linear exponential smoothing. Alpha/beta are picked by grid search on one-step-ahead error,
 // then the trend is projected `horizon` days ahead with a ±1.96σ band that widens with √h.
+// Old price-level Holt projection. No longer shown in the app (see logForecast below); kept so research/forecast.mjs
+// can score it as a benchmark.
 export function holtForecast(closes, horizon = 20) {
   const y = closes.slice(-250);
   if (y.length < 30) return null;
@@ -151,6 +153,42 @@ export function holtForecast(closes, horizon = 20) {
     path.push({ h, mid, upper: mid + band, lower: Math.max(0, mid - band) });
   }
   return { alpha: best.a, beta: best.b, sigma, path };
+}
+
+// Log-price forecast (step 9): Holt smoothing with a damped trend on log prices, so the projection is in percentage
+// terms, the trend fades instead of running on forever, and the range can never go below zero. The 95% range uses
+// the spread of daily log returns over the last year (√h widening, the random-walk rule), not the smoother's
+// one-step errors, which understate risk. research/forecast.mjs scores it against a random walk (no change).
+export function logForecast(closes, horizon = 20) {
+  const y = closes.slice(-250).filter(c => c > 0).map(Math.log);
+  if (y.length < 30) return null;
+  let best = null;
+  for (const phi of [0.8, 0.9, 0.98]) {
+    for (let a = 0.1; a <= 0.951; a += 0.05) {
+      for (let b = 0.01; b <= 0.31; b += 0.05) {
+        let level = y[0], trend = 0, sse = 0;
+        for (let i = 1; i < y.length; i++) {
+          const pred = level + phi * trend;
+          sse += (y[i] - pred) ** 2;
+          const prevLevel = level;
+          level = a * y[i] + (1 - a) * pred;
+          trend = b * (level - prevLevel) + (1 - b) * phi * trend;
+        }
+        if (!best || sse < best.sse) best = { a, b, phi, sse, level, trend };
+      }
+    }
+  }
+  const r = y.slice(1).map((v, i) => v - y[i]);
+  const m = r.reduce((s, v) => s + v, 0) / r.length;
+  const sigma = Math.sqrt(r.reduce((s, v) => s + (v - m) ** 2, 0) / (r.length - 1));
+  const path = [];
+  let cum = 0, damp = 1;
+  for (let h = 1; h <= horizon; h++) {
+    damp *= best.phi; cum += damp * best.trend;
+    const mu = best.level + cum, band = 1.96 * sigma * Math.sqrt(h);
+    path.push({ h, mid: Math.exp(mu), upper: Math.exp(mu + band), lower: Math.exp(mu - band) });
+  }
+  return { alpha: best.a, beta: best.b, phi: best.phi, sigma, path };
 }
 
 // ---- Volatility forecasts (step 11) ----
@@ -267,11 +305,13 @@ export function technicalReview(rows) {
 //   P/E multiple:    EPS × fair P/E
 //   Earnings DCF:    Σ EPS·(1+g)^t / (1+r)^t, t = 1..5, + EPS·(1+g)^5 × terminal P/E / (1+r)^5
 //   Gordon DDM:      DPS·(1+gd) / (r − gd)            (only when r > gd and DPS > 0)
-//   Graham formula:  EPS × (8.5 + 2g)                  (g in %, the classic 1962 version)
+//   Graham formula:  EPS × (8.5 + 2g)                  (g in %, the 1962 version; shown for reference only and left
+//                    out of the median, because its constants were set for 1960s bond yields)
+//   Peer multiples:  peer median P/E, EV/EBITDA or P/B × the company's own figure (passed in as peerModels)
 //   FCF DCF:         Σ FCF·(1+g)^t / (1+r)^t, t = 1..5, + FCF·(1+g)^5·(1+gT) / (r − gT) / (1+r)^5, gT = 2.5%
 //                    (free cash flow to equity per share, from the nightly company data when available)
 // The fair value shown is the median of the models that apply.
-export function valuationModels({ eps, growthPct, discountPct, terminalPe, fairPe, dps, divGrowthPct, fcfPerShare = 0 }) {
+export function valuationModels({ eps, growthPct, discountPct, terminalPe, fairPe, dps, divGrowthPct, fcfPerShare = 0, peerModels = [] }) {
   const g = (growthPct || 0) / 100, r = (discountPct || 0) / 100, gd = (divGrowthPct || 0) / 100;
   const out = [];
   if (eps > 0 && fairPe > 0) out.push({ id: 'pe', label: 'P/E multiple', value: eps * fairPe, formula: `EPS ${eps.toFixed(2)} × fair P/E ${fairPe}` });
@@ -289,9 +329,10 @@ export function valuationModels({ eps, growthPct, discountPct, terminalPe, fairP
     out.push({ id: 'fcf', label: 'Free-cash-flow DCF (5 yr)', value: pv, formula: `FCF/share ${fcfPerShare.toFixed(2)} grows ${growthPct}% for 5 yrs, then 2.5%, discounted at ${discountPct}%` });
   }
   if (dps > 0 && r > gd) out.push({ id: 'ddm', label: 'Dividend discount', value: (dps * (1 + gd)) / (r - gd), formula: `DPS ${dps.toFixed(2)} × (1 + ${divGrowthPct}%) ÷ (${discountPct}% − ${divGrowthPct}%)` });
-  if (eps > 0) out.push({ id: 'graham', label: 'Graham formula', value: eps * (8.5 + 2 * Math.max(0, Math.min(growthPct || 0, 15))), formula: `EPS × (8.5 + 2 × ${Math.max(0, Math.min(growthPct || 0, 15))})` });
-  // Median of the models, so one extreme assumption does not dominate
-  const sorted = out.map(m => m.value).sort((a, b) => a - b);
+  for (const m of peerModels) if (m && m.value > 0) out.push(m);
+  if (eps > 0) out.push({ id: 'graham', label: 'Graham formula (1962, reference only)', historical: true, value: eps * (8.5 + 2 * Math.max(0, Math.min(growthPct || 0, 15))), formula: `EPS × (8.5 + 2 × ${Math.max(0, Math.min(growthPct || 0, 15))}). Not in the median: its constants assume 1960s bond yields` });
+  // Median of the models (historical ones excluded), so one extreme assumption does not dominate
+  const sorted = out.filter(m => !m.historical).map(m => m.value).sort((a, b) => a - b);
   const fair = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : null;
   return { models: out, fair };
 }
@@ -443,8 +484,9 @@ export function impliedGrowth(price, eps, discountPct, terminalPe) {
 export function valuationRange(inputs) {
   const mid = valuationModels(inputs).fair;
   if (!mid) return null;
-  const low = valuationModels({ ...inputs, growthPct: (inputs.growthPct || 0) - 3, discountPct: (inputs.discountPct || 0) + 1, fairPe: (inputs.fairPe || 0) * 0.85 }).fair;
-  const high = valuationModels({ ...inputs, growthPct: (inputs.growthPct || 0) + 3, discountPct: Math.max(1, (inputs.discountPct || 0) - 1), fairPe: (inputs.fairPe || 0) * 1.15 }).fair;
+  const peers = (k) => (inputs.peerModels || []).map(m => (m ? { ...m, value: m.value * k } : m));
+  const low = valuationModels({ ...inputs, growthPct: (inputs.growthPct || 0) - 3, discountPct: (inputs.discountPct || 0) + 1, fairPe: (inputs.fairPe || 0) * 0.85, peerModels: peers(0.85) }).fair;
+  const high = valuationModels({ ...inputs, growthPct: (inputs.growthPct || 0) + 3, discountPct: Math.max(1, (inputs.discountPct || 0) - 1), fairPe: (inputs.fairPe || 0) * 1.15, peerModels: peers(1.15) }).fair;
   return { low: Math.min(low, mid), mid, high: Math.max(high, mid) };
 }
 
@@ -568,9 +610,11 @@ export function tradePlan({ rows, price, fair = null, fairRange = null, review =
 
   // Drift (per trading day, log terms), kept small
   const lastClose = closes[closes.length - 1];
-  const trendDaily = forecast ? forecast.path[0].mid / lastClose - 1 : 0;
+  // The projection's trend no longer feeds the drift: research/forecast.mjs found it no better than a random walk
+  // (FORECAST_TEST in horizonModel.js). `forecast` is kept in the signature for callers.
+  void forecast; void lastClose;
   const valueGap = range ? Math.log(range.mid / price) : 0;
-  let nu = 0.25 * Math.max(-0.004, Math.min(0.004, trendDaily)) + 0.2 * Math.max(-0.5, Math.min(0.5, valueGap)) / 252;
+  let nu = 0.2 * Math.max(-0.5, Math.min(0.5, valueGap)) / 252;
   nu = Math.max(-0.002, Math.min(0.002, nu));
 
   // Support / resistance levels

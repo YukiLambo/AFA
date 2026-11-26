@@ -381,6 +381,34 @@ const signalOf = (lift, cut) => (lift >= cut[1] ? 'Buy' : lift >= cut[0] ? 'Accu
  * @param valScore valuation score −1…1 (long-term only; optional)
  * @param severe true when serious company news was found (caps the signal at Hold)
  */
+// Calibration of the plan odds (research/calibration.mjs): stated → observed share of past plans whose target (or
+// stop) was hit first within the horizon. Written by update_app_constants.mjs; empty = no correction.
+export const PLAN_CALIB = {
+  short: { target: { x: [0.179, 0.228, 0.311, 0.377, 0.418, 0.458], y: [0.212, 0.262, 0.282, 0.284, 0.305, 0.36] }, stop: { x: [0.026, 0.076, 0.125, 0.175, 0.225, 0.275, 0.326, 0.376, 0.426, 0.475, 0.524, 0.571, 0.62], y: [0.055, 0.095, 0.141, 0.163, 0.198, 0.263, 0.308, 0.336, 0.381, 0.399, 0.428, 0.436, 0.47] } },
+  long: null
+};
+
+// Odds that the price touches the target first, the stop first, or neither within H trading days (step 10).
+// Simulates log-price paths with the given daily drift and volatility. Intraday highs and lows touch levels that
+// daily closes miss, so both levels are moved closer by 0.5826 × daily volatility (the Broadie–Glasserman
+// correction for continuous monitoring). Seeded, so the same inputs always give the same answer.
+export function barrierOdds(nu, sigma, lnUp, lnDown, H, n = 4000) {
+  const up = Math.max(1e-6, lnUp - 0.5826 * sigma), down = Math.max(1e-6, lnDown - 0.5826 * sigma);
+  let a = 0x9e3779b9 ^ Math.round((lnUp * 1e6) + (lnDown * 1e4) + H);
+  const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  let hit = 0, stop = 0;
+  for (let k = 0; k < n; k++) {
+    let x = 0;
+    for (let d = 0; d < H; d++) {
+      const z = Math.sqrt(-2 * Math.log(rnd() || 1e-12)) * Math.cos(2 * Math.PI * rnd());
+      x += nu + sigma * z;
+      if (x >= up) { hit++; break; }
+      if (x <= -down) { stop++; break; }
+    }
+  }
+  return { target: hit / n, stop: stop / n, neither: 1 - (hit + stop) / n };
+}
+
 export function horizonOutlook({ rows, price, valScore = null, severe = false }) {
   if (!rows || rows.length < 80) return null;
   const R = rows.slice();
@@ -469,14 +497,20 @@ export function horizonOutlook({ rows, price, valScore = null, severe = false })
     const stopC = Math.max(stop, p * (1 - (h === 'short' ? 0.12 : 0.35)));
     const target = p * (1 + Math.max(expRet + (h === 'short' ? 0.8 : 0.6) * sigmaH, h === 'short' ? 2 * atrNow / p : 0.1));
     const nu = Math.log(1 + expRet) / H;
-    const probT = Math.max(0, Math.min(1, (() => { const b = Math.log(target / p), a = Math.log(p / stopC); const k = (2 * nu) / (dailyVol * dailyVol); if (Math.abs(k) < 1e-9) return a / (a + b); return (1 - Math.exp(k * a)) / (Math.exp(-k * b) - Math.exp(k * a)); })()));
+    // Within the horizon, not "eventually": the old formula ignored time and overstated the odds (research/calibration.mjs)
+    const odds = barrierOdds(nu, dailyVol, Math.log(target / p), Math.log(p / stopC), H);
+    // ...then corrected with what really happened to past plans with similar stated odds (PLAN_CALIB)
+    const PC = PLAN_CALIB[h];
+    const cal = (t, raw) => (t && t.x.length >= 2 ? Math.max(0.01, Math.min(0.99, interp(t.x, t.y, raw))) : raw);
+    const probT = cal(PC?.target, odds.target), probS = Math.min(1 - probT, cal(PC?.stop, odds.stop));
     return {
       horizon: H, label: h === 'short' ? 'Short-term · about 2 weeks' : 'Long-term · about 6 months',
       signal, probUp, baseUp, lift: hitLift, expRet, baseMean, sigmaH,
       range: [p * (1 + expRet - sigmaH), p * (1 + expRet + sigmaH)],
       composite: comp.score, drivers, triggers: { up, down }, events: events.map(e => e.key),
       entry: p, stop: stopC, target, rr: (target - p) / Math.max(1e-9, p - stopC), probTarget: probT,
-      evPerShare: probT * (target - p) - (1 - probT) * (p - stopC)
+      probStop: probS, probNeither: 1 - probT - probS, rawProbTarget: odds.target, rawProbStop: odds.stop,
+      evPerShare: probT * (target - p) - probS * (p - stopC)
     };
   };
 
@@ -520,3 +554,7 @@ export const SIGNAL_SCALE = SIGNALS;
 
 // Internals for research/study3.mjs, so the study re-runs with exactly the definitions the app uses
 export const _research = { series, statesAt, featuresAt, composite, zigzag, FEAT, MU, SD, WEIGHTS, CALIB, SHRINK };
+
+// Price projection vs a random walk (research/forecast.mjs), 20 trading days ahead. Theil's U = error ÷ the error of
+// assuming no change. Written by update_app_constants.mjs.
+export const FORECAST_TEST = { hold: 20, from: '2019', HK: { theilU: 1.02, hitRate: 50.1, coverage95: 94, n: 4912, oldHoltU: 4.924 }, US: { theilU: 1.05, hitRate: 50.4, coverage95: 92.7, n: 3400, oldHoltU: 1.726 } };
