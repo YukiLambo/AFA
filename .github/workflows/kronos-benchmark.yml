@@ -1,0 +1,74 @@
+name: Kronos benchmark
+
+# Manual only: Actions tab → "Kronos benchmark" → Run workflow. Scores the Kronos foundation model against a random
+# walk on the research snapshot (research/kronos/benchmark.py). Results are uploaded as a run artifact; nothing in
+# the app changes. On GitHub's free CPU runners the default settings take roughly 2–4 hours.
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Kronos model'
+        type: choice
+        options: [Kronos-small, Kronos-mini, Kronos-base]
+        default: Kronos-small
+      step:
+        description: 'Trading days between forecast dates (smaller = more forecasts, slower)'
+        default: '63'
+      samples:
+        description: 'Sampled paths per forecast (averaged)'
+        default: '1'
+      context:
+        description: 'Days of history per forecast (max 512)'
+        default: '256'
+
+permissions:
+  contents: read
+
+env:
+  # Kronos code is pinned to a reviewed commit (MIT licence)
+  KRONOS_COMMIT: 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Export split-adjusted prices
+        run: node research/kronos/export_adjusted.mjs research/kronos/adjusted.csv
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Get Kronos
+        run: |
+          git clone https://github.com/shiyu-coder/Kronos.git kronos-src
+          git -C kronos-src checkout "$KRONOS_COMMIT"
+      - name: Install CPU PyTorch and Kronos dependencies
+        run: |
+          pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --no-cache-dir numpy pandas==2.2.2 einops==0.8.1 huggingface_hub==0.33.1 safetensors==0.6.2 tqdm
+      - name: Show the model licences
+        run: |
+          python - <<'PY'
+          from huggingface_hub import model_info
+          m = "${{ inputs.model }}"
+          tok = "Kronos-Tokenizer-2k" if m == "Kronos-mini" else "Kronos-Tokenizer-base"
+          for r in (f"NeoQuasar/{m}", f"NeoQuasar/{tok}"):
+              i = model_info(r)
+              print(r, "licence:", (i.card_data or {}).get("license") if i.card_data else None)
+          PY
+      - name: Run benchmark
+        run: |
+          TOK=Kronos-Tokenizer-base; [ "${{ inputs.model }}" = "Kronos-mini" ] && TOK=Kronos-Tokenizer-2k
+          python research/kronos/benchmark.py --kronos-dir kronos-src --csv research/kronos/adjusted.csv \
+            --model "NeoQuasar/${{ inputs.model }}" --tokenizer "NeoQuasar/$TOK" \
+            --step "${{ inputs.step }}" --samples "${{ inputs.samples }}" --context "${{ inputs.context }}" \
+            --out research/results/kronos
+          cat research/results/kronos.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kronos-benchmark
+          path: research/results/kronos.*

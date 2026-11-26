@@ -169,3 +169,7 @@ The old odds came from a formula that ignored the horizon ("eventually", not "wi
 - Both: an assumed broker commission (0.03% with a HK$3 minimum in HK, zero in the US) and half of one price step for the spread.
 
 A HK round trip at HK$400 costs about 0.33%. `crosssection.mjs` now takes its costs from this file: HK 0.21% one-way, and US about 0.01%, since US large caps trade a cent wide with no commission. The trade plan subtracts the round-trip cost from its expected profit, and paper trading fills at the bid or ask and charges the itemised fees. Test: `node scripts/tests/tradingCosts.test.mjs`.
+
+## Kronos benchmark (step 13)
+
+[Kronos](https://github.com/shiyu-coder/Kronos) (MIT licence) is a transformer pre-trained on candlestick data. `research/kronos/benchmark.py` forecasts 20-day returns with it on the snapshot stocks and dates and scores the forecasts with the same measures as `forecast.mjs`: Theil's U vs a random walk, direction, and cross-sectional rank IC. It needs PyTorch and the Hugging Face weights, so it runs as the manual GitHub Action "Kronos benchmark" and uploads `kronos.{json,md}` as an artifact. Kronos is only a benchmark, and the app doesn't depend on it. To test the pipeline offline with an untrained tiny model, pass `--random-init --limit-dates 2`.
