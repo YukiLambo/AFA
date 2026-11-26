@@ -146,3 +146,7 @@ The app's reliability box now shows these numbers (`CROSS_SECTION` in `horizonMo
 - Source: `web.ifzq.gtimg.cn/appstock/app/fqkline/get`, the same endpoint the app uses for history. The feed has no service-level agreement. Re-downloads can differ slightly if Tencent revises its history, so studies run on the committed snapshot.
 - Stock splits are detected with the app's rule from `adjustSplits` in `src/App.jsx`.
 - **App bug found:** in `adjustSplits` the 1.5-for-1 branch sits inside `ratio >= 1.8`, so it can never run. Bonus issues in that range are missed: Sino Biopharm (2018 and 2020) and CSPC (2020). The research loader handles them through `corporate_actions.json`. The live app still shows a false one-day crash of about 33–40% in those charts.
+
+## Volatility forecasts (step 11)
+
+`node research/volatility.mjs` takes about 10 seconds. It compares three ways of estimating a stock's volatility over the next 10 and 120 days: the old flat one-year figure, EWMA and GARCH(1,1). It writes `results/volatility.{json,md}`. GARCH was best in both markets at both horizons, with QLIKE 8–27% lower and RMSE 3–13% lower than flat. EWMA was worse than flat over 120 days, because it forgets the long-run level. The app now uses GARCH to size the trade plans' stops, ranges and odds.

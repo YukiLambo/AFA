@@ -153,6 +153,42 @@ export function holtForecast(closes, horizon = 20) {
   return { alpha: best.a, beta: best.b, sigma, path };
 }
 
+// ---- Volatility forecasts (step 11) ----
+// Average daily volatility expected over the next H days, from daily log returns `r` (oldest first).
+//   flat   standard deviation of the last 250 days (what the app used before)
+//   ewma   RiskMetrics exponentially weighted variance, λ = 0.94: reacts to recent calm or turmoil
+//   garch  GARCH(1,1) with variance targeting, fitted on the last 500 days by a small likelihood grid; over longer
+//          horizons the forecast fades from today's level towards the stock's long-run level
+// research/volatility.mjs scores them on later realised volatility.
+export function volForecast(r, H = 10, method = 'garch') {
+  const x = r.filter(Number.isFinite);
+  if (x.length < 60) return null;
+  const last = x.slice(-250), m = last.reduce((s, v) => s + v, 0) / last.length;
+  const flatVar = last.reduce((s, v) => s + (v - m) ** 2, 0) / (last.length - 1);
+  if (method === 'flat') return Math.sqrt(flatVar);
+  if (method === 'ewma') {
+    let v = flatVar;
+    for (const e of x.slice(-250)) v = 0.94 * v + 0.06 * e * e;
+    return Math.sqrt(v);
+  }
+  const w = x.slice(-500), mu = w.reduce((s, v) => s + v, 0) / w.length;
+  const e = w.map(v => v - mu), VL = e.reduce((s, v) => s + v * v, 0) / e.length;
+  let best = null;
+  for (const a of [0.02, 0.04, 0.06, 0.08, 0.1, 0.13, 0.16]) {
+    for (const b of [0.75, 0.8, 0.85, 0.88, 0.9, 0.92, 0.94, 0.96]) {
+      if (a + b >= 0.995) continue;
+      const om = VL * (1 - a - b);
+      let v = VL, ll = 0;
+      for (const ei of e) { ll -= Math.log(v) + (ei * ei) / v; v = om + a * ei * ei + b * v; }
+      if (!best || ll > best.ll) best = { a, b, ll, next: v };
+    }
+  }
+  const p = best.a + best.b;
+  let sum = 0, pk = 1;
+  for (let k = 1; k <= H; k++) { sum += VL + pk * (best.next - VL); pk *= p; }
+  return Math.sqrt(sum / H);
+}
+
 // ---- Indicator verdicts and a combined score (−10 … +10) ----
 export function technicalReview(rows) {
   if (!rows || rows.length < 35) return null;
@@ -432,11 +468,12 @@ function mulberry32(seed) {
 
 // Block bootstrap (5-day blocks) of the last ~2 years of daily log returns, re-centred on drift `nu`.
 // Returns `n` paths of cumulative log returns, each `days` long.
-export function bootstrapPaths(closes, days = 60, n = 1500, nu = 0, block = 5) {
+export function bootstrapPaths(closes, days = 60, n = 1500, nu = 0, block = 5, volScale = 1) {
   const rets = closes.slice(-505).slice(1).map((c, i, arr) => Math.log(c / (i === 0 ? closes[Math.max(0, closes.length - 505)] : arr[i - 1]))).filter(Number.isFinite);
   if (rets.length < 40) return [];
   const mean = rets.reduce((s, v) => s + v, 0) / rets.length;
-  const centred = rets.map(r => r - mean + nu);
+  // volScale rescales past swings to the volatility expected now (GARCH ÷ two-year average)
+  const centred = rets.map(r => (r - mean) * volScale + nu);
   const rand = mulberry32(Math.round(closes.at(-1) * 1000) ^ closes.length);
   const paths = [];
   for (let p = 0; p < n; p++) {
@@ -521,7 +558,12 @@ export function tradePlan({ rows, price, fair = null, fairRange = null, review =
   const A = atr(rows).at(-1) || price * 0.02;
   const logs = closes.slice(-253).slice(1).map((c, i, arr) => Math.log(c / (i === 0 ? closes[closes.length - 253] || closes[0] : arr[i - 1])));
   const mean = logs.reduce((s, v) => s + v, 0) / logs.length;
-  const sigma = Math.sqrt(logs.reduce((s, v) => s + (v - mean) ** 2, 0) / Math.max(1, logs.length - 1)) || 0.02;
+  const sigmaFlat = Math.sqrt(logs.reduce((s, v) => s + (v - mean) ** 2, 0) / Math.max(1, logs.length - 1)) || 0.02;
+  // Expected volatility over the plan's horizon from GARCH(1,1) (research/volatility.mjs), not the flat one-year figure
+  const allLogs = closes.slice(1).map((c, k) => Math.log(c / closes[k]));
+  const sigma = volForecast(allLogs, horizon, 'garch') || sigmaFlat;
+  const two = allLogs.slice(-504), m2 = two.reduce((s, v) => s + v, 0) / (two.length || 1);
+  const sd2 = Math.sqrt(two.reduce((s, v) => s + (v - m2) ** 2, 0) / Math.max(1, two.length - 1)) || sigma;
   const range = fairRange || (fair ? { low: fair * 0.9, mid: fair, high: fair * 1.1 } : null);
 
   // Drift (per trading day, log terms), kept small
@@ -548,7 +590,7 @@ export function tradePlan({ rows, price, fair = null, fairRange = null, review =
   const stop = Math.min(support - 0.5 * A, entry - 1.5 * A);
 
   // Profit-maximising target on simulated paths
-  const paths = bootstrapPaths(closes, horizon, 1500, nu);
+  const paths = bootstrapPaths(closes, horizon, 1500, nu, 5, Math.max(0.5, Math.min(2, sigma / sd2)));
   const lnStop = Math.log(stop / entry);
   const maxUp = entry * Math.exp(2.33 * sigma * Math.sqrt(horizon) + Math.max(0, nu) * horizon);
   let best = null;
