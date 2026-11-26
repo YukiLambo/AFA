@@ -1,71 +1,74 @@
 // Short-term (about 2 weeks) and long-term (about 6 months) outlook, built from what indicators and chart
 // patterns were actually followed by in the real market, not from their textbook meaning.
 //
-// Study 3 (Nov 2026): 60 Hang Seng large caps + 40 US large caps, daily qfq-adjusted prices 2018–2026.
-// Every indicator state and pattern was checked against the stock's return over the next 10 and 120 trading
-// days, compared with that stock's normal return in the same period. Tuned on Oct 2019 – Jun 2023, checked on
-// Jul 2023 – 2026, separately for Hong Kong and the US (four "cells"). Main finding: in both markets and both
-// periods, stretched moves tended to reverse. Stocks far below their averages, oversold or in deep drawdowns
-// rebounded more often; stocks far above their averages, overbought or near 52-week highs lagged. Most
-// candlestick and chart patterns had no reliable edge; breakouts (ascending triangles, cups, base breakouts)
-// tended to fade, and breakdowns (descending triangles) tended to recover.
-// Caveat: the sample is today's large caps, so stocks that fell and never recovered are missing (survivorship).
-// Effects are therefore shrunk by 25% before they are shown.
+// Study 3 (re-runnable: research/study3.mjs, data snapshot in research/data/): 60 Hang Seng large caps + 40 US
+// large caps, daily split-adjusted prices 2018–2026. Every indicator state and pattern was checked against the
+// stock's return over the next 10 and 120 trading days MINUS the index's return over the same days (Hang Seng
+// Index / S&P 500), so the numbers show stock picking, not timing the whole market. Tuned on Oct 2019 –
+// Jun 2023, checked on Jul 2023 – 2026, separately for Hong Kong and the US (four "cells").
+// Main finding (Nov 2026 re-run): measured against the index, short-term mean reversion adds little; most of
+// the "stretched moves snap back" effect in the first version was the whole market rebounding. Over 6 months,
+// relative strength tended to persist: 12-month winners, stocks above their 200-day average or near 52-week
+// highs beat the index more often, and the composite's top quintile lagged. Most candlestick and chart patterns
+// had no reliable edge.
+// Caveat: the sample is today's large caps, so stocks that fell and never recovered are missing (survivorship),
+// which flatters momentum. Effects are therefore shrunk by 25% before they are shown.
 
 const SHRINK = 0.75;
 
 // Evidence per state: [excess % 10d, hit-rate change pp 10d, cells agreeing 10d, excess % 120d, hit pp 120d, cells 120d]
-// "excess" = average return after the state minus the stock's normal return; "cells agreeing" = how many of the
-// four market/period cells had the same sign with |t| >= 1.5.
+// "excess" = average return after the state minus the index over the same days, relative to the average stock-day;
+// hit = change in how often the stock beat the index; "cells agreeing" = how many of the four market/period
+// cells had the same sign with |t| >= 1.5. Written by research/update_app_constants.mjs; do not edit by hand.
 export const EVIDENCE = {
-  farBelow50: [2.26, 13.1, 4, 6.87, 10.6, 4], farAbove50: [-0.55, -3.5, 2, -3.0, -5.1, 2],
-  aboveSma200: [-0.31, -1.4, 3, -1.67, -4.2, 3], belowSma200: [0.28, 1.4, 2, 2.07, 3.8, 2],
-  golden: [-0.24, -1.1, 2, -1.4, -3.7, 2], death: [0.21, 1.1, 1, 1.71, 3.3, 2],
-  emaBull: [-0.16, -1.2, 3, -1.0, -2.1, 2], emaBear: [0.18, 1.3, 3, 1.26, 2.4, 2],
-  macdAbove: [0.08, 0.2, 1, -0.37, -0.8, 2], macdBelow: [-0.08, -0.2, 2, 0.39, 0.8, 2],
-  macdXup: [0.22, 1.0, 2, 0.09, 0, 0], macdXdn: [-0.09, -0.8, 1, -0.34, -0.6, 2],
-  rsi14lt30: [1.38, 8.9, 3, 4.42, 10.8, 3], rsi14gt70: [-0.67, -3.7, 3, -2.91, -6.1, 3],
-  stochLt20: [0.1, 0.7, 1, 1.27, 3.0, 3], stochGt80: [-0.05, -0.3, 0, -1.1, -2.6, 2],
-  cciVeryLow: [0.56, 3.5, 3, 3.27, 6.4, 3], cciLow: [0.14, 1.2, 2, 1.65, 3.1, 3], cciHigh: [-0.04, -0.3, 1, -1.04, -2.2, 1],
-  bbBelow: [0.51, 3.3, 3, 2.52, 3.8, 3], bbAbove: [-0.12, -0.2, 0, -0.89, -1.8, 1],
-  adxUp: [-0.22, -0.8, 1, -1.79, -3.3, 2], adxDown: [0.84, 6.1, 4, 2.83, 6.0, 3], adxWeak: [-0.06, -1.1, 0, 0.14, -0.5, 1],
-  aboveCloud: [-0.22, -1.6, 3, -1.37, -2.9, 2], belowCloud: [0.32, 2.0, 3, 1.73, 3.4, 2],
-  superUp: [-0.09, -0.7, 1, -1.32, -2.3, 3], superDown: [0.12, 0.8, 2, 1.41, 2.4, 3],
-  psarUp: [0.01, -0.1, 0, -0.4, -1.0, 1], psarDown: [-0.01, 0.1, 0, 0.45, 1.1, 2],
-  psarFlipUp: [0.05, 0.6, 1, -0.19, -0.1, 1], psarFlipDown: [-0.2, -0.8, 3, -0.53, -0.5, 2],
-  obvUp: [-0.1, -1.0, 1, -0.82, -2.0, 1], obvDown: [0.1, 1.0, 1, 0.96, 2.1, 1],
-  cmfPos: [-0.22, -1.5, 2, -1.68, -3.8, 3], cmfNeg: [0.32, 2.2, 2, 1.59, 4.1, 3],
-  volOscPos: [0.04, 1.3, 1, 1.0, 1.3, 2], volOscNeg: [0.08, -0.4, 1, 0, -0.2, 1],
-  aboveR1: [0.05, 0.7, 0, -0.58, -1.3, 2], belowS1: [0.1, 0.9, 1, 0.97, 1.8, 2],
-  mom12Strong: [-0.39, -2.3, 3, -3.74, -7.3, 3], mom12Weak: [0.69, 2.3, 3, 6.29, 11.2, 3],
-  near52High: [-0.35, -3.3, 2, -4.48, -8.8, 3], deepDraw: [1.51, 7.5, 4, 4.87, 9.6, 4],
-  lowVol: [0.28, 2.2, 2, 3.77, 8.3, 3], highVol: [0.66, 3.7, 3, 3.13, 1.0, 2],
-  new20Low: [0.47, 3.3, 3, 2.65, 5.2, 4], new20High: [-0.18, -1.3, 1, -1.87, -3.7, 4],
-  new55Low: [0.92, 5.7, 3, 3.37, 8.5, 3], new55High: [-0.41, -2.9, 2, -2.34, -5.0, 3],
-  drop5: [0.55, 3.1, 3, 2.95, 5.1, 3], rsiReclaim30: [0.51, 3.9, 3, 3.27, 7.4, 2],
+  farBelow50: [0.42, 2.3, 3, 0.96, -1.2, 2], farAbove50: [0.37, 0.7, 3, 4.03, 1.6, 3],
+  aboveSma200: [0.09, 0.7, 2, 1.62, 3.3, 4], belowSma200: [-0.09, -0.7, 2, -1.81, -4, 4],
+  golden: [0.1, 0.6, 1, 1.63, 3.3, 3], death: [-0.1, -0.5, 2, -1.83, -4.1, 3],
+  emaBull: [0.08, 0.5, 2, 0.71, 1.5, 2], emaBear: [-0.07, -0.3, 2, -0.71, -1.5, 2],
+  macdAbove: [0.05, 0.3, 2, 0.14, 0, 2], macdBelow: [-0.05, -0.3, 2, -0.15, 0, 2],
+  macdXup: [0.04, -0.1, 1, -0.02, -0.2, 0], macdXdn: [0.01, -0.7, 0, -0.1, 0, 2],
+  rsi14lt30: [0.18, 1.1, 2, -1.2, -1.1, 2], rsi14gt70: [0.45, 3.2, 4, 2.87, 3.9, 2],
+  stochLt20: [-0.1, -0.8, 2, -0.7, -1, 3], stochGt80: [0.09, 1.2, 1, 0.77, 1.5, 3],
+  cciVeryLow: [-0.07, -0.4, 1, -0.82, -0.3, 1], cciLow: [-0.13, -1.1, 3, -0.55, -1, 2], cciHigh: [0.12, 0.9, 1, 0.78, 1.4, 3],
+  bbBelow: [-0.07, -0.8, 1, -0.53, -0.7, 2], bbAbove: [0.23, 1.6, 2, 1.81, 2.2, 3],
+  adxUp: [0.25, 2, 4, 1.04, 1.9, 2], adxDown: [0.22, 2.3, 2, -0.1, 0.3, 1], adxWeak: [-0.16, -1.5, 4, -0.35, -1.2, 2],
+  aboveCloud: [0.11, 0.9, 2, 0.98, 2, 2], belowCloud: [-0.06, -0.5, 2, -0.88, -1.7, 4],
+  superUp: [0.09, 0.6, 1, 0.18, 0.8, 2], superDown: [-0.09, -0.5, 1, -0.17, -0.8, 2],
+  psarUp: [0.06, 0.4, 2, 0.31, 0.6, 2], psarDown: [-0.06, -0.4, 2, -0.31, -0.6, 2],
+  psarFlipUp: [0.03, 1, 0, -0.19, -0.6, 0], psarFlipDown: [-0.14, -0.9, 1, -0.45, -0.5, 0],
+  obvUp: [0.06, 0.6, 1, 0.56, 1, 3], obvDown: [-0.06, -0.6, 1, -0.56, -1, 3],
+  cmfPos: [0.07, 1.3, 2, 0.44, 1.9, 3], cmfNeg: [-0.09, -0.9, 1, -0.28, -0.7, 1],
+  volOscPos: [0.05, 0.1, 1, 0.57, 0.3, 2], volOscNeg: [0.17, 0.5, 3, 0.54, 0.6, 2],
+  aboveR1: [0.17, 0.7, 2, 0.52, 0.1, 2], belowS1: [-0.06, -0.2, 2, -0.12, -0.4, 1],
+  mom12Strong: [0.24, 1.2, 3, 3.77, 6, 4], mom12Weak: [-0.09, -2.6, 2, 0.06, -3.7, 2],
+  near52High: [0.24, 2.7, 2, 1.48, 4.3, 2], deepDraw: [0.1, -0.7, 1, 0.28, -3.9, 1],
+  lowVol: [0.08, 0.3, 2, 2.31, 4.6, 3], highVol: [-0.19, -1.4, 3, -1.29, -5.3, 2],
+  new20Low: [-0.11, -1.1, 1, -0.91, -1.2, 2], new20High: [0.14, 0.9, 2, 1.25, 2.3, 2],
+  new55Low: [0.05, -0.4, 1, -0.84, -1, 2], new55High: [0.19, 1.8, 2, 2.07, 3.5, 3],
+  drop5: [0.15, 0.4, 2, 1.33, -0.5, 3], rsiReclaim30: [0.13, 0.6, 1, -0.93, -0.8, 1],
   // candlesticks
-  hammer: [-0.01, 2.5, 1, 0.74, 2.5, 2], invHammer: [0.39, 3.1, 2, 1.77, 3.8, 2], shootingStar: [0.16, 1.4, 1, -0.2, -0.4, 0],
-  hangingMan: [-0.34, -0.4, 2, -0.66, -0.8, 1], doji: [-0.08, -0.5, 0, -0.22, -0.3, 1], dragonfly: [0.38, 2.9, 1, 1.24, 2.5, 1],
-  gravestone: [-0.03, 1.1, 0, -0.42, -2.1, 1], spinTopAfterDown: [0.71, 3.0, 4, 1.22, 2.4, 2], spinTopAfterUp: [0.02, 0.4, 0, 0.71, 0, 1],
-  bullEngulf: [-0.15, -0.1, 1, 1.03, 0.5, 1], bearEngulf: [0.1, -0.1, 0, -1.33, -0.9, 1],
-  bullHarami: [0.27, 2.4, 1, 1.15, 2.6, 1], bearHarami: [0.24, -0.6, 0, -1.04, -0.9, 0],
-  piercing: [0.06, 1.8, 1, 0, 1.6, 0], darkCloud: [0.29, 0.4, 0, 0.57, 1.3, 0],
-  morningStar: [0.13, -0.6, 1, -0.31, 0, 1], eveningStar: [-0.16, -1.9, 1, 1.58, 1.5, 1],
-  threeSoldiers: [-0.37, -4.6, 1, -4.25, -7.9, 1], threeCrows: [0.45, 2.0, 1, 0.06, 4.8, 0],
-  tweezerBottom: [-0.15, -0.5, 0, -0.3, 1.0, 0], tweezerTop: [0.22, -0.2, 1, -0.01, -1.2, 0],
-  bullKicker: [0.48, 4.4, 2, -0.78, 0, 1], bearKicker: [0.08, 1.9, 1, 4.17, 4.7, 2],
+  hammer: [0.16, 0.3, 0, -0.43, -1.3, 1], invHammer: [0.04, 1.5, 0, 0.49, 0.6, 2], shootingStar: [0.12, 0.8, 1, 1.71, 2.8, 2],
+  hangingMan: [-0.16, -0.9, 1, 1.08, 0.9, 2], doji: [-0.09, -0.4, 0, -0.13, 0.2, 1], dragonfly: [0.44, 3.7, 1, 1.63, 1.6, 1],
+  gravestone: [0.08, 1.9, 0, 1.1, 2.4, 1], spinTopAfterDown: [0.24, 1.6, 1, 0.3, -0.9, 1], spinTopAfterUp: [0.01, -0.1, 0, 2.79, 2, 3],
+  bullEngulf: [-0.03, 0.5, 0, 0.91, -0.9, 1], bearEngulf: [0.36, 2.2, 2, 0.71, 2, 0],
+  bullHarami: [-0.01, 0, 0, 0.53, -0.5, 1], bearHarami: [0.07, -0.8, 0, 1.58, -1.1, 1],
+  piercing: [0.29, 1.3, 1, 0.78, -1.7, 0], darkCloud: [0.02, -0.3, 0, 0.87, -1.6, 1],
+  morningStar: [-0.27, -1.9, 1, -0.41, -1.5, 1], eveningStar: [-0.2, -2.4, 1, 2.83, 3.1, 2],
+  threeSoldiers: [0.38, 2.9, 0, -1.04, -0.7, 0], threeCrows: [0.12, -1.9, 1, -1.4, -1.5, 1],
+  tweezerBottom: [-0.11, -0.8, 0, -0.79, -1, 1], tweezerTop: [0.14, 2.1, 1, 0.51, 0.1, 0],
+  bullKicker: [0.17, 0.3, 1, 0.29, 0.8, 1], bearKicker: [-0.26, -2.2, 0, 0.68, 0.3, 0],
   // chart patterns
-  doubleBottom: [0.12, 0, 0, -0.69, 0.7, 1], doubleTop: [-0.64, -3.3, 2, -0.53, -1.2, 1],
-  baseBreakout: [0.03, 0.6, 0, -1.36, -3.0, 1], baseBreakdown: [-0.11, 1.4, 0, 1.52, 3.7, 0],
-  bullFlag: [-0.48, -1.9, 0, -0.84, -2.9, 1], bearFlag: [0.37, -5.0, 0, 1.46, 2.3, 0],
-  ascTriangle: [-0.4, -2.4, 3, -2.33, -5.3, 2], descTriangle: [0.14, 3.0, 1, 2.5, 8.3, 2],
-  cupHandle: [0.1, 1.3, 0, -1.74, -2.3, 1], headShoulders: [0.3, -1.1, 0, -3.04, -1.5, 1], invHeadShoulders: [-0.03, -3.3, 1, 0.89, -3.0, 0],
-  risingWedgeBreak: [0.13, -0.4, 1, 0.84, 0.2, 1], fallingWedgeBreak: [-0.48, -2.6, 2, 1.46, 5.1, 2],
-  roundedBottom: [1.57, 8.7, 1, 11.43, 2.8, 1], roundedTop: [0.58, 4.6, 0, 17.12, 21, 1],
-  abcdBull: [-0.21, -1.7, 0, 0.25, 2.1, 1], abcdBear: [-0.13, -3.2, 0, -1.78, -6.1, 2],
-  gartleyBull: [-0.64, -5.3, 1, 2.52, -5.6, 1], gartleyBear: [0.24, 3.7, 0, -1.98, 2.6, 0],
-  rsiBullDiv: [0.52, 2.9, 1, 0.44, 2.4, 1], rsiBearDiv: [-0.04, 0, 0, -0.78, -1.3, 1],
-  macdBullDiv: [0.4, 1.4, 2, 1.82, 2.7, 2], macdBearDiv: [0.26, 0.7, 1, -0.34, -0.2, 1]
+  doubleBottom: [-0.29, -0.7, 2, -0.25, 2, 1], doubleTop: [-0.47, -4.1, 1, -0.34, -1.7, 1],
+  baseBreakout: [0.18, 2, 1, 0.62, 4.1, 2], baseBreakdown: [-0.27, -0.2, 2, -2.11, -1.8, 3],
+  bullFlag: [-0.22, -0.8, 0, 3.44, 2.6, 2], bearFlag: [0.36, 2.1, 0, -1.99, -4.4, 2],
+  ascTriangle: [0.12, 2.4, 2, 1.29, 4.1, 3], descTriangle: [-0.21, 0, 2, -1.59, -2.3, 2],
+  cupHandle: [0.26, 3.8, 1, 1.02, 3.5, 1], headShoulders: [-0.37, -1.8, 1, -0.51, 1.9, 0], invHeadShoulders: [-0.43, -1.1, 1, -0.23, -3, 0],
+  risingWedgeBreak: [-0.07, 0.5, 1, -0.07, -0.1, 1], fallingWedgeBreak: [-0.16, -0.8, 1, 0.02, -0.2, 1],
+  roundedBottom: [1.79, 9.8, 1, 6.91, -0.5, 0], roundedTop: [1.65, 0.6, 0, 21.64, 6.5, 1],
+  abcdBull: [0.22, 0.7, 2, -1.2, -1.7, 3], abcdBear: [-0.06, 0.5, 2, 0.87, 1.3, 1],
+  gartleyBull: [0.22, 1.9, 2, 0.16, 9.3, 1], gartleyBear: [-0.6, -0.7, 1, -0.43, 12.6, 1],
+  rsiBullDiv: [0, 1.8, 1, -1.33, -2.7, 2], rsiBearDiv: [0.2, 1.9, 3, 2.18, 4, 2],
+  macdBullDiv: [-0.07, 0.2, 1, -0.65, -1.3, 2], macdBearDiv: [0.16, 1.5, 2, 1.34, 3.3, 2]
 };
 
 // Pattern names, the textbook direction (+1 bullish, −1 bearish) and the idea behind each
@@ -126,23 +129,25 @@ const WEIGHTS = {
   short: { d50: 1, d200: 1, dd52: 1, adxDir: 1, rsi: 0.7, ret20: 0.7, d20: 0.5 },
   long: { d200: 1, dd52: 1.2, d50: 1, mom: 0.8, rsi: 0.7, ret20: 0.7, pb: 0.5, adxDir: 0.7 }
 };
-// Average over the four cells of the study, by composite quintile: excess return % and hit-rate change (pp)
+// Average over the four cells of the study, by composite quintile: excess return vs the index % and change in
+// how often the stock beat the index (pp). Written by research/update_app_constants.mjs.
 const CALIB = {
-  short: { x: [-1.05, -0.42, -0.01, 0.4, 1.05], ex: [-0.42, -0.08, -0.19, -0.19, 1.06], hit: [-1.95, -1.2, -1.08, -0.85, 6.68] },
-  long: { x: [-1.0, -0.38, 0, 0.38, 1.0], ex: [-3.59, -0.55, 0.15, 0.32, 5.01], hit: [-7.2, -1.85, -0.63, 1.25, 9.5] }
+  short: { x: [-1.06, -0.48, -0.08, 0.31, 0.91], ex: [0.37, -0.07, -0.15, -0.18, 0.03], hit: [2.47, -0.06, -1.18, -1.46, 0.22] },
+  long: { x: [-1, -0.45, -0.1, 0.26, 0.82], ex: [3.23, -0.23, -0.6, -0.97, -1.43], hit: [4.75, 1.34, -1.26, -1.61, -3.22] }
 };
-// Out-of-sample check of the composite (rank correlation with the next return, inside each stock; HK / US)
+// Out-of-sample check of the composite (rank correlation with the next return vs the index, inside each stock)
 export const STUDY3 = {
   universe: '60 Hang Seng and 40 US large caps',
   period: 'tuned Oct 2019 – Jun 2023, tested Jul 2023 – Nov 2026',
-  short: { horizon: 10, icTrainHK: 0.047, icTestHK: 0.077, icTrainUS: 0.067, icTestUS: 0.059, posTestHK: '50 of 60', posTestUS: '27 of 40',
-    top: { HK: [0.97, 6.5], US: [0.93, 6.9] }, bottom: { HK: [-0.88, -4.8], US: [-0.5, -2.5] } },
-  long: { horizon: 120, icTrainHK: 0.122, icTestHK: 0.157, icTrainUS: 0.159, icTestUS: 0.231, posTestHK: '45 of 60', posTestUS: '34 of 40',
-    top: { HK: [2.77, 5.6], US: [8.35, 12.1] }, bottom: { HK: [-5.33, -9.4], US: [-4.95, -8.5] } }
+  method: 'market', snapshot: 'snapshot-2026-11-25',
+  short: { horizon: 10, icTrainHK: 0.007, icTestHK: 0.005, icTrainUS: 0.047, icTestUS: 0.024, posTestHK: '31 of 60', posTestUS: '21 of 40',
+    top: { HK: [-0.31, -3.1], US: [0.1, 0.8] }, bottom: { HK: [0.36, 2.8], US: [0.09, 0.9] } },
+  long: { horizon: 120, icTrainHK: -0.045, icTestHK: 0.107, icTrainUS: 0.097, icTestUS: 0.131, posTestHK: '40 of 60', posTestUS: '30 of 40',
+    top: { HK: [-1.81, -5.3], US: [-1.48, -2.9] }, bottom: { HK: [0.36, 0.8], US: [2.75, 5.4] } }
 };
 
-// "+1.7% vs normal, 10 pts more often up"
-export const evText = (v) => { const pts = Math.round(Math.abs(v.hit)); return `${v.ex >= 0 ? '+' : '−'}${Math.abs(v.ex).toFixed(1)}% vs normal, ${pts} pt${pts === 1 ? '' : 's'} ${v.hit >= 0 ? 'more' : 'less'} often up`; };
+// "+1.7% vs the index, 10 pts more often ahead of it"
+export const evText = (v) => { const pts = Math.round(Math.abs(v.hit)); return `${v.ex >= 0 ? '+' : '−'}${Math.abs(v.ex).toFixed(1)}% vs the index, ${pts} pt${pts === 1 ? '' : 's'} ${v.hit >= 0 ? 'more' : 'less'} often ahead of it`; };
 
 const interp = (xs, ys, x) => {
   if (x <= xs[0]) return ys[0];
@@ -325,13 +330,13 @@ function featureReason(nm, f, h) {
   const pct = (x) => `${Math.abs(x * 100).toFixed(1)}%`;
   const ev = (key) => { const v = verdict(key, h); return v ? ` In the study: ${evText(v)}.` : ''; };
   switch (nm) {
-    case 'd50': return f.d50 < 0 ? `Price is ${pct(f.d50)} below its 50-day average: selling is stretched, and stretched moves tended to snap back.${f.d50 < -0.1 ? ev('farBelow50') : ''}` : `Price is ${pct(f.d50)} above its 50-day average: the rally is stretched and tended to cool.${f.d50 > 0.1 ? ev('farAbove50') : ''}`;
+    case 'd50': return f.d50 < 0 ? `Price is ${pct(f.d50)} below its 50-day average.${f.d50 < -0.1 ? ev('farBelow50') : ''}` : `Price is ${pct(f.d50)} above its 50-day average.${f.d50 > 0.1 ? ev('farAbove50') : ''}`;
     case 'd200': return f.d200 < 0 ? `Price is ${pct(f.d200)} below its 200-day average, the long-term trend line.${ev('belowSma200')}` : `Price is ${pct(f.d200)} above its 200-day average.${ev('aboveSma200')}`;
-    case 'dd52': return f.dd52 < -0.3 ? `Price is ${pct(f.dd52)} below its 52-week high: a deep drawdown, which usually attracted buyers back.${ev('deepDraw')}` : f.dd52 > -0.05 ? `Price is within ${pct(f.dd52)} of its 52-week high, where gains tended to slow.${ev('near52High')}` : f.dd52 > -0.21 ? `Price is only ${pct(f.dd52)} below its 52-week high (a typical stock sits about 21% below), so there is less room for a rebound.` : `Price is ${pct(f.dd52)} below its 52-week high, a bigger pullback than usual.`;
-    case 'rsi': return f.rsi < 30 ? `RSI is ${f.rsi.toFixed(0)} (oversold): sellers have been in control for weeks and are often exhausted.${ev('rsi14lt30')}` : f.rsi > 70 ? `RSI is ${f.rsi.toFixed(0)} (overbought): buyers have been chasing.${ev('rsi14gt70')}` : `RSI is ${f.rsi.toFixed(0)}, neither oversold nor overbought.`;
-    case 'ret20': return f.ret20 < 0 ? `Down ${pct(f.ret20)} over the last month: recent sellers may be running out.` : `Up ${pct(f.ret20)} over the last month: some of the good news is already in the price.`;
-    case 'mom': return f.mom < 0 ? `Down ${pct(f.mom)} over the past year (excluding the last month): long-term losers tended to recover.${f.mom < -0.2 ? ev('mom12Weak') : ''}` : `Up ${pct(f.mom)} over the past year (excluding the last month): big winners tended to lag next.${f.mom > 0.2 ? ev('mom12Strong') : ''}`;
-    case 'adxDir': return f.adxDir < -25 ? `A strong downtrend (ADX ${Math.abs(f.adxDir).toFixed(0)}, sellers ahead): strong declines tended to end with a rebound.${ev('adxDown')}` : f.adxDir > 25 ? `A strong uptrend (ADX ${f.adxDir.toFixed(0)}, buyers ahead): strong advances tended to pause.${ev('adxUp')}` : `No strong trend (ADX ${Math.abs(f.adxDir).toFixed(0)}).`;
+    case 'dd52': return f.dd52 < -0.3 ? `Price is ${pct(f.dd52)} below its 52-week high, a deep drawdown.${ev('deepDraw')}` : f.dd52 > -0.05 ? `Price is within ${pct(f.dd52)} of its 52-week high.${ev('near52High')}` : f.dd52 > -0.21 ? `Price is ${pct(f.dd52)} below its 52-week high (a typical stock sits about 21% below).` : `Price is ${pct(f.dd52)} below its 52-week high, a bigger pullback than usual.`;
+    case 'rsi': return f.rsi < 30 ? `RSI is ${f.rsi.toFixed(0)} (oversold).${ev('rsi14lt30')}` : f.rsi > 70 ? `RSI is ${f.rsi.toFixed(0)} (overbought).${ev('rsi14gt70')}` : `RSI is ${f.rsi.toFixed(0)}, neither oversold nor overbought.`;
+    case 'ret20': return f.ret20 < 0 ? `Down ${pct(f.ret20)} over the last month.` : `Up ${pct(f.ret20)} over the last month.`;
+    case 'mom': return f.mom < 0 ? `Down ${pct(f.mom)} over the past year (excluding the last month).${f.mom < -0.2 ? ev('mom12Weak') : ''}` : `Up ${pct(f.mom)} over the past year (excluding the last month).${f.mom > 0.2 ? ev('mom12Strong') : ''}`;
+    case 'adxDir': return f.adxDir < -25 ? `A strong downtrend (ADX ${Math.abs(f.adxDir).toFixed(0)}, sellers ahead).${ev('adxDown')}` : f.adxDir > 25 ? `A strong uptrend (ADX ${f.adxDir.toFixed(0)}, buyers ahead).${ev('adxUp')}` : `No strong trend (ADX ${Math.abs(f.adxDir).toFixed(0)}).`;
     case 'pb': return f.pb < 0 ? `Price is below the lower Bollinger band.${ev('bbBelow')}` : f.pb > 1 ? `Price is above the upper Bollinger band.` : `Price is inside the Bollinger bands.`;
     case 'd20': return f.d20 < 0 ? `Price is ${pct(f.d20)} below its 20-day average.` : `Price is ${pct(f.d20)} above its 20-day average.`;
     default: return '';
@@ -395,8 +400,13 @@ export function horizonOutlook({ rows, price, valScore = null, severe = false })
     if (severe && SIGNALS.indexOf(signal) > 2) signal = 'Hold';
     // drivers: composite ingredients sorted by size
     const neutral = /neither|inside the Bollinger|No strong trend/;
+    // A higher composite score raised or lowered the outlook depending on the calibration (in the market-relative
+    // study the long-term score works in reverse), so each part's push follows that slope; when the top and
+    // bottom quintiles differ by less than 3 points, the parts are shown as neutral
+    const spread = C.hit[C.hit.length - 1] - C.hit[0];
+    const slope = Math.abs(spread) >= 3 ? Math.sign(spread) : 0;
     const drivers = Object.entries(comp.parts).filter(([, v]) => Math.abs(v) > 0.08).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-      .map(([nm, v]) => ({ dir: Math.sign(v), text: featureReason(nm, f, h) })).filter(d => d.text && !neutral.test(d.text)).slice(0, 5);
+      .map(([nm, v]) => ({ dir: Math.sign(v) * slope, text: featureReason(nm, f, h) })).filter(d => d.text && !neutral.test(d.text)).slice(0, 5);
     events.forEach(({ key, v }) => {
       const name = PATTERNS[key] ? PATTERNS[key][0] : { cciVeryLow: 'CCI below −200', cmfPos: 'Chaikin money flow strongly positive', cmfNeg: 'Chaikin money flow strongly negative', psarFlipDown: 'Parabolic SAR flipped down', rsiReclaim30: 'RSI climbed back above 30' }[key];
       const taught = PATTERNS[key] ? PATTERNS[key][1] : 0;
@@ -412,7 +422,7 @@ export function horizonOutlook({ rows, price, valScore = null, severe = false })
     if (h === 'short') {
       if (p < S.s20[i]) up.push(`A close back above the 20-day average (${fmtP(S.s20[i])}) would confirm the bounce has started.`);
       else up.push(`Holding above the 20-day average (${fmtP(S.s20[i])}) keeps the short-term picture intact.`);
-      if (S.r14[i] < 30) up.push('RSI climbing back above 30 has historically marked the turn (+0.5% vs normal over 2 weeks in the study).');
+      if (S.r14[i] < 30) { const v = verdict('rsiReclaim30', 'short'); up.push(`RSI climbing back above 30 is the classic sign of a turn${v ? ` (in the study: ${evText(v)} over 2 weeks)` : ''}.`); }
       up.push(`A break above the 10-day high (${fmtP(swingHigh)}) would show buyers taking control.`);
       down.push(`A close below the 10-day low (${fmtP(swingLow)}) would mean the selling is not finished: that is the natural stop.`);
       if (S.v[i] > 1.5 * S.v20[i] && S.c[i] < S.c[i - 1]) down.push('Today’s heavy-volume drop: watch for follow-through selling tomorrow.');

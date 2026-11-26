@@ -462,7 +462,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                     <ul className="space-y-1.5">
                       {o.drivers.slice(0, 7).map((d, k) => (
                         <li key={k} className="flex gap-2 text-[11px] leading-snug text-slate-300">
-                          <span className={`shrink-0 mt-0.5 text-[10px] ${d.dir > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{d.dir > 0 ? '▲' : '▼'}</span><span>{d.text}</span>
+                          <span className={`shrink-0 mt-0.5 text-[10px] ${d.dir > 0 ? 'text-emerald-400' : d.dir < 0 ? 'text-rose-400' : 'text-slate-500'}`}>{d.dir > 0 ? '▲' : d.dir < 0 ? '▼' : '•'}</span><span>{d.text}</span>
                         </li>
                       ))}
                       {o.drivers.length === 0 && <li className="text-[11px] text-slate-500">Nothing stretched or unusual right now, so the outlook is close to normal for this stock.</li>}
@@ -537,7 +537,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
-                  How it works: each indicator and pattern was tested on {STUDY3.universe}. For every state we measured how often the price was higher 10 and 120 trading days later, compared with that stock's normal rate. The chance shown starts from this stock's own normal rate and adds what today's signals were worth in the test, cut by a quarter to stay conservative.
+                  How it works: each indicator and pattern was tested on {STUDY3.universe}. For every state we measured how the stock did over the next 10 and 120 trading days against its index (Hang Seng Index or S&amp;P 500), and how often it beat the index. The chance shown starts from this stock's own rate of rising and adds what today's signals were worth against the index in the test, cut by a quarter to stay conservative.
                   Stops sit below the recent swing low and at least 1.5 daily ranges away (short-term) or about one six-month volatility away (long-term). Educational estimate, not investment advice.
                 </p>
               </div>
@@ -551,19 +551,18 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
               <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
                 <div className={label}>{name} · next {m.horizon} trading days</div>
                 <table className="w-full mt-2 text-[11px] font-mono">
-                  <thead><tr className="text-slate-500"><th className="text-left font-normal">Test period</th><th className="text-right font-normal">Most bullish 20%</th><th className="text-right font-normal">Most bearish 20%</th><th className="text-right font-normal">IC</th></tr></thead>
+                  <thead><tr className="text-slate-500"><th className="text-left font-normal">Test period</th><th className="text-right font-normal">Highest-score 20%</th><th className="text-right font-normal">Lowest-score 20%</th><th className="text-right font-normal">IC</th></tr></thead>
                   <tbody>
                     {['HK', 'US'].map(k => (
                       <tr key={k}>
                         <td className="text-slate-400 py-0.5 font-sans">{k === 'HK' ? 'Hong Kong' : 'United States'}</td>
-                        <td className="text-right text-emerald-400">+{m.top[k][0].toFixed(1)}% · +{m.top[k][1].toFixed(0)} pts</td>
-                        <td className="text-right text-rose-400">{m.bottom[k][0].toFixed(1)}% · {m.bottom[k][1].toFixed(0)} pts</td>
+                        {[m.top[k], m.bottom[k]].map((v, j) => <td key={j} className={`text-right ${v[0] >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{v[0] >= 0 ? '+' : ''}{v[0].toFixed(1)}% · {v[1] >= 0 ? '+' : ''}{v[1].toFixed(0)} pts</td>)}
                         <td className="text-right text-slate-300">{(k === 'HK' ? m.icTestHK : m.icTestUS).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Return vs the stock's normal, and change in how often it was higher. Jul 2023 – Nov 2026, not used for tuning. Worked on {m.posTestHK} HK and {m.posTestUS} US stocks; tuning-period IC {m.icTrainHK.toFixed(2)} (HK) / {m.icTrainUS.toFixed(2)} (US).</p>
+                <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Return vs the index, and change in how often the stock beat it. Jul 2023 – Nov 2026, not used for tuning. If the highest-score row is not above the lowest-score row, the model had no edge there. Worked on {m.posTestHK} HK and {m.posTestUS} US stocks; tuning-period IC {m.icTrainHK.toFixed(2)} (HK) / {m.icTrainUS.toFixed(2)} (US).</p>
               </div>
             );
             return (
@@ -638,7 +637,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
             const Cell = ({ v }) => {
               if (!v) return <span className="text-slate-600">Normal range</span>;
               if (!v.dir) return <span className="text-slate-500" title={evText(v)}>No reliable edge</span>;
-              return <span className={v.dir > 0 ? 'text-emerald-300' : 'text-rose-300'} title={`${v.agree} of 4 market/period tests agreed`}>{v.dir > 0 ? '▲' : '▼'} {evText(v).replace(' vs normal,', ' ·').replace(' often up', '')}</span>;
+              return <span className={v.dir > 0 ? 'text-emerald-300' : 'text-rose-300'} title={`${v.agree} of 4 market/period tests agreed`}>{v.dir > 0 ? '▲' : '▼'} {evText(v).replace(' vs the index,', ' ·').replace(' often ahead of it', '')}</span>;
             };
             const taughtTxt = (d) => (d > 0 ? 'Bullish' : d < 0 ? 'Bearish' : 'Neutral');
             const verdictTag = (key) => {
@@ -654,7 +653,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
               <div className={card}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <h4 className="text-sm font-bold text-white flex items-center gap-2"><Gauge className="w-4 h-4 text-[#00f2fe]" /> Indicators &amp; patterns</h4>
-                  <span className="text-[10px] text-slate-500">What today's reading was followed by in the real market: return vs normal · change in how often the price was higher</span>
+                  <span className="text-[10px] text-slate-500">What today's reading was followed by in the real market: return vs the index · change in how often the stock beat it</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[11px] min-w-[820px]">
@@ -730,7 +729,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                 </details>
 
                 <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
-                  What the test found: in both Hong Kong and the US, and in both periods, prices that had moved too far tended to come back. Being far below the 50-day average, oversold on RSI or CCI, in a strong downtrend or 30% below the 52-week high was followed by better-than-normal returns; being overbought, far above the averages or near the 52-week high was followed by weaker ones. Trend-following signals (crosses, cloud, Supertrend, SAR) mostly had little or reverse edge. Most candlesticks had no reliable edge; breakouts tended to fade and breakdowns tended to recover.
+                  What the test found (measured against the Hang Seng Index or S&amp;P 500, so whole-market swings are taken out): short-term &quot;oversold&quot; and &quot;overbought&quot; readings added little. Over about six months, relative strength tended to last: stocks that had risen most over the past year, sat above their 200-day average or were near their 52-week high beat the index more often than average, and stocks in deep drawdowns did not catch up. Most candlestick and chart patterns had no reliable edge. The sample is today's large caps, which flatters strength, so treat these as tendencies, not predictions.
                 </p>
               </div>
             );

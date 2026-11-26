@@ -43,6 +43,7 @@ Each study writes `results/<study>-<method>.json` (the full numbers) and `result
 | `study3.mjs` | Re-runs the evidence behind the 2-week and 6-month outlook |
 | `study2.mjs` | Re-runs the evidence behind the timing score |
 | `lib/data.mjs` → `indexCloser` | Index close on a date, for returns relative to the market |
+| `update_app_constants.mjs` | Writes a study3 result into `src/lib/horizonModel.js` (never hand-edit those numbers) |
 | `results/` | Output of the last run |
 
 ## How close the re-run is to the app's numbers (baseline method, snapshot 2026-11-25)
@@ -77,8 +78,9 @@ This changes the conclusions a lot:
 - **The timing score used by the trade plan** has a test IC of about 0.02 in HK and 0.08 in the US against the index, down from 0.19 and 0.13.
 - **Caveat: survivorship.** The sample is today's large caps, which were by definition yesterday's winners. That flatters momentum, so the strength result needs the walk-forward test (step 4) and the cross-sectional test (step 8) before the app relies on it.
 
-The app's constants are **not** changed yet. They should be updated once, after steps 3 and 4 fix the
-statistics, rather than three times. Full tables: `results/study3-market-compare.md` and
+**The app now uses these numbers.** `EVIDENCE`, `CALIB` and `STUDY3` in `src/lib/horizonModel.js` are written by
+`node research/update_app_constants.mjs`, and the wording in the app says "vs the index". They will be
+regenerated after steps 3 and 4. Full tables: `results/study3-market-compare.md` and
 `results/study2-market-compare.md`.
 
 ## Known issues (fixed in the next steps)
