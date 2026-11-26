@@ -3,7 +3,7 @@ import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
 import { aggregateNews, companySearchName } from '../lib/newsSentiment';
 import { getFundamentals, growthFromFundamentals, capmDiscount } from '../lib/fundamentals';
-import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, CROSS_SECTION, SIGNAL_SCALE } from '../lib/horizonModel';
+import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, CROSS_SECTION, SIGNAL_SCALE, PLAN_CALIB } from '../lib/horizonModel';
 import { valuationScore } from '../lib/indicators';
 import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan, valuationRange, impliedGrowth, dcfValue, pegFairPe, backtestSignals, STUDY_RESULTS, STUDY2, signalSeries, adxSeries, ichimokuSeries, supertrendSeries, stochasticSeries, obvSeries, fibonacciLevels, detectPatterns, ema, macd, rsi } from '../lib/indicators';
 
@@ -508,7 +508,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                     <div className="flex justify-between items-baseline"><span className="text-slate-400">Take-profit</span><span className="font-mono font-bold text-[#00f2fe]">{p2(o.target)} <span className="text-[10px] text-slate-500">{pctTxt(o.target / o.entry - 1)}</span></span></div>
                     <div className="flex justify-between items-baseline"><span className="text-slate-400">Stop-loss</span><span className="font-mono font-bold text-rose-400">{p2(o.stop)} <span className="text-[10px] text-slate-500">{pctTxt(o.stop / o.entry - 1)}</span></span></div>
                     <div className="flex justify-between items-baseline"><span className="text-slate-400">Reward : risk</span><span className="font-mono text-white">{o.rr.toFixed(1)} : 1</span></div>
-                    <div className="flex justify-between items-baseline"><span className="text-slate-400">Chance target is hit before stop</span><span className="font-mono text-white">≈{Math.round(o.probTarget * 20) * 5}%</span></div>
+                    <div className="flex justify-between items-baseline"><span className="text-slate-400">Within {h === 'short' ? '2 weeks' : '6 months'}: target first · stop first · neither</span><span className="font-mono text-white">≈{Math.round(o.probTarget * 100)}% · {Math.round(o.probStop * 100)}% · {Math.max(0, Math.round(o.probNeither * 100))}%</span></div>
+                    <div className="text-[10px] text-slate-500 leading-snug">{PLAN_CALIB[h] ? 'Odds corrected with what happened to thousands of past plans like this one (the raw model overstated them).' : 'Odds from simulated price paths; checked against past plans, see research/results/calibration.md.'}</div>
                   </div>
                 </div>
               );
