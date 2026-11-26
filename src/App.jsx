@@ -1444,6 +1444,36 @@ export default function App() {
   const totalInvestmentDeposits = useMemo(() => transactions.filter(t => t.category === 'Investment').reduce((sum, t) => sum + Number(t.amount), 0), [transactions]);
   const netSavings = totalIncome - totalExpense - totalInvestmentDeposits;
 
+  // This month and last month, for the dashboard cards (dates are stored as YYYY-MM-DD)
+  const monthSummary = useMemo(() => {
+    const now = new Date();
+    const key = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const thisKey = key(now);
+    const lastKey = key(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const sum = { income: 0, spent: 0, lastSpent: 0 };
+    transactions.forEach(t => {
+      const m = String(t.date || '').slice(0, 7);
+      const amt = Number(t.amount) || 0;
+      if (m === thisKey) {
+        if (t.type === 'income') sum.income += amt;
+        else if (t.type === 'expense' && t.category !== 'Investment') sum.spent += amt;
+      } else if (m === lastKey && t.type === 'expense' && t.category !== 'Investment' && Number(String(t.date).slice(8, 10)) <= now.getDate()) {
+        sum.lastSpent += amt; // same days of last month, so a part-month compares fairly
+      }
+    });
+    sum.monthName = now.toLocaleString('en-GB', { month: 'long' });
+    sum.changePct = sum.lastSpent > 0 ? Math.round(((sum.spent - sum.lastSpent) / sum.lastSpent) * 100) : null;
+    return sum;
+  }, [transactions]);
+
+  // Opens whatever a recommendation's button points to (used on the dashboard and in Analytics)
+  const runRecommendation = (rec) => {
+    if (rec.cta?.action === 'record') setShowAddTxModal(true);
+    else if (rec.cta?.action === 'budget') setShowBudgetModal(true);
+    else if (rec.cta?.action === 'profile') setShowProfileModal(true);
+    else if (rec.cta?.tab) { if (rec.cta.view) setPortfolioView(rec.cta.view); setActiveTab(rec.cta.tab); }
+  };
+
   // New Data Aggregations based on `account` field
   const accountBalances = useMemo(() => {
     const balances = {
@@ -2453,7 +2483,7 @@ ${JSON.stringify(snapshot)}`;
                 </LiquidLogo>
                 <div className="flex flex-col min-w-0">
                    <h1 translate="no" className="notranslate text-lg font-black tracking-wider text-white leading-none">A.F.A.</h1>
-                   <p className="text-[10px] text-cyan-400/80 font-medium tracking-wide uppercase mt-1.5 whitespace-nowrap leading-none">Automated Financial Assistant</p>
+                   <p className="text-[10px] text-cyan-400/80 font-medium tracking-tight uppercase mt-1.5 whitespace-nowrap leading-none">Automated Financial Assistant</p>
                 </div>
              </div>
           </div>
@@ -2778,32 +2808,67 @@ ${JSON.stringify(snapshot)}`;
                 <MobileHero insights={insights} hasData={transactions.length > 0} onOpen={() => setActiveTab('report')} />
                 <InstallHint />
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 md:!mt-0 afa-kpis">
+                {/* TOP NUDGE: the most important recommendation, so the next step is the first thing seen */}
+                {transactions.length > 0 && insights.recommendations[0] && (() => {
+                  const rec = insights.recommendations[0];
+                  const bar = rec.priority === 'high' ? '#ea3943' : rec.priority === 'medium' ? '#ffd166' : '#38bdf8';
+                  return (
+                    <div className="relative bg-[#161b22] p-5 pl-6 rounded-2xl border border-slate-800/80 shadow-md overflow-hidden md:!mt-0">
+                      <span className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: bar }} />
+                      <div className="flex flex-col md:flex-row md:items-center gap-4">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5 mb-1"><Lightbulb className="w-3.5 h-3.5" style={{ color: bar }} /> Your next step</p>
+                          <h3 className="text-base font-bold text-white">{rec.title}</h3>
+                          <p className="text-sm text-slate-400 mt-1 leading-relaxed">{rec.finding}</p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          {insights.recommendations.length > 1 && (
+                            <button onClick={() => setActiveTab('report')} className="text-xs font-semibold px-3 py-2 rounded-xl border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 cursor-pointer">
+                              See all {insights.recommendations.length}
+                            </button>
+                          )}
+                          {rec.cta && (
+                            <button onClick={() => runRecommendation(rec)} className="text-xs font-semibold px-3 py-2 rounded-xl border border-[#00f2fe]/30 bg-[#00f2fe]/10 text-[#00f2fe] hover:bg-[#00f2fe]/20 cursor-pointer flex items-center gap-1">
+                              {rec.cta.label} <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 afa-kpis ${transactions.length > 0 && insights.recommendations[0] ? "" : "md:!mt-0"}`}>
                   <div className="col-span-2 md:col-span-1 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-2">
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#00f2fe]"/> Total Balance</span>
                     </div>
-                    <div className="text-2xl font-black text-white mt-1 mb-2">
+                    <div className="text-2xl font-black text-white mt-1">
                        HK${(portfolioTotalValue + (netSavings > 0 ? netSavings : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
+                    <p className="text-[11px] text-slate-500 mt-1">Cash saved plus investments</p>
                   </div>
 
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-2">
-                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-blue-400"/> Total Income</span>
+                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-blue-400"/> Income in {monthSummary.monthName}</span>
                     </div>
-                    <div className="text-2xl font-black text-white mt-1 mb-2">
-                       HK${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className="text-2xl font-black text-white mt-1">
+                       HK${monthSummary.income.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
+                    <p className="text-[11px] text-slate-500 mt-1">HK${Math.round(totalIncome).toLocaleString()} in total</p>
                   </div>
 
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
                     <div className="flex justify-between items-start mb-2">
-                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><ArrowDownRight className="w-3.5 h-3.5 text-rose-400"/> Total Expenses</span>
+                       <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><ArrowDownRight className="w-3.5 h-3.5 text-rose-400"/> Spent in {monthSummary.monthName}</span>
                     </div>
-                    <div className="text-2xl font-black text-white mt-1 mb-2">
-                       HK${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <div className="text-2xl font-black text-white mt-1">
+                       HK${monthSummary.spent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
+                    <p className={`text-[11px] mt-1 ${monthSummary.changePct === null ? 'text-slate-500' : monthSummary.changePct > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                      {monthSummary.changePct === null ? 'Nothing to compare with last month yet' : `${monthSummary.changePct > 0 ? '↑' : '↓'} ${Math.abs(monthSummary.changePct)}% vs the same days last month`}
+                    </p>
                   </div>
                 </div>
 
@@ -2827,6 +2892,22 @@ ${JSON.stringify(snapshot)}`;
                      
                      <div className="flex-1 min-h-[220px] w-full relative">
                         <ResponsiveContainer width="100%" height="100%">
+                          {cashFlowView === 'Monthly' ? (
+                          /* Monthly totals are separate amounts, so bars show them honestly (a curve would invent values between months) */
+                          <BarChart data={cashFlowData} barGap={4}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
+                            <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${v/1000}k`} />
+                            <Tooltip
+                               cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                               formatter={(v, n) => [`HK$${Math.round(Number(v)).toLocaleString()}`, n]}
+                               contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                               itemStyle={{ color: '#fff' }}
+                            />
+                            <Bar dataKey="income" name="Income" fill="#00f2fe" fillOpacity={0.85} radius={[4, 4, 0, 0]} maxBarSize={28} />
+                            <Bar dataKey="expense" name="Expenses" fill="#f59e0b" fillOpacity={0.85} radius={[4, 4, 0, 0]} maxBarSize={28} />
+                          </BarChart>
+                          ) : (
                           <AreaChart data={cashFlowData}>
                             <defs>
                               <linearGradient id="incomeColor" x1="0" y1="0" x2="0" y2="1">
@@ -2848,13 +2929,14 @@ ${JSON.stringify(snapshot)}`;
                             <Area type="monotone" dataKey="income" stroke="#00f2fe" strokeWidth={2.5} fillOpacity={1} fill="url(#incomeColor)" name="Income" />
                             <Area type="monotone" dataKey="expense" stroke="#f59e0b" strokeWidth={2.5} fillOpacity={1} fill="url(#expenseColor)" name="Expenses" />
                           </AreaChart>
+                          )}
                         </ResponsiveContainer>
                      </div>
                   </div>
 
                   {/* Financial Health Index replacement */}
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md flex flex-col justify-center items-center">
-                    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2 self-start w-full">Financial Health Index</h3>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-2 self-start w-full">Budget Score</h3>
                     <p className="text-[10px] text-slate-400 mb-6 text-left w-full">50/30/20 & Rent Burden Evaluation</p>
                     
                     <div className="relative w-48 h-28 flex flex-col items-center justify-end">
@@ -2894,7 +2976,7 @@ ${JSON.stringify(snapshot)}`;
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={balanceOverTime}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
-                        <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
+                        <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} minTickGap={32} />
                         <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000).toFixed(0)}k`} />
                         <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
                         <Line type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={3} dot={false} />
@@ -3236,12 +3318,7 @@ ${JSON.stringify(snapshot)}`;
                     )}
                     {(showAllRecs ? insights.recommendations : insights.recommendations.slice(0, 4)).map((rec, idx) => {
                       const tone = rec.priority === 'high' ? { badge: 'bg-rose-500/15 text-rose-300 border-rose-500/30', bar: '#ea3943' } : rec.priority === 'medium' ? { badge: 'bg-amber-500/15 text-amber-300 border-amber-500/30', bar: '#ffd166' } : { badge: 'bg-sky-500/15 text-sky-300 border-sky-500/30', bar: '#38bdf8' };
-                      const go = () => {
-                        if (rec.cta?.action === 'record') setShowAddTxModal(true);
-                        else if (rec.cta?.action === 'budget') setShowBudgetModal(true);
-                        else if (rec.cta?.action === 'profile') setShowProfileModal(true);
-                        else if (rec.cta?.tab) { if (rec.cta.view) setPortfolioView(rec.cta.view); setActiveTab(rec.cta.tab); }
-                      };
+                      const go = () => runRecommendation(rec);
                       return (
                         <div key={rec.id} className="relative p-4 pl-5 rounded-2xl bg-[#0d1117] border border-slate-800 overflow-hidden">
                           <span className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: tone.bar }} />
