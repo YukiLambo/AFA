@@ -2805,7 +2805,7 @@ ${JSON.stringify(snapshot)}`;
             {/* DASHBOARD TAB */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6 anim-slide-in">
-                <MobileHero insights={insights} hasData={transactions.length > 0} onOpen={() => setActiveTab('report')} />
+                <MobileHero insights={insights} hasData={transactions.length > 0} onOpen={() => setActiveTab('report')} onAsk={() => setActiveTab('advisor')} />
                 <InstallHint />
 
                 {/* TOP NUDGE: the most important recommendation, so the next step is the first thing seen */}
