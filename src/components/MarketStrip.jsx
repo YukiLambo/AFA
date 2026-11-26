@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useMoney } from '../lib/currency';
 
-// Live market strip under the top bar (indices, USD/HKD, Bitcoin), refreshed every minute.
+// Live market strip under the top bar (indices, the dollar against the home currency, Bitcoin), refreshed every minute.
 // Quotes: Tencent (qt.gtimg.cn, GBK text). Bitcoin: CoinGecko.
 const ITEMS = [
   { code: 'hkHSI', label: 'HSI' },
@@ -23,6 +24,7 @@ function hkMarketStatus(now = new Date()) {
 }
 
 export default function MarketStrip() {
+  const money = useMoney();
   const [quotes, setQuotes] = useState({});
   const [clock, setClock] = useState(new Date());
 
@@ -73,7 +75,11 @@ export default function MarketStrip() {
         <span className="font-mono text-[10px] text-slate-500">{hkTime} HKT</span>
       </div>
       <div className="flex items-center overflow-x-auto no-scrollbar">
-        {ITEMS.map(i => cell(i.label, quotes[i.code], i.fx))}
+        {ITEMS.filter(i => !i.fx || money.currency === 'HKD').map(i => cell(i.label, quotes[i.code], i.fx))}
+        {/* Other home currencies: the dollar rate from the app's FX feed (no intraday change) */}
+        {money.currency !== 'HKD' && (money.currency === 'USD'
+          ? cell('EUR/USD', { price: 1 / (money.rates.EUR || 1), pct: null }, true)
+          : cell(`USD/${money.currency}`, { price: money.rates[money.currency] || 0, pct: null }, true))}
         {cell('BTC', quotes.btc)}
       </div>
     </div>

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { CURRENCIES, useMoney } from '../lib/currency';
 import { Plus, Trash2, Edit2, Landmark, Bitcoin, PiggyBank, Gem, Building2, ShieldCheck, Briefcase, LineChart, Package, X, Loader2, Zap, AlertTriangle } from 'lucide-react';
 
 // Assets other than listed stocks: bonds, crypto, deposits, gold, property, insurance, MPF, funds...
 // Each one is a document in users/{uid}/assets:
-//   { type, name, coin?, quantity?, value, cost?, currency, rate?, maturity?, note?, lastPriceHkd? }
+//   { type, name, coin?, quantity?, value, cost?, currency, rate?, maturity?, note?, lastPriceUsd? (older docs: lastPriceHkd) }
 // `value` is today's value in `currency` (for crypto it is quantity × live price instead).
+// Everything shown is converted into the user's home currency with live FX (see lib/currency.js).
 
 export const ASSET_TYPES = [
   { id: 'bond', label: 'Bond', icon: Landmark, color: '#a78bfa', hint: 'Government, iBond, Silver Bond, corporate' },
@@ -65,28 +67,38 @@ export function warrantMetrics(a, quotes = {}, now = new Date()) {
   return { kind, W, S, K, ratio, call, days, intrinsic, gearing, callDistancePct, liveW: !!quotes[hkCode(a.code)]?.price };
 }
 
-// Today's value of one asset in HKD
-export function assetValueHkd(a, cryptoPrices = {}, usdHkd = 7.8, quotes = {}) {
+// Live price of a coin in the home currency: CoinGecko's own quote when it has that currency, else USD converted
+export function cryptoPriceHome(p, money) {
+  if (!p) return 0;
+  return p[money.currency.toLowerCase()] || (p.usd ? money.toHome(p.usd, 'USD') : 0);
+}
+
+// Today's value of one asset in the home currency (warrants trade in HK$, crypto is priced live)
+export function assetValue(a, cryptoPrices = {}, money, quotes = {}) {
   if (a.type === 'warrant') {
     const live = quotes[hkCode(a.code)]?.price;
-    if (live > 0) return (Number(a.quantity) || 0) * live;
+    if (live > 0) return money.toHome((Number(a.quantity) || 0) * live, 'HKD');
   }
   if (a.type === 'crypto') {
-    const live = cryptoPrices[a.coin]?.hkd;
-    const price = live || Number(a.lastPriceHkd) || 0;
-    if (price > 0) return (Number(a.quantity) || 0) * price;
+    const qty = Number(a.quantity) || 0;
+    const live = cryptoPriceHome(cryptoPrices[a.coin], money);
+    if (live > 0) return qty * live;
+    if (Number(a.lastPriceUsd) > 0) return money.toHome(qty * Number(a.lastPriceUsd), 'USD');
+    if (Number(a.lastPriceHkd) > 0) return money.toHome(qty * Number(a.lastPriceHkd), 'HKD');
   }
-  return (Number(a.value) || 0) * (a.currency === 'USD' ? usdHkd : 1);
+  return money.toHome(Number(a.value) || 0, a.currency || 'HKD');
 }
-export const assetCostHkd = (a, usdHkd = 7.8) => (Number(a.cost) || 0) * (a.currency === 'USD' ? usdHkd : 1);
-// Yearly coupon / interest for bonds and deposits, in HKD
-export const assetIncomeHkd = (a, usdHkd = 7.8) => ((a.type === 'bond' || a.type === 'cash') && Number(a.rate) > 0
-  ? (Number(a.faceValue) || Number(a.value) || 0) * (a.currency === 'USD' ? usdHkd : 1) * Number(a.rate) / 100 : 0);
+export const assetCost = (a, money) => money.toHome(Number(a.cost) || 0, a.currency || 'HKD');
+// Yearly coupon / interest for bonds and deposits, in the home currency
+export const assetIncome = (a, money) => ((a.type === 'bond' || a.type === 'cash') && Number(a.rate) > 0
+  ? money.toHome((Number(a.faceValue) || Number(a.value) || 0) * Number(a.rate) / 100, a.currency || 'HKD') : 0);
 
-const hkd = (n) => `HK$${Math.round(n || 0).toLocaleString('en-HK')}`;
-const blank = (type = 'bond') => ({ type, name: '', coin: 'bitcoin', quantity: '', value: '', faceValue: '', cost: '', currency: 'HKD', rate: '', maturity: '', note: '', code: '', kind: 'call', underlying: '', strike: '', callLevel: '', ratio: '', expiry: '', unitPrice: '' });
+const blank = (type = 'bond', currency = 'USD') => ({ type, name: '', coin: 'bitcoin', quantity: '', value: '', faceValue: '', cost: '', currency, rate: '', maturity: '', note: '', code: '', kind: 'call', underlying: '', strike: '', callLevel: '', ratio: '', expiry: '', unitPrice: '' });
 
-export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd, quotes = {}, onAdd, onUpdate, onDelete }) {
+export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, quotes = {}, onAdd, onUpdate, onDelete }) {
+  const money = useMoney();
+  const hkd = (n) => money.fmt0(n);
+  const coinPrice = (id) => cryptoPriceHome(cryptoPrices[id], money);
   const [form, setForm] = useState(null);       // null | asset draft (with id when editing)
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -104,8 +116,8 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
     const doc = {
       type: f.type,
       name: (f.name || '').trim() || (f.type === 'crypto' ? coin?.name : f.type === 'warrant' ? `${hkCode(f.underlying) || ''} ${warrantKind(f.kind).label}`.trim() : assetType(f.type).label),
-      currency: f.type === 'crypto' ? 'HKD' : f.currency,
-      value: f.type === 'crypto' ? Math.round((Number(f.quantity) || 0) * (cryptoPrices[f.coin]?.hkd || 0) * 100) / 100 : Number(f.value) || 0,
+      currency: f.type === 'crypto' ? money.currency : f.currency,
+      value: f.type === 'crypto' ? Math.round((Number(f.quantity) || 0) * coinPrice(f.coin) * 100) / 100 : Number(f.value) || 0,
       cost: Number(f.cost) || 0,
       note: (f.note || '').slice(0, 120),
       updatedAt: new Date().toISOString()
@@ -120,7 +132,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
         cost: Number(f.cost) || 0
       });
     }
-    if (f.type === 'crypto') Object.assign(doc, { coin: f.coin, quantity: Number(f.quantity) || 0, lastPriceHkd: cryptoPrices[f.coin]?.hkd || Number(f.lastPriceHkd) || 0 });
+    if (f.type === 'crypto') Object.assign(doc, { coin: f.coin, quantity: Number(f.quantity) || 0, lastPriceUsd: cryptoPrices[f.coin]?.usd || Number(f.lastPriceUsd) || 0 });
     if (f.type === 'bond' || f.type === 'cash') Object.assign(doc, { rate: Number(f.rate) || 0, maturity: f.maturity || '', faceValue: Number(f.faceValue) || 0 });
     setSaving(true);
     try {
@@ -134,8 +146,8 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
     }
   };
 
-  const total = assets.reduce((s, a) => s + assetValueHkd(a, cryptoPrices, usdHkd, quotes), 0);
-  const yearlyIncome = assets.reduce((s, a) => s + assetIncomeHkd(a, usdHkd), 0);
+  const total = assets.reduce((s, a) => s + assetValue(a, cryptoPrices, money, quotes), 0);
+  const yearlyIncome = assets.reduce((s, a) => s + assetIncome(a, money), 0);
   const label = 'block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1';
   const input = 'w-full px-3 py-2.5 glass-input rounded-xl text-sm text-white';
 
@@ -149,7 +161,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
             {cryptoStatus === 'down' && <span className="text-amber-400"> · crypto prices unavailable, showing last saved</span>}
           </p>
         </div>
-        <button onClick={() => { setForm(blank()); setError(''); }} className="self-start sm:self-auto bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer">
+        <button onClick={() => { setForm(blank('bond', money.currency)); setError(''); }} className="self-start sm:self-auto bg-[#00f2fe] text-[#0d1117] hover:bg-cyan-400 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer">
           <Plus className="w-4 h-4" /> Add Other Asset
         </button>
       </div>
@@ -165,7 +177,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
               <tr>
                 <th className="text-left py-3 px-5">Asset</th>
                 <th className="text-left py-3 px-5">Details</th>
-                <th className="text-right py-3 px-5">Value (HKD)</th>
+                <th className="text-right py-3 px-5">Value ({money.currency})</th>
                 <th className="text-right py-3 px-5">Gain / Loss</th>
                 <th className="py-3 px-5"></th>
               </tr>
@@ -174,9 +186,9 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
               {assets.map(a => {
                 const t = assetType(a.type);
                 const Icon = t.icon;
-                const value = assetValueHkd(a, cryptoPrices, usdHkd, quotes);
+                const value = assetValue(a, cryptoPrices, money, quotes);
                 const wm = a.type === 'warrant' ? warrantMetrics(a, quotes) : null;
-                const cost = assetCostHkd(a, usdHkd);
+                const cost = assetCost(a, money);
                 const gain = cost > 0 ? value - cost : null;
                 const coin = COINS.find(c => c.id === a.coin);
                 const live = cryptoPrices[a.coin];
@@ -193,7 +205,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
                       </div>
                     </td>
                     <td className="py-3 px-5 text-xs text-slate-400">
-                      {a.type === 'crypto' && <>{Number(a.quantity).toLocaleString('en-HK', { maximumFractionDigits: 8 })} {coin?.symbol} · {live ? <>{hkd(live.hkd)} <span className={live.change24h >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{live.change24h >= 0 ? '+' : ''}{Number(live.change24h || 0).toFixed(1)}% 24h</span></> : 'last saved price'}</>}
+                      {a.type === 'crypto' && <>{Number(a.quantity).toLocaleString('en-US', { maximumFractionDigits: 8 })} {coin?.symbol} · {live ? <>{money.fmt(coinPrice(a.coin))} <span className={live.change24h >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{live.change24h >= 0 ? '+' : ''}{Number(live.change24h || 0).toFixed(1)}% 24h</span></> : 'last saved price'}</>}
                       {(a.type === 'bond' || a.type === 'cash') && <>{a.rate ? `${a.rate}% p.a.` : ''}{a.maturity ? `${a.rate ? ' · ' : ''}matures ${a.maturity}${days !== null && days >= 0 && days <= 90 ? ` (${days} days)` : days !== null && days < 0 ? ' (matured)' : ''}` : ''}</>}
                       {wm && (
                         <div className="space-y-0.5">
@@ -211,7 +223,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
                           )}
                         </div>
                       )}
-                      {a.currency === 'USD' && a.type !== 'crypto' && a.type !== 'warrant' && <span className="ml-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">USD</span>}
+                      {a.currency && a.currency !== money.currency && a.type !== 'crypto' && a.type !== 'warrant' && <span className="ml-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">{a.currency}</span>}
                       {a.note && <div className="text-[10px] text-slate-500 truncate max-w-[220px]">{a.note}</div>}
                     </td>
                     <td className="py-3 px-5 text-right font-mono font-bold text-white">{hkd(value)}</td>
@@ -220,7 +232,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
                       {gain !== null && cost > 0 && <span className="block text-[10px]">{gain >= 0 ? '+' : ''}{((gain / cost) * 100).toFixed(1)}%</span>}
                     </td>
                     <td className="py-3 px-5 text-right whitespace-nowrap">
-                      <button onClick={() => { setForm({ ...blank(a.type), ...a, quantity: a.quantity ?? '', value: a.value ?? '', cost: a.cost || '', rate: a.rate || '', faceValue: a.faceValue || '', strike: a.strike || '', callLevel: a.callLevel || '', ratio: a.ratio || '', unitPrice: a.unitPrice || '' }); setError(''); }} aria-label={`Edit ${a.name}`} className="text-slate-500 hover:text-white p-1 cursor-pointer"><Edit2 className="w-4 h-4" /></button>
+                      <button onClick={() => { setForm({ ...blank(a.type, money.currency), ...a, quantity: a.quantity ?? '', value: a.value ?? '', cost: a.cost || '', rate: a.rate || '', faceValue: a.faceValue || '', strike: a.strike || '', callLevel: a.callLevel || '', ratio: a.ratio || '', unitPrice: a.unitPrice || '' }); setError(''); }} aria-label={`Edit ${a.name}`} className="text-slate-500 hover:text-white p-1 cursor-pointer"><Edit2 className="w-4 h-4" /></button>
                       <button onClick={() => onDelete(a.id)} aria-label={`Delete ${a.name}`} className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                     </td>
                   </tr>
@@ -305,7 +317,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
                 </div>
                 <p className="text-[11px] text-slate-400">
                   {quotes[hkCode(form.code)]?.price
-                    ? <>Live price HK${quotes[hkCode(form.code)].price} → worth <span className="text-white font-bold">{hkd((Number(form.quantity) || 0) * quotes[hkCode(form.code)].price)}</span></>
+                    ? <>Live price HK${quotes[hkCode(form.code)].price} → worth <span className="text-white font-bold">{hkd(money.toHome((Number(form.quantity) || 0) * quotes[hkCode(form.code)].price, 'HKD'))}</span></>
                     : 'The live price is looked up from the code after saving; until then the price you enter is used.'}
                 </p>
                 <p className="text-[11px] text-rose-300/80 flex gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> Warrants lose time value every day and can expire worthless; CBBCs are terminated early if the underlying touches the call level.</p>
@@ -323,8 +335,8 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
                   <input type="number" step="any" min="0" value={form.quantity} onChange={e => set({ quantity: e.target.value })} placeholder="0.05" className={input} />
                 </div>
                 <div className="col-span-2 text-[11px] text-slate-400">
-                  {cryptoPrices[form.coin]?.hkd
-                    ? <>Live price {hkd(cryptoPrices[form.coin].hkd)} → worth <span className="text-white font-bold">{hkd((Number(form.quantity) || 0) * cryptoPrices[form.coin].hkd)}</span></>
+                  {coinPrice(form.coin)
+                    ? <>Live price {money.fmt(coinPrice(form.coin))} → worth <span className="text-white font-bold">{hkd((Number(form.quantity) || 0) * coinPrice(form.coin))}</span></>
                     : cryptoStatus === 'loading' ? <span className="inline-flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Fetching live price…</span> : 'Live price unavailable right now; the value updates once prices load.'}
                 </div>
               </div>
@@ -332,7 +344,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
               <>
                 <div>
                   <label className={label}>Name</label>
-                  <input type="text" value={form.name} onChange={e => set({ name: e.target.value })} placeholder={form.type === 'bond' ? 'e.g. HK Silver Bond 2025' : form.type === 'cash' ? 'e.g. HSBC 6-month time deposit' : form.type === 'property' ? 'e.g. Flat in Sha Tin' : 'Name'} className={input} maxLength={60} />
+                  <input type="text" value={form.name} onChange={e => set({ name: e.target.value })} placeholder={form.type === 'bond' ? 'e.g. Government bond 2030' : form.type === 'cash' ? 'e.g. 6-month time deposit' : form.type === 'property' ? 'e.g. Apartment' : 'Name'} className={input} maxLength={60} />
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">
@@ -342,7 +354,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
                   <div>
                     <label className={label}>Currency</label>
                     <select value={form.currency} onChange={e => set({ currency: e.target.value })} className={`${input} [&>option]:bg-[#161b22]`}>
-                      <option value="HKD">HKD</option><option value="USD">USD</option>
+                      {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
                     </select>
                   </div>
                 </div>

@@ -17,8 +17,9 @@ import LiquidLogo from './effects/LiquidLogo';
 import LiquidGlassLayer from './effects/LiquidGlassLayer';
 import PaperTrading from './components/PaperTrading';
 import StockAnalysis from './components/StockAnalysis';
-import OtherAssets, { assetValueHkd, assetType, hkCode, warrantMetrics } from './components/OtherAssets';
+import OtherAssets, { assetValue, assetType, hkCode, warrantMetrics } from './components/OtherAssets';
 import { buildInsights } from './lib/insights';
+import { CURRENCIES, MoneyContext, makeMoney, formatMoney, convert, guessCurrency, loadFxRates, cachedFxRates, niceAmount } from './lib/currency';
 import TransactionComposer, { categoryIcon, nextOccurrence, todayLocal, repeatLabel } from './components/TransactionComposer';
 
 // --- FIREBASE INTEGRATION ---
@@ -50,7 +51,6 @@ const getCollectionPath = (userId, collectionName) => {
 };
 
 // --- LIVE MARKET DATA (no proxy needed: these endpoints allow browser requests directly) ---
-const DEFAULT_USD_HKD_RATE = 7.82;
 const QUOTE_REFRESH_MS = 30 * 1000;      // stock prices refresh every 30 seconds
 const NEWS_REFRESH_MS = 5 * 60 * 1000;   // news refreshes every 5 minutes
 
@@ -388,7 +388,7 @@ const simulateDebtPayoff = (debtList, extra, strategy) => {
     payoffOrder,
     stuck,
     budget,
-    debtFreeLabel: stuck ? '' : done.toLocaleDateString('en-HK', { month: 'short', year: 'numeric' })
+    debtFreeLabel: stuck ? '' : done.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })
   };
 };
 
@@ -549,10 +549,17 @@ const AppIcon = ({ className = "w-9 h-9", animateStroke = false }) => (
   </svg>
 );
 
+// A new visitor's currency (from the browser language) and starter budget figures in that currency
+function starterProfile() {
+  const currency = guessCurrency();
+  const rates = cachedFxRates();
+  const scaled = (hk) => String(niceAmount(convert(hk, 'HKD', currency, rates)));
+  return { currency, monthlyIncome: scaled(30000), weeklyMaxSpend: scaled(3500), weeklyMinSavings: scaled(1200) };
+}
+
 export default function App() {
   // Authentication & App State
   const [user, setUser] = useState(null);
-  const applePay = useApplePaySync(db, user); // Apple Pay taps sent from the iPhone shortcut
   const [authLoading, setAuthLoading] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const fx = useFx(); // liquid-metal / liquid-glass visual effects (on/off)
@@ -598,27 +605,47 @@ export default function App() {
   }, [authMode, inspirationalQuotes]);
 
   // Tailored User Profile State
-  const [userProfile, setUserProfile] = useState({
+  const [userProfile, setUserProfile] = useState(() => ({
     name: '',
     email: '',
     password: '',
     goal: '',
     riskTolerance: '',
     targetAmount: '',
-    monthlyIncome: '30000',
-    weeklyMaxSpend: '3500',
-    weeklyMinSavings: '1200',
+    ...starterProfile(),
     budgetProfile: 'Standard',
     profilePic: '',
     gender: 'Female',
     phone: '',
     birthday: '',
     homeAddress: ''
-  });
+  }));
+
+  // Preferred currency + live FX rates (units per USD). Personal amounts are in the home currency;
+  // stock, crypto and foreign-currency asset values are converted into it.
+  const [fxRates, setFxRates] = useState(() => cachedFxRates());
+  const [fxStatus, setFxStatus] = useState({ live: false, at: null });
+  useEffect(() => {
+    let alive = true;
+    const load = (force) => loadFxRates({ force }).then(r => { if (alive) { setFxRates(r.rates); setFxStatus({ live: r.live, at: r.at }); } });
+    load(false);
+    const timer = setInterval(() => { if (!document.hidden) load(true); }, 6 * 60 * 60 * 1000);
+    return () => { alive = false; clearInterval(timer); };
+  }, []);
+  const homeCurrency = userProfile.currency || 'HKD';
+  const money = useMemo(() => makeMoney(homeCurrency, fxRates), [homeCurrency, fxRates]);
+  const { fmt, fmt0, fmtAuto, fmtHK, toHome } = money;
+  // Starter budget figures (set for Hong Kong) scaled to the home currency
+  const budgetDefaults = useMemo(() => ({
+    monthlyIncome: String(niceAmount(toHome(30000, 'HKD'))),
+    weeklyMaxSpend: String(niceAmount(toHome(3500, 'HKD'))),
+    weeklyMinSavings: String(niceAmount(toHome(1200, 'HKD')))
+  }), [money]);
+  const applePay = useApplePaySync(db, user, homeCurrency); // Apple Pay taps sent from the iPhone shortcut
 
   // Data States
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [transactions, setTransactions] = useState([]);
+  const [rawTransactions, setRawTransactions] = useState([]); // as stored; see `transactions` below
   // Saved holdings (Firestore) + live quotes (memory). `portfolio` = holdings with the latest live price applied.
   const [portfolioDocs, setPortfolioDocs] = useState([]);
   const [liveQuotes, setLiveQuotes] = useState({});
@@ -639,7 +666,7 @@ export default function App() {
   const [tradePreset, setTradePreset] = useState(null);
   const [watchlist, setWatchlist] = useState([]); // [{ symbol, name }] saved on the profile // { symbol, at } handed from Stock Analysis to the simulator
   const [paperAccount, setPaperAccount] = useState(null);
-  // Other assets (bonds, crypto, deposits, gold, property...) + live crypto prices in HKD
+  // Other assets (bonds, crypto, deposits, gold, property...) + live crypto prices (USD and the home currency)
   const [otherAssets, setOtherAssets] = useState([]);
   const [cryptoPrices, setCryptoPrices] = useState({});
   const [cryptoStatus, setCryptoStatus] = useState('idle');
@@ -731,7 +758,7 @@ export default function App() {
   const [isSavingDebt, setIsSavingDebt] = useState(false);
   // Each debt the user owes: { id, name, type, balance, apr, minPay } (saved to the profile as `debts`)
   const [debts, setDebts] = useState([]);
-  const [debtExtra, setDebtExtra] = useState(0); // extra HKD per month on top of all minimum payments
+  const [debtExtra, setDebtExtra] = useState(0); // extra per month (home currency) on top of all minimum payments
   const [debtStrategy, setDebtStrategy] = useState('avalanche');
   const [debtDraft, setDebtDraft] = useState({ name: '', type: 'Credit card', balance: '', apr: '', minPay: '' });
   const [debtSaveState, setDebtSaveState] = useState({ status: 'idle', at: null, message: '' });
@@ -747,7 +774,19 @@ export default function App() {
   // Modal Controls
   const [showAddTxModal, setShowAddTxModal] = useState(false);
   // Repeating transactions: rules in users/{uid}/recurring, each one writes a transaction on its due dates
-  const [recurringRules, setRecurringRules] = useState([]);
+  const [rawRecurringRules, setRecurringRules] = useState([]);
+  // Each record keeps the currency it was entered in (records from before the setting are HKD).
+  // Everything downstream works in the home currency, so convert once here.
+  const transactions = useMemo(() => rawTransactions.map(t => {
+    const cur = t.currency || 'HKD';
+    if (cur === homeCurrency) return t;
+    return { ...t, amount: Math.round(toHome(Number(t.amount) || 0, cur) * 100) / 100, originalAmount: t.amount, originalCurrency: cur };
+  }), [rawTransactions, money]);
+  const recurringRules = useMemo(() => rawRecurringRules.map(r => {
+    const cur = r.template?.currency || 'HKD';
+    if (!r.template || cur === homeCurrency) return r;
+    return { ...r, template: { ...r.template, amount: Math.round(toHome(Number(r.template.amount) || 0, cur) * 100) / 100 } };
+  }), [rawRecurringRules, money]);
   const recurringRunRef = useRef(new Set());
 
   const [showAddStockModal, setShowAddStockModal] = useState(false);
@@ -776,7 +815,7 @@ export default function App() {
   // --- 2. FIRESTORE DATA SYNC ---
   useEffect(() => {
     if (!user) {
-      setTransactions([]);
+      setRawTransactions([]);
       setRecurringRules([]);
       recurringRunRef.current = new Set();
       setPortfolioDocs([]);
@@ -789,7 +828,7 @@ export default function App() {
       settingsLoadedRef.current = false;
       chatLoadedRef.current = false;
       setChatMessages([{ role: 'model', text: DEFAULT_CHAT_GREETING }]);
-      setUserProfile({ name: '', email: '', password: '', goal: '', riskTolerance: '', targetAmount: '', monthlyIncome: '30000', weeklyMaxSpend: '3500', weeklyMinSavings: '1200' });
+      setUserProfile({ name: '', email: '', password: '', goal: '', riskTolerance: '', targetAmount: '', ...starterProfile() });
       setIsDebtLoaded(false);
       return;
     }
@@ -801,7 +840,8 @@ export default function App() {
     const unsubProfile = onSnapshot(profileRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setUserProfile(prev => ({ ...prev, ...data }));
+        // Profiles saved before the currency setting existed were all recorded in HKD
+        setUserProfile(prev => ({ ...prev, currency: 'HKD', ...data, goal: data.goal === 'HK Property Down Payment' ? 'Property Down Payment' : (data.goal ?? prev.goal) }));
         
         // Restore everything the user typed last time (runs once per login)
         if (!settingsLoadedRef.current) {
@@ -822,7 +862,8 @@ export default function App() {
           if (saved.simRate !== undefined) setSimRate(Number(saved.simRate));
           if (saved.simYears !== undefined) setSimYears(Number(saved.simYears));
           if (saved.mpfIncome !== undefined) setMpfIncome(Number(saved.mpfIncome));
-          else if (data.monthlyIncome) setMpfIncome(Number(data.monthlyIncome));
+          // The MPF calculator works in HK$; convert the profile income if it is in another currency
+          else if (data.monthlyIncome) setMpfIncome(Math.round(convert(Number(data.monthlyIncome), data.currency || 'HKD', 'HKD', cachedFxRates())));
           if (saved.tvcMonthly !== undefined) setTvcMonthly(Number(saved.tvcMonthly));
           if (saved.cashFlowView) setCashFlowView(saved.cashFlowView);
           setIsDebtLoaded(true);
@@ -849,7 +890,7 @@ export default function App() {
       const txs = [];
       snapshot.forEach(doc => txs.push({ id: doc.id, ...doc.data() }));
       txs.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setTransactions(txs);
+      setRawTransactions(txs);
     }, (err) => console.error("TX sync error:", err));
 
     // Sync repeating-transaction rules
@@ -942,11 +983,14 @@ export default function App() {
     if (!ids) return;
     setCryptoStatus(prev => (prev === 'ok' ? 'ok' : 'loading'));
     try {
-      const res = await fetchWithTimeout(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=hkd,usd&include_24hr_change=true`, 8000);
+      const home = homeCurrency.toLowerCase();
+      const vs = [...new Set(['usd', home])].join(',');
+      const res = await fetchWithTimeout(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=${vs}&include_24hr_change=true`, 8000);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       const next = {};
-      Object.entries(json).forEach(([id, v]) => { if (v?.hkd) next[id] = { hkd: v.hkd, usd: v.usd, change24h: v.hkd_24h_change ?? v.usd_24h_change ?? 0 }; });
+      // Keeps USD (always) plus the home currency when CoinGecko quotes it; otherwise USD is converted with live FX
+      Object.entries(json).forEach(([id, v]) => { if (v?.usd) next[id] = { usd: v.usd, ...(v[home] ? { [home]: v[home] } : {}), change24h: v[`${home}_24h_change`] ?? v.usd_24h_change ?? 0 }; });
       setCryptoPrices(prev => ({ ...prev, ...next }));
       setCryptoStatus('ok');
     } catch (err) {
@@ -961,7 +1005,7 @@ export default function App() {
     fetchCryptoPrices(ids);
     const timer = setInterval(() => { if (!document.hidden) fetchCryptoPrices(ids); }, 60000);
     return () => clearInterval(timer);
-  }, [user, coinKey]);
+  }, [user, coinKey, homeCurrency]);
 
   // Live prices for warrants / CBBCs and their underlyings (same HK feed as stocks), every 60 s
   const warrantKey = useMemo(() => [...new Set(otherAssets.filter(a => a.type === 'warrant').flatMap(a => [a.code, a.underlying]).filter(Boolean).map(hkCode))].sort().join(','), [otherAssets]);
@@ -1015,7 +1059,7 @@ export default function App() {
           // HK and US trade on different days: use the most recent close on or before this date
           const past = series[i].filter(r => r.date <= date);
           const close = past.length ? past[past.length - 1].close : (series[i][0]?.close || 0);
-          const rate = (liveQuotes[p.symbol].currency === 'USD') ? DEFAULT_USD_HKD_RATE : 1;
+          const rate = toHome(1, liveQuotes[p.symbol].currency || 'HKD');
           value += Number(p.shares) * close * rate;
         });
         const d = new Date(`${date}T00:00:00`);
@@ -1120,7 +1164,7 @@ export default function App() {
       { id: 'portfolio', label: 'Investments & Stocks', icon: TrendingUp, keywords: 'stock equity portfolio shares crypto asset' },
       { id: 'simulator', label: 'Wealth Planner', icon: Sliders, keywords: 'wealth simulation compounding plan scenario' },
       { id: 'debt', label: 'Debt Health', icon: CreditCard, keywords: 'credit card debt loan repayment interest' },
-      { id: 'mpf', label: 'MPF & Tax', icon: PiggyBank, keywords: 'tax mpf tvc deduction savings salary' },
+      { id: 'mpf', label: 'HK MPF & Tax', icon: PiggyBank, keywords: 'hong kong tax mpf tvc deduction savings salary' },
       { id: 'advisor', label: 'A.F.A. AI Chat', icon: Bot, keywords: 'ai advisor assistant prompt chat help' }
     ];
     return tabs.filter(t => t.label.toLowerCase().includes(q) || t.keywords.includes(q));
@@ -1192,6 +1236,7 @@ export default function App() {
         weeklyMaxSpend: userProfile.weeklyMaxSpend,
         weeklyMinSavings: userProfile.weeklyMinSavings,
         budgetProfile: userProfile.budgetProfile || 'Standard',
+        currency: userProfile.currency || guessCurrency(),
         gender: userProfile.gender || '',
         phone: userProfile.phone || '',
         birthday: userProfile.birthday || '',
@@ -1214,9 +1259,9 @@ export default function App() {
       const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
       const profileRef = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
       await setDoc(profileRef, {
-        weeklyMaxSpend: String(userProfile.weeklyMaxSpend || '3500'),
-        weeklyMinSavings: String(userProfile.weeklyMinSavings || '1200'),
-        monthlyIncome: String(userProfile.monthlyIncome || '30000'),
+        weeklyMaxSpend: String(userProfile.weeklyMaxSpend || budgetDefaults.weeklyMaxSpend),
+        weeklyMinSavings: String(userProfile.weeklyMinSavings || budgetDefaults.weeklyMinSavings),
+        monthlyIncome: String(userProfile.monthlyIncome || budgetDefaults.monthlyIncome),
         budgetProfile: userProfile.budgetProfile || 'Standard'
       }, { merge: true });
     } catch (error) {
@@ -1224,6 +1269,35 @@ export default function App() {
       alert("Failed to update budget settings.");
     } finally {
       setShowBudgetModal(false);
+    }
+  };
+
+  // Switch the home currency. Records keep their own currency and convert on the fly; the profile's own
+  // figures (income, budgets, goal, debts, planner inputs) are converted once at today's rate and saved.
+  const handleChangeCurrency = async (code) => {
+    const from = homeCurrency;
+    if (!code || code === from) return;
+    const cv = (v, dp = 0) => { const n = convert(Number(v) || 0, from, code, fxRates); const f = Math.pow(10, dp); return Math.round(n * f) / f; };
+    const scal = (v) => (v === '' || v === undefined || v === null ? v : String(cv(v)));
+    const nextProfile = {
+      currency: code,
+      monthlyIncome: scal(userProfile.monthlyIncome),
+      weeklyMaxSpend: scal(userProfile.weeklyMaxSpend),
+      weeklyMinSavings: scal(userProfile.weeklyMinSavings),
+      targetAmount: scal(userProfile.targetAmount)
+    };
+    setUserProfile(prev => ({ ...prev, ...nextProfile }));
+    if (!user) return; // still signing up: nothing saved yet
+    const nextDebts = debts.map(d => normalizeDebt({ ...d, balance: cv(d.balance, 2), minPay: cv(d.minPay, 2) }));
+    setDebts(nextDebts);
+    setDebtExtra(cv(debtExtra));
+    setSimInitial(cv(simInitial));
+    setSimMonthly(cv(simMonthly));
+    try {
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data'), { ...nextProfile, debts: nextDebts }, { merge: true });
+    } catch (err) {
+      console.error('Currency change failed to save', err);
     }
   };
 
@@ -1238,8 +1312,10 @@ export default function App() {
 
   // Called by the recorder. A one-off writes a transaction; a repeating one writes a rule, and the
   // effect below records every due date (the first one included) as a normal transaction.
-  const handleComposerSave = async ({ tx, repeat }) => {
+  const handleComposerSave = async ({ tx: draft, repeat }) => {
+    let tx = draft;
     if (!user) throw new Error('Not signed in');
+    tx = { ...tx, currency: homeCurrency };
     if (repeat.frequency === 'none') {
       await addDoc(getCollectionPath(user.uid, 'transactions'), tx);
       return;
@@ -1259,10 +1335,11 @@ export default function App() {
   // Catch up every active rule whose next date has arrived. Transaction ids are `${ruleId}_${date}`, so
   // running this twice (two tabs, a quick reload) can never record the same day twice.
   useEffect(() => {
-    if (!user || recurringRules.length === 0) return;
+    // Raw rules: the template is written exactly as saved, with its own currency
+    if (!user || rawRecurringRules.length === 0) return;
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'afa-default';
     const today = todayLocal();
-    recurringRules.forEach(rule => {
+    rawRecurringRules.forEach(rule => {
       if (!rule.active || !rule.nextDate || rule.nextDate > today) return;
       const runKey = `${rule.id}:${rule.nextDate}`;
       if (recurringRunRef.current.has(runKey)) return;
@@ -1280,7 +1357,7 @@ export default function App() {
         .then(() => updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'recurring', rule.id), { nextDate: date, lastRun: today, ...(finished ? { active: false } : {}) }))
         .catch(err => { console.error('Recurring run failed', err); recurringRunRef.current.delete(runKey); });
     });
-  }, [user, recurringRules]);
+  }, [user, rawRecurringRules]);
 
   const handleToggleRecurring = async (rule) => {
     if (!user) return;
@@ -1428,7 +1505,8 @@ export default function App() {
         goal: userProfile.goal || '',
         targetAmount: String(userProfile.targetAmount || ''),
         goalYears: Number(userProfile.goalYears) || 0,
-        riskTolerance: userProfile.riskTolerance || ''
+        riskTolerance: userProfile.riskTolerance || '',
+        currency: homeCurrency
       }, { merge: true });
     } catch (error) {
       console.error("Error saving profile:", error);
@@ -1588,14 +1666,14 @@ export default function App() {
   // Automated Warning & Milestone System
   const systemAlerts = useMemo(() => {
     const alerts = [];
-    const maxSpendLimit = Number(userProfile.weeklyMaxSpend) || 3500;
+    const maxSpendLimit = Number(userProfile.weeklyMaxSpend) || Number(budgetDefaults.weeklyMaxSpend);
     const minSavingsTarget = Number(userProfile.weeklyMinSavings) || 1200;
 
     if (weeklySpentTotal > maxSpendLimit) {
       alerts.push({
         type: 'danger',
         title: '⚠️ Budget Overrun Warning',
-        message: `Your weekly spending (HK$ ${weeklySpentTotal.toLocaleString()}) has exceeded your defined limit of HK$ ${maxSpendLimit.toLocaleString()}.`
+        message: `Your weekly spending (${fmtAuto(weeklySpentTotal)}) has exceeded your defined limit of ${fmtAuto(maxSpendLimit)}.`
       });
     }
 
@@ -1611,7 +1689,7 @@ export default function App() {
       alerts.push({
         type: 'warning',
         title: '⚠️ Weekend Impulse Spikes Alert',
-        message: `${anomalyAnalysis.weekendRatio}% of total expenses occurred on Saturday/Sunday (HK$ ${anomalyAnalysis.weekendTotal.toLocaleString()}).`
+        message: `${anomalyAnalysis.weekendRatio}% of total expenses occurred on Saturday/Sunday (${fmtAuto(anomalyAnalysis.weekendTotal)}).`
       });
     }
 
@@ -1619,7 +1697,7 @@ export default function App() {
       alerts.push({
         type: 'success',
         title: '✅ Weekly Target Achieved',
-        message: `Congratulations! Your weekly savings goal of HK$ ${minSavingsTarget.toLocaleString()} has been met.`
+        message: `Congratulations! Your weekly savings goal of ${fmtAuto(minSavingsTarget)} has been met.`
       });
     }
 
@@ -1652,7 +1730,7 @@ export default function App() {
     const categoryRowsHtml = categoryBreakdown.map(c => `
       <tr>
         <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: 600;">${c.name}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace;">HK$ ${c.value.toLocaleString()}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace;">${fmtAuto(c.value)}</td>
         <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: right; font-family: monospace;">${c.percentage}%</td>
       </tr>
     `).join('');
@@ -1692,8 +1770,8 @@ export default function App() {
           </div>
 
           <div class="meta-grid">
-            <div class="meta-card"><div class="meta-label">Total Outflow</div><div class="meta-val">HK$ ${anomalyAnalysis.totalSpent.toLocaleString()}</div></div>
-            <div class="meta-card"><div class="meta-label">Avg Transaction</div><div class="meta-val">HK$ ${anomalyAnalysis.meanAmount.toLocaleString()}</div></div>
+            <div class="meta-card"><div class="meta-label">Total Outflow</div><div class="meta-val">${fmtAuto(anomalyAnalysis.totalSpent)}</div></div>
+            <div class="meta-card"><div class="meta-label">Avg Transaction</div><div class="meta-val">${fmtAuto(anomalyAnalysis.meanAmount)}</div></div>
             <div class="meta-card"><div class="meta-label">Flagged Outliers</div><div class="meta-val" style="color: ${anomalyAnalysis.anomalies.length > 0 ? '#ef4444' : '#10b981'};">${anomalyAnalysis.anomalies.length}</div></div>
             <div class="meta-card"><div class="meta-label">Weekend Ratio</div><div class="meta-val">${anomalyAnalysis.weekendRatio}%</div></div>
           </div>
@@ -1713,7 +1791,7 @@ export default function App() {
             <thead>
               <tr>
                 <th>Category</th>
-                <th style="text-align: right;">Total Spent (HKD)</th>
+                <th style="text-align: right;">Total Spent (${homeCurrency})</th>
                 <th style="text-align: right;">% Share</th>
               </tr>
             </thead>
@@ -1724,12 +1802,12 @@ export default function App() {
 
           <div class="section-title">3. Spending Velocity & Pattern Breakdown</div>
           <p style="font-size: 12px; color: #334155;">
-            • <strong>Weekend Allocation:</strong> Total of <strong>HK$ ${anomalyAnalysis.weekendTotal.toLocaleString()}</strong> spent on weekends (${anomalyAnalysis.weekendRatio}% of overall cash outflow).<br>
+            • <strong>Weekend Allocation:</strong> Total of <strong>${fmtAuto(anomalyAnalysis.weekendTotal)}</strong> spent on weekends (${anomalyAnalysis.weekendRatio}% of overall cash outflow).<br>
             • <strong>High-Frequency Habits:</strong> ${anomalyAnalysis.frequencyHabits.length > 0 ? anomalyAnalysis.frequencyHabits.map(h => `${h.category} (${h.count} transactions)`).join(', ') : 'No high-frequency spending spikes detected.'}
           </p>
 
           <div class="footer">
-            A.F.A. Automated Financial Advisor • Educational Audit Document • Generated in Hong Kong S.A.R.
+            A.F.A. Automated Financial Advisor • Educational Audit Document
           </div>
 
           <script>
@@ -1758,14 +1836,14 @@ export default function App() {
   }, [savingsRatio, rentBurdenRatio, investmentRatio]);
 
   const portfolioTotalValue = useMemo(() => portfolio.reduce((sum, item) => {
-    const rate = item.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1;
+    const rate = toHome(1, item.currency || 'HKD');
     return sum + (item.shares * item.currentPrice * rate);
-  }, 0), [portfolio]);
+  }, 0), [portfolio, money]);
 
   const portfolioTotalCost = useMemo(() => portfolio.reduce((sum, item) => {
-    const rate = item.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1;
+    const rate = toHome(1, item.currency || 'HKD');
     return sum + (item.shares * item.buyPrice * rate);
-  }, 0), [portfolio]);
+  }, 0), [portfolio, money]);
 
   const portfolioUnrealizedGain = portfolioTotalValue - portfolioTotalCost;
   const portfolioGainPercent = portfolioTotalCost > 0 ? ((portfolioUnrealizedGain / portfolioTotalCost) * 100).toFixed(2) : '0.00';
@@ -1774,12 +1852,12 @@ export default function App() {
   const portfolioDiversity = useMemo(() => {
     const data = {};
     portfolio.forEach(item => {
-      const rate = item.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1;
+      const rate = toHome(1, item.currency || 'HKD');
       const val = item.shares * item.currentPrice * rate;
       data[item.category] = (data[item.category] || 0) + val;
     });
     return Object.entries(data).map(([name, value]) => ({ name, value, fill: CATEGORY_COLORS[name] || '#00f2fe' }));
-  }, [portfolio]);
+  }, [portfolio, money]);
 
   // Real closing prices (see portfolioHistory effect); today's bar always equals the live valuation
   const portfolioGrowth = useMemo(() => {
@@ -1831,39 +1909,41 @@ export default function App() {
   const liquidCash = useMemo(() => accountBalances.filter(a => ['Bank Account', 'Cash', 'Octopus'].includes(a.name)).reduce((sum, a) => sum + Math.max(0, a.value), 0), [accountBalances]);
   const otherAssetsValued = useMemo(() => otherAssets.map(a => ({
     ...a,
-    valueHkd: assetValueHkd(a, cryptoPrices, DEFAULT_USD_HKD_RATE, warrantQuotes),
+    valueHome: assetValue(a, cryptoPrices, money, warrantQuotes),
     ...(a.type === 'warrant' ? { warrant: warrantMetrics(a, warrantQuotes) } : {})
-  })), [otherAssets, cryptoPrices, warrantQuotes]);
-  const otherAssetsTotal = useMemo(() => otherAssetsValued.reduce((sum, a) => sum + a.valueHkd, 0), [otherAssetsValued]);
+  })), [otherAssets, cryptoPrices, warrantQuotes, money]);
+  const otherAssetsTotal = useMemo(() => otherAssetsValued.reduce((sum, a) => sum + a.valueHome, 0), [otherAssetsValued]);
   const creditCardOwed = Math.max(0, -(accountBalances.find(a => a.name === 'Credit Card')?.value || 0));
   const netWorth = liquidCash + portfolioTotalValue + otherAssetsTotal - debtAmount - creditCardOwed;
   // Diversity chart: stock categories plus each kind of other asset
   const diversityData = useMemo(() => {
     const byType = {};
-    otherAssetsValued.forEach(a => { const label = assetType(a.type).label; byType[label] = (byType[label] || 0) + a.valueHkd; });
+    otherAssetsValued.forEach(a => { const label = assetType(a.type).label; byType[label] = (byType[label] || 0) + a.valueHome; });
     return [...portfolioDiversity, ...Object.entries(byType).map(([name, value]) => ({ name, value }))].filter(d => d.value > 0);
   }, [portfolioDiversity, otherAssetsValued]);
 
   // --- PERSONAL REVIEW: scores + ranked recommendations from everything above (src/lib/insights.js) ---
   const insights = useMemo(() => {
-    const income = Number(mpfIncome) || Number(userProfile.monthlyIncome) || 0;
+    const income = Number(mpfIncome) || money.convert(Number(userProfile.monthlyIncome) || 0, homeCurrency, 'HKD');
     const mpfDeduction = Math.min(18000, (income >= 30000 ? 1500 : income >= 7100 ? income * 0.05 : 0) * 12);
     const savedAtMax = Math.round(calcHKSalariesTax(income * 12, mpfDeduction) - calcHKSalariesTax(income * 12, mpfDeduction + 60000));
-    const paperEquity = paperAccount ? paperAccount.cash + (paperAccount.holdings || []).reduce((sum, h) => sum + h.shares * (h.lastPrice || h.avgCost) * (h.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1), 0) : 0;
+    const paperCur = paperAccount?.currency || 'HKD';
+    const paperEquity = paperAccount ? toHome(paperAccount.cash, paperCur) + (paperAccount.holdings || []).reduce((sum, h) => sum + h.shares * (h.lastPrice || h.avgCost) * toHome(1, h.currency || 'HKD'), 0) : 0;
     return buildInsights({
+      money,
       profile: userProfile,
       transactions,
       recurringRules,
       liquidCash,
-      stocks: portfolio.map(h => ({ symbol: h.symbol, valueHkd: h.shares * h.currentPrice * (h.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1) })),
+      stocks: portfolio.map(h => ({ symbol: h.symbol, valueHome: h.shares * h.currentPrice * toHome(1, h.currency || 'HKD') })),
       assets: otherAssetsValued,
       debts,
       debtPlan: debtPayoffTrajectory,
       weeklySpent: weeklySpentTotal,
       tax: { tvcMonthly: Number(tvcMonthly) || 0, savedNow: mpfCalc.estimatedTaxSaved, savedAtMax },
-      paper: paperAccount ? { equity: paperEquity, startingCash: paperAccount.startingCash, trades: (paperAccount.trades || []).length } : null
+      paper: paperAccount ? { equity: paperEquity, startingCash: toHome(paperAccount.startingCash, paperCur), trades: (paperAccount.trades || []).length } : null
     });
-  }, [userProfile, transactions, recurringRules, liquidCash, portfolio, otherAssetsValued, debts, debtPayoffTrajectory, weeklySpentTotal, tvcMonthly, mpfIncome, mpfCalc, paperAccount]);
+  }, [userProfile, transactions, recurringRules, liquidCash, portfolio, otherAssetsValued, debts, debtPayoffTrajectory, weeklySpentTotal, tvcMonthly, mpfIncome, mpfCalc, paperAccount, money]);
 
   // --- EVERYTHING THE ASSISTANT KNOWS ABOUT THIS USER (rebuilt from live data on every message) ---
   const buildFinancialSnapshot = () => {
@@ -1879,32 +1959,33 @@ export default function App() {
     const assets = Math.max(0, netSavings) + portfolioTotalValue;
 
     return {
+      currency: money.currency,
       firstName: (userProfile.name || '').trim().split(' ')[0] || 'there',
       goal: userProfile.goal || 'General Wealth Accumulation',
-      targetAmountHKD: target,
+      targetAmount: target,
       goalProgressPct: target > 0 ? Math.min(100, Math.round((assets / target) * 100)) : null,
-      savedTowardsGoalHKD: Math.round(assets),
+      savedTowardsGoal: Math.round(assets),
       riskTolerance: userProfile.riskTolerance || 'not set',
-      monthlyIncomeHKD: Number(userProfile.monthlyIncome) || 0,
-      budget: { profile: userProfile.budgetProfile || 'Standard', weeklyMaxSpendHKD: Number(userProfile.weeklyMaxSpend || 3500), weeklyMinSavingsHKD: Number(userProfile.weeklyMinSavings || 1200), spentThisWeekHKD: Math.round(weeklySpentTotal) },
-      thisMonth: { incomeHKD: Math.round(monthIncome), spendingHKD: Math.round(monthSpend), topCategories },
-      allTime: { incomeHKD: Math.round(totalIncome), expensesHKD: Math.round(totalExpense), cashSavedHKD: Math.round(netSavings), transactionsLogged: transactions.length },
+      monthlyIncome: Number(userProfile.monthlyIncome) || 0,
+      budget: { profile: userProfile.budgetProfile || 'Standard', weeklyMaxSpend: Number(userProfile.weeklyMaxSpend || budgetDefaults.weeklyMaxSpend), weeklyMinSavings: Number(userProfile.weeklyMinSavings || budgetDefaults.weeklyMinSavings), spentThisWeek: Math.round(weeklySpentTotal) },
+      thisMonth: { income: Math.round(monthIncome), spending: Math.round(monthSpend), topCategories },
+      allTime: { income: Math.round(totalIncome), expenses: Math.round(totalExpense), cashSaved: Math.round(netSavings), transactionsLogged: transactions.length },
       healthScore,
       savingsRatePct: Number(savingsRatio.toFixed(1)),
       rentBurdenPct: Number(rentBurdenRatio.toFixed(1)),
       spendingOutliers: anomalyAnalysis.anomalies.length,
       weekendSpendPct: Number(anomalyAnalysis.weekendRatio) || 0,
       portfolio: {
-        totalValueHKD: Math.round(portfolioTotalValue),
-        unrealizedGainHKD: Math.round(portfolioUnrealizedGain),
+        totalValue: Math.round(portfolioTotalValue),
+        unrealizedGain: Math.round(portfolioUnrealizedGain),
         gainPct: Number(portfolioGainPercent),
         holdings: portfolio.map(p => ({ symbol: p.symbol, name: p.name, shares: p.shares, price: p.currentPrice, currency: p.currency, category: p.category, dayChangePct: p.dayChangePct }))
       },
-      debt: { debts: debts.map(d => ({ name: d.name, type: d.type, balanceHKD: Number(d.balance) || 0, aprPct: Number(d.apr) || 0, minPaymentHKD: Number(d.minPay) || 0 })), extraMonthlyHKD: Number(debtExtra) || 0, debtFreeDate: debtPayoffTrajectory.debtFreeLabel, balanceHKD: Number(debtAmount) || 0, aprPct: Number(debtRate) || 0, monthlyPaymentHKD: Number(debtMinPay) || 0, strategy: debtStrategy, monthsToClear: debtPayoffTrajectory.totalMonths, totalInterestHKD: debtPayoffTrajectory.totalInterest },
-      mpf: { mandatoryMonthlyHKD: Math.round(mpfCalc.mandatory), tvcAnnualHKD: mpfCalc.annualTvc, estimatedTaxSavedHKD: mpfCalc.estimatedTaxSaved },
-      netWorthHKD: Math.round(netWorth),
-      otherAssets: otherAssetsValued.map(a => ({ type: assetType(a.type).label, name: a.name, valueHKD: Math.round(a.valueHkd), ratePct: a.rate || undefined, maturity: a.maturity || undefined })),
-      simulatedTrading: paperAccount ? { startingCashHKD: paperAccount.startingCash, cashHKD: Math.round(paperAccount.cash), positions: (paperAccount.holdings || []).length, trades: (paperAccount.trades || []).length, realizedPnlHKD: Math.round(paperAccount.realizedPnl || 0) } : null,
+      debt: { debts: debts.map(d => ({ name: d.name, type: d.type, balance: Number(d.balance) || 0, aprPct: Number(d.apr) || 0, minPayment: Number(d.minPay) || 0 })), extraMonthly: Number(debtExtra) || 0, debtFreeDate: debtPayoffTrajectory.debtFreeLabel, balance: Number(debtAmount) || 0, aprPct: Number(debtRate) || 0, monthlyPayment: Number(debtMinPay) || 0, strategy: debtStrategy, monthsToClear: debtPayoffTrajectory.totalMonths, totalInterest: debtPayoffTrajectory.totalInterest },
+      mpf: { note: 'Hong Kong MPF and salaries tax, always in HKD', monthlyIncomeHKD: Math.round(Number(mpfIncome) || 0), mandatoryMonthlyHKD: Math.round(mpfCalc.mandatory), tvcAnnualHKD: mpfCalc.annualTvc, estimatedTaxSavedHKD: mpfCalc.estimatedTaxSaved },
+      netWorth: Math.round(netWorth),
+      otherAssets: otherAssetsValued.map(a => ({ type: assetType(a.type).label, name: a.name, value: Math.round(a.valueHome), ratePct: a.rate || undefined, maturity: a.maturity || undefined })),
+      simulatedTrading: paperAccount ? { currency: paperAccount.currency || 'HKD', startingCash: paperAccount.startingCash, cash: Math.round(paperAccount.cash), positions: (paperAccount.holdings || []).length, trades: (paperAccount.trades || []).length, realizedPnl: Math.round(paperAccount.realizedPnl || 0) } : null,
       // The same ranked plan shown on the Analytics page, so chat advice matches it
       personalPlan: {
         score: insights.overall,
@@ -1919,7 +2000,9 @@ export default function App() {
   const generateLocalAiAdvice = (userQuery) => {
     const s = buildFinancialSnapshot();
     const q = userQuery.toLowerCase().trim();
-    const hkd = (n) => `HK$ ${Math.round(Number(n) || 0).toLocaleString()}`;
+    const hkd = (n) => money.fmt0(n);
+    const hkdMpf = (n) => formatMoney(Math.round(Number(n) || 0), 'HKD', { dp: 0 }); // MPF & HK tax figures stay in HK$
+    const extraStep = niceAmount(money.toHome(1000, 'HKD'));
     const has = (...words) => words.some(w => q.includes(w));
     const noData = s.allTime.transactionsLogged === 0;
 
@@ -1951,12 +2034,12 @@ export default function App() {
     };
 
     const top = s.thisMonth.topCategories;
-    const weekLeft = s.budget.weeklyMaxSpendHKD - s.budget.spentThisWeekHKD;
-    const monthlySurplus = Math.max(0, s.monthlyIncomeHKD - (s.thisMonth.spendingHKD || 0));
+    const weekLeft = s.budget.weeklyMaxSpend - s.budget.spentThisWeek;
+    const monthlySurplus = Math.max(0, s.monthlyIncome - (s.thisMonth.spending || 0));
 
     switch (topic) {
       case 'greeting':
-        return `Hi ${s.firstName}! Quick snapshot: your health score is ${s.healthScore}/100 and you've spent ${hkd(s.budget.spentThisWeekHKD)} of your ${hkd(s.budget.weeklyMaxSpendHKD)} weekly budget. What would you like to look at — spending, your "${s.goal}" goal, investments, debt, or tax?`;
+        return `Hi ${s.firstName}! Quick snapshot: your health score is ${s.healthScore}/100 and you've spent ${hkd(s.budget.spentThisWeek)} of your ${hkd(s.budget.weeklyMaxSpend)} weekly budget. What would you like to look at — spending, your "${s.goal}" goal, investments, debt, or tax?`;
 
       case 'thanks':
         return `Anytime, ${s.firstName}. Want me to check anything else — maybe whether you're on track for your goal?`;
@@ -1970,10 +2053,10 @@ export default function App() {
       }
 
       case 'goal': {
-        if (!s.targetAmountHKD) return `You haven't set a target amount yet, ${s.firstName}. Add one on the Dashboard goal card and I can tell you how long it will take at your current pace.`;
-        const remaining = Math.max(0, s.targetAmountHKD - s.savedTowardsGoalHKD);
+        if (!s.targetAmount) return `You haven't set a target amount yet, ${s.firstName}. Add one on the Dashboard goal card and I can tell you how long it will take at your current pace.`;
+        const remaining = Math.max(0, s.targetAmount - s.savedTowardsGoal);
         const months = monthlySurplus > 0 ? Math.ceil(remaining / monthlySurplus) : null;
-        return `You're ${s.goalProgressPct}% of the way to your "${s.goal}" goal: ${hkd(s.savedTowardsGoalHKD)} of ${hkd(s.targetAmountHKD)} (cash saved plus investments).\n\n` +
+        return `You're ${s.goalProgressPct}% of the way to your "${s.goal}" goal: ${hkd(s.savedTowardsGoal)} of ${hkd(s.targetAmount)} (cash saved plus investments).\n\n` +
           (remaining === 0 ? `You've reached it — congratulations! Time to set the next target.` :
             months ? `At this month's pace (about ${hkd(monthlySurplus)} left after spending), the remaining ${hkd(remaining)} takes roughly ${months >= 24 ? `${(months / 12).toFixed(1)} years` : `${months} months`}, before any investment growth.` :
               `Right now there's no monthly surplus recorded, so the gap of ${hkd(remaining)} isn't closing yet.`) +
@@ -1982,40 +2065,40 @@ export default function App() {
 
       case 'afford': {
         const amount = Number((q.match(/(\d[\d,]*\.?\d*)\s*(k)?/) || [])[1]?.replace(/,/g, '') || 0) * (/\d\s*k\b/.test(q) ? 1000 : 1);
-        if (!amount) return `Tell me the price and I'll check it against your budget — for example "can I afford a HK$3,000 trip?"`;
+        if (!amount) return `Tell me the price and I'll check it against your budget — for example "can I afford a ${hkd(niceAmount(money.toHome(3000, 'HKD')))} trip?"`;
         return amount <= weekLeft
-          ? `Yes — ${hkd(amount)} fits. You still have ${hkd(weekLeft)} left in this week's ${hkd(s.budget.weeklyMaxSpendHKD)} budget, so you'd have ${hkd(weekLeft - amount)} to spare.`
-          : `It would put you over. You have ${hkd(Math.max(0, weekLeft))} left this week, so ${hkd(amount)} overshoots your limit by ${hkd(amount - Math.max(0, weekLeft))}. If it matters to you, spreading it over ${Math.ceil(amount / Math.max(1, s.budget.weeklyMaxSpendHKD * 0.3))} weeks of smaller savings keeps your ${s.savingsRatePct}% savings rate intact. Is it a need or a want?`;
+          ? `Yes — ${hkd(amount)} fits. You still have ${hkd(weekLeft)} left in this week's ${hkd(s.budget.weeklyMaxSpend)} budget, so you'd have ${hkd(weekLeft - amount)} to spare.`
+          : `It would put you over. You have ${hkd(Math.max(0, weekLeft))} left this week, so ${hkd(amount)} overshoots your limit by ${hkd(amount - Math.max(0, weekLeft))}. If it matters to you, spreading it over ${Math.ceil(amount / Math.max(1, s.budget.weeklyMaxSpend * 0.3))} weeks of smaller savings keeps your ${s.savingsRatePct}% savings rate intact. Is it a need or a want?`;
       }
 
       case 'tax-more':
-        return `Here's the comparison. Putting ${hkd(s.mpf.tvcAnnualHKD)} into TVC gets you ${hkd(s.mpf.estimatedTaxSavedHKD)} back from tax straight away — an instant ${s.mpf.tvcAnnualHKD > 0 ? ((s.mpf.estimatedTaxSavedHKD / s.mpf.tvcAnnualHKD) * 100).toFixed(1) : 0}% "return" before any investment growth. Investing the same money yourself gives no tax break, but you can take it out whenever you need it.\n\nSince your goal is "${s.goal}", money you'll need before 65 should stay outside TVC; TVC suits only the part you're happy to lock away for retirement. You can try different amounts in the MPF & Tax tab — shall I look at your spending to see how much you could spare?`;
+        return `Here's the comparison. Putting ${hkdMpf(s.mpf.tvcAnnualHKD)} into TVC gets you ${hkdMpf(s.mpf.estimatedTaxSavedHKD)} back from tax straight away — an instant ${s.mpf.tvcAnnualHKD > 0 ? ((s.mpf.estimatedTaxSavedHKD / s.mpf.tvcAnnualHKD) * 100).toFixed(1) : 0}% "return" before any investment growth. Investing the same money yourself gives no tax break, but you can take it out whenever you need it.\n\nSince your goal is "${s.goal}", money you'll need before 65 should stay outside TVC; TVC suits only the part you're happy to lock away for retirement. You can try different amounts in the MPF & Tax tab — shall I look at your spending to see how much you could spare?`;
 
       case 'tax':
-        return `On a monthly income of ${hkd(s.monthlyIncomeHKD)}, your mandatory MPF is ${hkd(s.mpf.mandatoryMonthlyHKD)} a month, and your employer adds the same.\n\n` +
-          `With the ${hkd(s.mpf.tvcAnnualHKD)} a year of TVC you've set in the MPF & Tax tab, you'd save about ${hkd(s.mpf.estimatedTaxSavedHKD)} in salaries tax. The trade-off: TVC money is locked until 65, so it only makes sense after you have an emergency fund${s.debt.balanceHKD > 0 && s.debt.aprPct > 10 ? ` and your ${s.debt.aprPct}% debt is cleared` : ''}.\n\nWant me to compare that with investing the same amount yourself?`;
+        return `On a monthly income of ${hkdMpf(s.mpf.monthlyIncomeHKD)}, your mandatory MPF is ${hkdMpf(s.mpf.mandatoryMonthlyHKD)} a month, and your employer adds the same.\n\n` +
+          `With the ${hkdMpf(s.mpf.tvcAnnualHKD)} a year of TVC you've set in the HK MPF & Tax tab, you'd save about ${hkdMpf(s.mpf.estimatedTaxSavedHKD)} in salaries tax. The trade-off: TVC money is locked until 65, so it only makes sense after you have an emergency fund${s.debt.balance > 0 && s.debt.aprPct > 10 ? ` and your ${s.debt.aprPct}% debt is cleared` : ''}.\n\nWant me to compare that with investing the same amount yourself?`;
 
       case 'debt-more': {
-        if (!s.debt.balanceHKD) return `There's no debt on your profile to optimise. Shall we look at growing your savings instead?`;
-        const faster = monthsToClear(s.debt.balanceHKD, s.debt.aprPct, s.debt.monthlyPaymentHKD + 1000);
+        if (!s.debt.balance) return `There's no debt on your profile to optimise. Shall we look at growing your savings instead?`;
+        const faster = monthsToClear(s.debt.balance, s.debt.aprPct, s.debt.monthlyPayment + extraStep);
         const cuttable = top.find(c => ['Dining', 'Shopping', 'Entertainment', 'Travel', 'Subscriptions'].includes(c.category));
-        return `If you add ${hkd(1000)} a month (paying ${hkd(s.debt.monthlyPaymentHKD + 1000)}), you'd be debt-free in about ${faster ?? '—'} months instead of ${s.debt.monthsToClear}.\n\n` +
-          `${cuttable ? `Your ${cuttable.category} spending is ${hkd(cuttable.amount)} this month, so trimming it by a third would cover most of that extra payment.` : `Log a few more expenses and I can point to where that extra ${hkd(1000)} could come from.`} Avalanche (highest interest first) is the cheapest order if you have more than one debt. Want to see your spending breakdown?`;
+        return `If you add ${hkd(extraStep)} a month (paying ${hkd(s.debt.monthlyPayment + extraStep)}), you'd be debt-free in about ${faster ?? '—'} months instead of ${s.debt.monthsToClear}.\n\n` +
+          `${cuttable ? `Your ${cuttable.category} spending is ${hkd(cuttable.amount)} this month, so trimming it by a third would cover most of that extra payment.` : `Log a few more expenses and I can point to where that extra ${hkd(extraStep)} could come from.`} Avalanche (highest interest first) is the cheapest order if you have more than one debt. Want to see your spending breakdown?`;
       }
 
       case 'debt':
-        if (!s.debt.balanceHKD) return `Good news, ${s.firstName} — you have no debt recorded. If you do carry a card balance or loan, add it in the Debt Health tab and I'll work out the fastest way to clear it.`;
-        return `You owe ${hkd(s.debt.balanceHKD)}${s.debt.debts.length > 1 ? ` across ${s.debt.debts.length} debts (${s.debt.debts.map(d => d.name).join(', ')})` : ''} at ${s.debt.aprPct}% ${s.debt.debts.length > 1 ? 'average ' : ''}APR. Paying ${hkd(s.debt.monthlyPaymentHKD)} a month with the ${s.debt.strategy} method clears it in about ${s.debt.monthsToClear} months and costs ${hkd(s.debt.totalInterestHKD)} in interest.\n\n` +
-          `That interest rate is ${s.debt.aprPct > 12 ? 'far higher than any realistic investment return, so paying this down first is your best "investment"' : 'moderate, so balance repayment with saving'}. Every extra ${hkd(1000)} a month shortens the timeline noticeably — want me to estimate how much you could free up from your spending?`;
+        if (!s.debt.balance) return `Good news, ${s.firstName} — you have no debt recorded. If you do carry a card balance or loan, add it in the Debt Health tab and I'll work out the fastest way to clear it.`;
+        return `You owe ${hkd(s.debt.balance)}${s.debt.debts.length > 1 ? ` across ${s.debt.debts.length} debts (${s.debt.debts.map(d => d.name).join(', ')})` : ''} at ${s.debt.aprPct}% ${s.debt.debts.length > 1 ? 'average ' : ''}APR. Paying ${hkd(s.debt.monthlyPayment)} a month with the ${s.debt.strategy} method clears it in about ${s.debt.monthsToClear} months and costs ${hkd(s.debt.totalInterest)} in interest.\n\n` +
+          `That interest rate is ${s.debt.aprPct > 12 ? 'far higher than any realistic investment return, so paying this down first is your best "investment"' : 'moderate, so balance repayment with saving'}. Every extra ${hkd(extraStep)} a month shortens the timeline noticeably — want me to estimate how much you could free up from your spending?`;
 
       case 'invest-more':
-        return `Diversification just means not relying on one company. An index ETF does that in a single purchase: Hong Kong's Tracker Fund (2800) holds the whole Hang Seng Index, and S&P 500 funds hold 500 US companies, so one bad earnings report barely moves you.\n\nFor a "${s.riskTolerance}" profile, people usually keep a broad index fund as the core and limit single stocks to a smaller slice, adding a fixed amount every month rather than timing the market. This is general education, not a recommendation — want me to check how concentrated your current holdings are?`;
+        return `Diversification just means not relying on one company. An index ETF does that in a single purchase: an S&P 500 fund holds 500 US companies, and a world index fund holds thousands across many countries, so one bad earnings report barely moves you.\n\nFor a "${s.riskTolerance}" profile, people usually keep a broad index fund as the core and limit single stocks to a smaller slice, adding a fixed amount every month rather than timing the market. This is general education, not a recommendation — want me to check how concentrated your current holdings are?`;
 
       case 'invest': {
         if (s.portfolio.holdings.length === 0) return `You don't have any holdings recorded yet. Use the search bar at the top to look up any HK or US stock (try "2800" or "VOO") and add it, then I can comment on your mix. Your risk profile is "${s.riskTolerance}" — would you like a plain-English explanation of what suits that profile?`;
-        const biggest = [...s.portfolio.holdings].sort((a, b) => (b.shares * b.price * (b.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1)) - (a.shares * a.price * (a.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1)))[0];
-        const biggestPct = s.portfolio.totalValueHKD > 0 ? Math.round((biggest.shares * biggest.price * (biggest.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1)) / s.portfolio.totalValueHKD * 100) : 0;
-        return `Your portfolio is worth ${hkd(s.portfolio.totalValueHKD)} across ${s.portfolio.holdings.length} holding${s.portfolio.holdings.length > 1 ? 's' : ''}, ${s.portfolio.gainPct >= 0 ? 'up' : 'down'} ${Math.abs(s.portfolio.gainPct)}% (${hkd(s.portfolio.unrealizedGainHKD)}) on what you paid.\n\n` +
+        const biggest = [...s.portfolio.holdings].sort((a, b) => (b.shares * b.price * toHome(1, b.currency || 'HKD')) - (a.shares * a.price * toHome(1, a.currency || 'HKD')))[0];
+        const biggestPct = s.portfolio.totalValue > 0 ? Math.round((biggest.shares * biggest.price * toHome(1, biggest.currency || 'HKD')) / s.portfolio.totalValue * 100) : 0;
+        return `Your portfolio is worth ${hkd(s.portfolio.totalValue)} across ${s.portfolio.holdings.length} holding${s.portfolio.holdings.length > 1 ? 's' : ''}, ${s.portfolio.gainPct >= 0 ? 'up' : 'down'} ${Math.abs(s.portfolio.gainPct)}% (${hkd(s.portfolio.unrealizedGain)}) on what you paid.\n\n` +
           `${biggest.symbol} is your largest position at about ${biggestPct}% of the total${biggestPct > 50 ? ` — that's concentrated for a "${s.riskTolerance}" profile, since one company's bad quarter would move your whole portfolio` : ', which is a reasonable spread'}.\n\nI can't tell you what to buy or sell, but I can explain diversification or how index ETFs work. Which would help?`;
       }
 
@@ -2024,9 +2107,9 @@ export default function App() {
 
       case 'cut-impact': {
         const cuttable = top.find(c => ['Dining', 'Shopping', 'Entertainment', 'Travel', 'Subscriptions'].includes(c.category));
-        const extra = cuttable ? cuttable.amount * 0.2 : 500;
-        const remaining = Math.max(0, s.targetAmountHKD - s.savedTowardsGoalHKD);
-        if (!s.targetAmountHKD || monthlySurplus <= 0) return `Saving an extra ${hkd(extra)} a month adds up to ${hkd(extra * 12)} a year. Set a target amount on the Dashboard and I'll translate that into time saved on your goal.`;
+        const extra = cuttable ? cuttable.amount * 0.2 : niceAmount(money.toHome(500, 'HKD'));
+        const remaining = Math.max(0, s.targetAmount - s.savedTowardsGoal);
+        if (!s.targetAmount || monthlySurplus <= 0) return `Saving an extra ${hkd(extra)} a month adds up to ${hkd(extra * 12)} a year. Set a target amount on the Dashboard and I'll translate that into time saved on your goal.`;
         const before = Math.ceil(remaining / monthlySurplus);
         const after = Math.ceil(remaining / (monthlySurplus + extra));
         return `Putting an extra ${hkd(extra)} a month towards "${s.goal}"${cuttable ? ` (20% less ${cuttable.category})` : ''} brings the timeline from about ${before} months down to ${after} — ${before - after} month${before - after === 1 ? '' : 's'} sooner, and more once investment growth is included.\n\nThe Wealth Planner shows the compounding effect. Would you like to talk about where to keep that money — savings, investments or TVC?`;
@@ -2037,7 +2120,7 @@ export default function App() {
         if (noData) return `I don't have any transactions to analyse yet, ${s.firstName}. Add your salary and a few expenses in the Transactions tab and I'll show you exactly where the money goes.`;
         const lines = top.slice(0, 3).map(c => `• ${c.category}: ${hkd(c.amount)}`).join('\n');
         const cuttable = top.find(c => ['Dining', 'Shopping', 'Entertainment', 'Travel', 'Subscriptions'].includes(c.category));
-        return `This month you've spent ${hkd(s.thisMonth.spendingHKD)}. Your biggest categories:\n${lines || '• (no expenses logged this month)'}\n\n` +
+        return `This month you've spent ${hkd(s.thisMonth.spending)}. Your biggest categories:\n${lines || '• (no expenses logged this month)'}\n\n` +
           `${weekLeft < 0 ? `You're ${hkd(-weekLeft)} over this week's budget. ` : `You have ${hkd(weekLeft)} left in this week's budget. `}` +
           `${s.weekendSpendPct > 40 ? `${s.weekendSpendPct}% of your spending happens on weekends, so a fixed weekend allowance would help most. ` : ''}` +
           `${cuttable ? `Trimming ${cuttable.category} by 20% would free up about ${hkd(cuttable.amount * 0.2)} a month.` : ''}\n\nShould I work out what that does for your "${s.goal}" timeline?`;
@@ -2047,7 +2130,7 @@ export default function App() {
         if (noData) return `Hi ${s.firstName}! Your profile is saved (goal: "${s.goal}", ${s.riskTolerance} risk), but I don't have any transactions yet. Add your salary and a few expenses in the Transactions tab and I can give you a proper review. In the meantime, ask me about MPF, tax or investing basics.`;
         const weakest = s.savingsRatePct < 20 ? `your savings rate of ${s.savingsRatePct}% (the benchmark is 20%)`
           : s.rentBurdenPct > 35 ? `rent at ${s.rentBurdenPct}% of income`
-          : s.debt.balanceHKD > 0 && s.debt.aprPct > 12 ? `the ${hkd(s.debt.balanceHKD)} debt at ${s.debt.aprPct}%`
+          : s.debt.balance > 0 && s.debt.aprPct > 12 ? `the ${hkd(s.debt.balance)} debt at ${s.debt.aprPct}%`
           : weekLeft < 0 ? `this week's spending, which is ${hkd(-weekLeft)} over budget` : '';
         return `Here's where you stand, ${s.firstName}: health score ${s.healthScore}/100, saving ${s.savingsRatePct}% of income, and ${s.goalProgressPct ?? 0}% of the way to "${s.goal}".\n\n` +
           `${weakest ? `The thing I'd work on first is ${weakest}.` : `Nothing is flashing red — your budget, rent and debt are all in a healthy range.`}` +
@@ -2093,19 +2176,19 @@ export default function App() {
       if (!apiKey) throw new Error('NO_KEY');
 
       const snapshot = buildFinancialSnapshot();
-      const systemPrompt = `You are A.F.A. (Automated Financial Assistant), a friendly personal-finance assistant for young adults in Hong Kong. You are chatting with ${snapshot.firstName}.
+      const systemPrompt = `You are A.F.A. (Automated Financial Assistant), a friendly personal-finance assistant for young adults. You are chatting with ${snapshot.firstName}.
 
 How to talk:
 - Sound like a knowledgeable friend, not a report. Keep replies short: 2-5 sentences, plus at most 3 short bullet lines (start them with "• ") when a list really helps.
 - Plain text only. No markdown symbols such as ** or #, because the chat window shows raw text.
-- Answer exactly what was asked using the user's real numbers from the snapshot below (currency HK$). Do not recite the whole profile.
+- Answer exactly what was asked using the user's real numbers from the snapshot below (amounts are in ${snapshot.currency} unless a field name ends in HKD). Do not recite the whole profile.
 - Remember the earlier messages in this conversation and build on them.
 - When natural, end with one short follow-up question or a concrete next step inside the app (tabs: Dashboard, Transactions, Analytics, Investments, Wealth Planner, Debt Health, MPF & Tax).
 - If the data needed is missing (for example no transactions logged), say so and tell them where to add it. Never invent figures.
 
 Rules:
 - Education and general guidance only. Explain trade-offs; never tell the user to buy or sell a specific security, and say you are not a licensed adviser if asked for stock picks.
-- Hong Kong facts: MPF is 5% from employee and employer on relevant income HK$7,100-30,000 (max HK$1,500 each per month); TVC is tax-deductible up to HK$60,000 a year but locked until 65; salaries tax is progressive 2/6/10/14/17% after the HK$132,000 basic allowance, capped by the 15% standard rate; credit card APRs are often above 30%.
+- Hong Kong facts (only relevant if the user lives in Hong Kong): MPF is 5% from employee and employer on relevant income HK$7,100-30,000 (max HK$1,500 each per month); TVC is tax-deductible up to HK$60,000 a year but locked until 65; salaries tax is progressive 2/6/10/14/17% after the HK$132,000 basic allowance, capped by the 15% standard rate; credit card APRs are often above 30%.
 
 Live snapshot of this user's finances (JSON):
 ${JSON.stringify(snapshot)}`;
@@ -2250,6 +2333,7 @@ ${JSON.stringify(snapshot)}`;
   }, [transactions, cashFlowView]);
 
   return (
+    <MoneyContext.Provider value={money}>
     <div className={`flex h-screen bg-[#0d1117] text-slate-100 font-sans selection:bg-[#00f2fe]/30 selection:text-cyan-300 overflow-hidden ${fx.enabled ? 'afa-fx' : ''}`}>
       
       <style>{`
@@ -2404,7 +2488,7 @@ ${JSON.stringify(snapshot)}`;
                     <div className="space-y-4 anim-slide-in">
                       <div>
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Email Address</label>
-                        <input type="email" placeholder="chloe@hktech.io" value={userProfile.email || ''} onChange={e => setUserProfile({...userProfile, email: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white mb-4" />
+                        <input type="email" placeholder="you@example.com" value={userProfile.email || ''} onChange={e => setUserProfile({...userProfile, email: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white mb-4" />
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Password (6+ characters)</label>
                         <input type="password" placeholder="Min 6 characters" value={userProfile.password || ''} onChange={e => setUserProfile({...userProfile, password: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
                       </div>
@@ -2421,11 +2505,18 @@ ${JSON.stringify(snapshot)}`;
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Your main goal</label>
                         <select value={userProfile.goal || ''} onChange={e => setUserProfile({...userProfile, goal: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white [&>option]:bg-slate-900">
                           <option value="">Choose a goal</option>
-                          <option value="HK Property Down Payment">HK Property Down Payment</option>
+                          <option value="Property Down Payment">Property Down Payment</option>
                           <option value="Early Retirement (FIRE)">Early Retirement (FIRE)</option>
                           <option value="High-Yield Dividend Cash Flow">High-Yield Dividend Cash Flow</option>
                           <option value="General Wealth Accumulation">General Wealth Accumulation</option>
                         </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Your currency</label>
+                        <select value={homeCurrency} onChange={e => handleChangeCurrency(e.target.value)} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white [&>option]:bg-slate-900">
+                          {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} · {c.name}</option>)}
+                        </select>
+                        <p className="text-[10px] text-slate-500 mt-1.5">Budgets and totals are shown in this currency. You can change it later in your profile.</p>
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(2)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
@@ -2437,8 +2528,8 @@ ${JSON.stringify(snapshot)}`;
                   {onboardingStep === 4 && (
                     <div className="space-y-4 anim-slide-in">
                       <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Target amount (HK$)</label>
-                        <input type="number" placeholder="e.g. 500000" value={userProfile.targetAmount || ''} onChange={e => setUserProfile({...userProfile, targetAmount: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Target amount ({homeCurrency})</label>
+                        <input type="number" placeholder={`e.g. ${niceAmount(toHome(500000, 'HKD'))}`} value={userProfile.targetAmount || ''} onChange={e => setUserProfile({...userProfile, targetAmount: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(3)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
@@ -2536,7 +2627,7 @@ ${JSON.stringify(snapshot)}`;
               {[
                 { id: 'simulator', label: 'Wealth Planner', icon: Sliders },
                 { id: 'debt', label: 'Debt Health', icon: CreditCard },
-                { id: 'mpf', label: 'MPF & Tax', icon: PiggyBank },
+                { id: 'mpf', label: 'HK MPF & Tax', icon: PiggyBank },
                 { id: 'advisor', label: 'A.F.A. AI Chat', icon: Bot },
               ].map((tab) => {
                 const Icon = tab.icon;
@@ -2583,7 +2674,7 @@ ${JSON.stringify(snapshot)}`;
                    activeTab === 'portfolio' ? 'Investments' : 
                    activeTab === 'simulator' ? 'Wealth Planner' : 
                    activeTab === 'debt' ? 'Debt Health' : 
-                   activeTab === 'mpf' ? 'MPF & Tax' : 
+                   activeTab === 'mpf' ? 'HK MPF & Tax' : 
                    activeTab === 'advisor' ? 'A.F.A AI Chat' : 'Analytics'}
                 </h2>
              </div>
@@ -2664,7 +2755,7 @@ ${JSON.stringify(snapshot)}`;
                                    <span className="text-xs font-bold text-white group-hover:text-emerald-400">{p.symbol}</span>
                                    <span className="text-[10px] text-slate-400 block">{p.name}</span>
                                  </div>
-                                 <span className="text-xs font-mono font-bold text-emerald-400">HK${(p.shares * p.currentPrice * (p.currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1)).toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                 <span className="text-xs font-mono font-bold text-emerald-400">{fmt0((p.shares * p.currentPrice * toHome(1, p.currency || 'HKD')))}</span>
                                </div>
                              ))}
                           </div>
@@ -2695,7 +2786,7 @@ ${JSON.stringify(snapshot)}`;
                                      <span className="text-[10px] font-mono text-slate-600 block">{owned ? 'In your portfolio' : 'Click to add to portfolio'}</span>
                                    </div>
                                    <div className="text-right shrink-0">
-                                     <span className="text-xs font-mono font-bold text-white block">{quote.currency === 'USD' ? '$' : 'HK$'}{quote.price.toFixed(2)}</span>
+                                     <span className="text-xs font-mono font-bold text-white block">{money.fmtIn(quote.price, quote.currency)}</span>
                                      <span className={`text-[10px] font-mono ${up ? 'text-emerald-400' : 'text-rose-400'}`}>{up ? '+' : ''}{quote.changePct.toFixed(2)}%</span>
                                    </div>
                                  </div>
@@ -2722,7 +2813,7 @@ ${JSON.stringify(snapshot)}`;
                                    <span className="text-[10px] text-slate-500 block font-mono">{tx.date} • {tx.category}</span>
                                  </div>
                                  <span className={`text-xs font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-300'}`}>
-                                   {tx.type === 'income' ? '+' : '-'}HK${Number(tx.amount).toLocaleString()}
+                                   {tx.type === 'income' ? '+' : '-'}{fmtAuto(Number(tx.amount))}
                                  </span>
                                </div>
                              ))}
@@ -2844,7 +2935,7 @@ ${JSON.stringify(snapshot)}`;
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#00f2fe]"/> Total Balance</span>
                     </div>
                     <div className="text-2xl font-black text-white mt-1">
-                       HK${(portfolioTotalValue + (netSavings > 0 ? netSavings : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                       {fmt((portfolioTotalValue + (netSavings > 0 ? netSavings : 0)))}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-1">Cash saved plus investments</p>
                   </div>
@@ -2854,9 +2945,9 @@ ${JSON.stringify(snapshot)}`;
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-blue-400"/> Income in {monthSummary.monthName}</span>
                     </div>
                     <div className="text-2xl font-black text-white mt-1">
-                       HK${monthSummary.income.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                       {fmt(monthSummary.income)}
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-1">HK${Math.round(totalIncome).toLocaleString()} in total</p>
+                    <p className="text-[11px] text-slate-500 mt-1">{fmtAuto(Math.round(totalIncome))} in total</p>
                   </div>
 
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md relative overflow-hidden group">
@@ -2864,7 +2955,7 @@ ${JSON.stringify(snapshot)}`;
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><ArrowDownRight className="w-3.5 h-3.5 text-rose-400"/> Spent in {monthSummary.monthName}</span>
                     </div>
                     <div className="text-2xl font-black text-white mt-1">
-                       HK${monthSummary.spent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                       {fmt(monthSummary.spent)}
                     </div>
                     <p className={`text-[11px] mt-1 ${monthSummary.changePct === null ? 'text-slate-500' : monthSummary.changePct > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                       {monthSummary.changePct === null ? 'Nothing to compare with last month yet' : `${monthSummary.changePct > 0 ? '↑' : '↓'} ${Math.abs(monthSummary.changePct)}% vs the same days last month`}
@@ -2897,10 +2988,10 @@ ${JSON.stringify(snapshot)}`;
                           <BarChart data={cashFlowData} barGap={4}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                             <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${v/1000}k`} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={money.axis} />
                             <Tooltip
                                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                               formatter={(v, n) => [`HK$${Math.round(Number(v)).toLocaleString()}`, n]}
+                               formatter={(v, n) => [`${fmtAuto(Math.round(Number(v)))}`, n]}
                                contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
                                itemStyle={{ color: '#fff' }}
                             />
@@ -2921,7 +3012,7 @@ ${JSON.stringify(snapshot)}`;
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                             <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${v/1000}k`} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={money.axis} />
                             <Tooltip 
                                contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '12px' }} 
                                itemStyle={{ color: '#fff' }}
@@ -2977,7 +3068,7 @@ ${JSON.stringify(snapshot)}`;
                       <LineChart data={balanceOverTime}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                         <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} minTickGap={32} />
-                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000).toFixed(0)}k`} />
+                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={money.axis} />
                         <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
                         <Line type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={3} dot={false} />
                       </LineChart>
@@ -2994,7 +3085,7 @@ ${JSON.stringify(snapshot)}`;
                         <BarChart data={paymentMethodsData}>
                           {CHART_GRADIENT_DEFS}
                           <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000).toFixed(0)}k`} />
+                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={money.axis} />
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
                           <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={72}>
                             {paymentMethodsData.map((entry, index) => <Cell key={`pay-${index}`} fill={`url(#afaBar${index % CHART_PALETTE.length})`} />)}
@@ -3012,7 +3103,7 @@ ${JSON.stringify(snapshot)}`;
                         <BarChart data={receivingMethodsData}>
                           {CHART_GRADIENT_DEFS}
                           <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000).toFixed(0)}k`} />
+                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={money.axis} />
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
                           <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={72}>
                             {receivingMethodsData.map((entry, index) => <Cell key={`recv-${index}`} fill={`url(#afaBar${(index + 3) % CHART_PALETTE.length})`} />)}
@@ -3101,7 +3192,7 @@ ${JSON.stringify(snapshot)}`;
                                  </td>
                                  <td className="py-3 px-5 text-slate-500 font-mono text-[11px]">{tx.date}</td>
                                  <td className={`py-3 px-5 text-right font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-white'}`}>
-                                    {tx.type === 'income' ? '+' : '-'}HK${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    {tx.type === 'income' ? '+' : '-'}{fmt(Number(tx.amount))}
                                  </td>
                               </tr>
                            ))}
@@ -3165,7 +3256,7 @@ ${JSON.stringify(snapshot)}`;
                                 {repeatLabel(rule.frequency)} · {t.account || 'Bank Account'} · {rule.active ? `next ${rule.nextDate}` : (rule.endDate && rule.nextDate > rule.endDate ? 'ended' : 'paused')}{rule.endDate ? ` · until ${rule.endDate}` : ''}
                               </div>
                             </div>
-                            <span className={`font-mono font-bold text-sm whitespace-nowrap ${t.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>{t.type === 'income' ? '+' : '-'} HK${Number(t.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className={`font-mono font-bold text-sm whitespace-nowrap ${t.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>{t.type === 'income' ? '+' : '-'} {fmt(Number(t.amount || 0))}</span>
                             <button onClick={() => handleToggleRecurring(rule)} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg border border-slate-700 text-slate-300 hover:text-white cursor-pointer">{rule.active ? 'Pause' : 'Resume'}</button>
                             <button onClick={() => handleDeleteRecurring(rule)} aria-label="Stop repeating" title="Stop repeating (past records stay)" className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                           </li>
@@ -3194,7 +3285,7 @@ ${JSON.stringify(snapshot)}`;
                           <div className="text-[11px] text-slate-500 truncate">{tx.category} · {tx.account || 'Bank Account'} · {tx.date}</div>
                         </div>
                         <div className={`text-sm font-mono font-bold whitespace-nowrap ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>
-                          {tx.type === 'income' ? '+' : '-'}HK${Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {tx.type === 'income' ? '+' : '-'}{fmt(Number(tx.amount))}
                         </div>
                         <button onClick={() => handleDeleteTransaction(tx.id)} aria-label="Delete record" className="text-slate-600 hover:text-rose-400 p-2 -mr-2 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                       </div>
@@ -3235,7 +3326,7 @@ ${JSON.stringify(snapshot)}`;
                             </span>
                           </td>
                           <td className={`py-3 px-5 text-right font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>
-                            {tx.type === 'income' ? '+' : '-'} HK${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits:2})}
+                            {tx.type === 'income' ? '+' : '-'} {fmt(Number(tx.amount))}
                           </td>
                           <td className="py-3 px-5 text-center">
                             <button onClick={() => handleDeleteTransaction(tx.id)} className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer transition-colors"><Trash2 className="w-4 h-4" /></button>
@@ -3264,7 +3355,7 @@ ${JSON.stringify(snapshot)}`;
                           insights.snapshot.age ? `Age ${insights.snapshot.age}` : 'Age not set',
                           `${insights.snapshot.risk.label} risk${insights.snapshot.risk.unset ? ' (assumed)' : ''}`,
                           userProfile.goal || 'No goal set',
-                          insights.snapshot.income > 0 ? `HK$${Math.round(insights.snapshot.income).toLocaleString()}/month income` : 'Income not set',
+                          insights.snapshot.income > 0 ? `${fmtAuto(Math.round(insights.snapshot.income))}/month income` : 'Income not set',
                           `${insights.snapshot.dependants} dependant${insights.snapshot.dependants === 1 ? '' : 's'}`
                         ].map(t => <span key={t} className="text-[10px] font-mono px-2.5 py-1 rounded-full bg-[#0d1117] border border-slate-800 text-slate-300">{t}</span>)}
                         <button onClick={() => setShowProfileModal(true)} className="text-[10px] font-mono px-2.5 py-1 rounded-full text-[#00f2fe] hover:underline cursor-pointer">Edit profile →</button>
@@ -3292,11 +3383,11 @@ ${JSON.stringify(snapshot)}`;
 
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {[
-                      ['Monthly spending', `HK$${Math.round(insights.snapshot.expense).toLocaleString()}`, insights.snapshot.income > 0 ? `${Math.round((insights.snapshot.expense / insights.snapshot.income) * 100)}% of income` : ''],
+                      ['Monthly spending', `${fmtAuto(Math.round(insights.snapshot.expense))}`, insights.snapshot.income > 0 ? `${Math.round((insights.snapshot.expense / insights.snapshot.income) * 100)}% of income` : ''],
                       ['Savings rate', `${Math.round(insights.snapshot.savingsRate)}%`, 'benchmark 20%'],
                       ['Needs / wants', insights.snapshot.income > 0 ? `${Math.round((insights.snapshot.needs / insights.snapshot.income) * 100)}% / ${Math.round((insights.snapshot.wants / insights.snapshot.income) * 100)}%` : '—', 'benchmark 50% / 30%'],
                       ['Emergency fund', `${insights.snapshot.emergencyMonths.toFixed(1)} mo`, `target ${insights.snapshot.emergencyTargetMonths} months`],
-                      ['Net worth', `${netWorth < 0 ? '−' : ''}HK$${Math.abs(Math.round(netWorth)).toLocaleString()}`, insights.snapshot.debtTotal > 0 ? `after HK$${Math.round(insights.snapshot.debtTotal).toLocaleString()} debt` : 'no debt']
+                      ['Net worth', `${netWorth < 0 ? '−' : ''}${fmtAuto(Math.abs(Math.round(netWorth)))}`, insights.snapshot.debtTotal > 0 ? `after ${fmtAuto(Math.round(insights.snapshot.debtTotal))} debt` : 'no debt']
                     ].map(([k, v, sub]) => (
                       <div key={k} className="p-3 rounded-2xl bg-[#0d1117] border border-slate-800">
                         <div className="text-[10px] font-mono uppercase text-slate-500">{k}</div>
@@ -3382,7 +3473,7 @@ ${JSON.stringify(snapshot)}`;
                       <div className="flex justify-between items-center">
                         <h3 className="text-xs font-mono uppercase text-[#00f2fe]">System Detected Warnings & Alerts</h3>
                         <button onClick={() => setShowBudgetModal(true)} className="text-[10px] font-mono text-[#00f2fe] hover:underline flex items-center gap-1">
-                          <Edit2 className="w-3 h-3" /> Change weekly limit (Current: HK$ {Number(userProfile.weeklyMaxSpend || 3500).toLocaleString()})
+                          <Edit2 className="w-3 h-3" /> Change weekly limit (Current: {fmtAuto(Number(userProfile.weeklyMaxSpend || budgetDefaults.weeklyMaxSpend))})
                         </button>
                       </div>
                       <div className="grid grid-cols-1 gap-3">
@@ -3428,7 +3519,7 @@ ${JSON.stringify(snapshot)}`;
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs text-slate-400 mb-1">Weekend Spending Total</p>
-                             <p className="text-xl font-bold text-[#00f2fe]">HK${anomalyAnalysis.weekendTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                             <p className="text-xl font-bold text-[#00f2fe]">{fmt(anomalyAnalysis.weekendTotal)}</p>
                              <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">High weekend ratios often indicate impulsive leisure and entertainment spending.</p>
                           </div>
                        </div>
@@ -3470,7 +3561,7 @@ ${JSON.stringify(snapshot)}`;
                                     <p className="text-[10px] text-slate-500 font-mono mt-0.5">{tx.date} • {tx.category}</p>
                                  </div>
                                  <div className="text-sm font-bold text-rose-400 font-mono">
-                                    -HK${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    -{fmt(Number(tx.amount))}
                                  </div>
                               </div>
                            ))
@@ -3500,7 +3591,7 @@ ${JSON.stringify(snapshot)}`;
                 </div>
 
                 {portfolioView === 'simulation' && (
-                  <PaperTrading account={paperAccount} onChange={handleSavePaperAccount} fetchQuote={fetchLiveStockQuote} searchSymbols={searchMarketSymbols} usdHkd={DEFAULT_USD_HKD_RATE}
+                  <PaperTrading account={paperAccount} onChange={handleSavePaperAccount} fetchQuote={fetchLiveStockQuote} searchSymbols={searchMarketSymbols}
                     presetSymbol={tradePreset} onAnalyse={(sym) => { setAnalysisSymbol(sym); setPortfolioView('analysis'); }} />
                 )}
 
@@ -3517,14 +3608,14 @@ ${JSON.stringify(snapshot)}`;
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div>
                       <span className="text-xs font-mono uppercase text-slate-500">Total Net Worth</span>
-                      <div className={`text-3xl font-black mt-1 ${netWorth >= 0 ? 'text-white' : 'text-rose-400'}`}>{netWorth < 0 ? '−' : ''}HK${Math.abs(Math.round(netWorth)).toLocaleString()}</div>
+                      <div className={`text-3xl font-black mt-1 ${netWorth >= 0 ? 'text-white' : 'text-rose-400'}`}>{netWorth < 0 ? '−' : ''}{fmtAuto(Math.abs(Math.round(netWorth)))}</div>
                       <p className="text-[10px] text-slate-500 mt-0.5">Cash in your ledger + stocks + other assets − debts</p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                       {[['Cash', liquidCash, 'text-emerald-300'], ['Stocks', portfolioTotalValue, 'text-[#00f2fe]'], ['Other assets', otherAssetsTotal, 'text-violet-300'], ['Debts', -(debtAmount + creditCardOwed), 'text-rose-300']].map(([k, v, c]) => (
                         <div key={k} className="px-3 py-2 rounded-xl bg-[#0d1117] border border-slate-800">
                           <div className="text-[10px] font-mono uppercase text-slate-500">{k}</div>
-                          <div className={`font-bold font-mono ${c}`}>{v < 0 ? '−' : ''}HK${Math.abs(Math.round(v)).toLocaleString()}</div>
+                          <div className={`font-bold font-mono ${c}`}>{v < 0 ? '−' : ''}{fmtAuto(Math.abs(Math.round(v)))}</div>
                         </div>
                       ))}
                     </div>
@@ -3534,7 +3625,7 @@ ${JSON.stringify(snapshot)}`;
                       <div className="flex h-2.5 rounded-full overflow-hidden bg-slate-800">
                         {insights.snapshot.allocation.map((a, i) => {
                           const total = insights.snapshot.allocation.reduce((sum, x) => sum + x.value, 0);
-                          return <div key={a.name} style={{ width: `${(a.value / total) * 100}%`, backgroundColor: ALLOCATION_COLORS[a.name] || CHART_PALETTE[i % CHART_PALETTE.length] }} title={`${a.name}: HK$${Math.round(a.value).toLocaleString()}`} />;
+                          return <div key={a.name} style={{ width: `${(a.value / total) * 100}%`, backgroundColor: ALLOCATION_COLORS[a.name] || CHART_PALETTE[i % CHART_PALETTE.length] }} title={`${a.name}: ${fmtAuto(Math.round(a.value))}`} />;
                         })}
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
@@ -3555,16 +3646,16 @@ ${JSON.stringify(snapshot)}`;
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                     <span className="text-xs font-mono uppercase text-slate-500">Total Market Valuation</span>
-                    <div className="text-2xl font-black text-white mt-1">HK${portfolioTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="text-2xl font-black text-white mt-1">{fmt(portfolioTotalValue)}</div>
                   </div>
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                     <span className="text-xs font-mono uppercase text-slate-500">Cost Basis</span>
-                    <div className="text-2xl font-black text-slate-300 mt-1">HK${portfolioTotalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="text-2xl font-black text-slate-300 mt-1">{fmt(portfolioTotalCost)}</div>
                   </div>
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                     <span className="text-xs font-mono uppercase text-slate-500">Unrealized P&L</span>
                     <div className={`text-2xl font-black mt-1 ${portfolioUnrealizedGain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {portfolioUnrealizedGain >= 0 ? '+' : ''}HK${portfolioUnrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({portfolioGainPercent}%)
+                      {portfolioUnrealizedGain >= 0 ? '+' : ''}{fmt(portfolioUnrealizedGain)} ({portfolioGainPercent}%)
                     </div>
                   </div>
                 </div>
@@ -3613,7 +3704,7 @@ ${JSON.stringify(snapshot)}`;
                       )}
                       {filteredPortfolio.map(item => {
                         const currency = item.currency || (item.symbol.endsWith('.HK') ? 'HKD' : 'USD');
-                        const rate = currency === 'USD' ? DEFAULT_USD_HKD_RATE : 1;
+                        const rate = toHome(1, currency);
                         const valueInHkd = item.shares * item.currentPrice * rate;
                         const gainPercent = item.buyPrice > 0 ? (((item.currentPrice - item.buyPrice) / item.buyPrice) * 100).toFixed(2) : '0.00';
                         const isPositive = Number(gainPercent) >= 0;
@@ -3629,11 +3720,11 @@ ${JSON.stringify(snapshot)}`;
                             </td>
                             <td className="py-3.5 px-5 text-right font-mono">{item.shares}</td>
                             <td className="py-3.5 px-5 text-right font-mono text-slate-400">
-                              {currency === 'USD' ? '$' : 'HK$'}{item.buyPrice.toFixed(2)}
+                              {money.fmtIn(item.buyPrice, currency)}
                             </td>
                             <td className="py-3.5 px-5 text-right font-mono text-white">
                               <div className="flex items-center justify-end gap-1">
-                                <span>{currency === 'USD' ? '$' : 'HK$'}{item.currentPrice.toFixed(2)}</span>
+                                <span>{money.fmtIn(item.currentPrice, currency)}</span>
                                 {isPositive ? <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" /> : <ArrowDownRight className="w-3.5 h-3.5 text-rose-400" />}
                               </div>
                               <span className={`text-[10px] block font-mono ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -3646,7 +3737,7 @@ ${JSON.stringify(snapshot)}`;
                               )}
                             </td>
                             <td className="py-3.5 px-5 text-right font-mono font-bold text-emerald-400">
-                              HK${valueInHkd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {fmt(valueInHkd)}
                             </td>
                             <td className="py-3.5 px-5 text-center">
                               <button onClick={() => handleDeleteStock(item.id)} className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
@@ -3663,7 +3754,6 @@ ${JSON.stringify(snapshot)}`;
                   cryptoPrices={cryptoPrices}
                   cryptoStatus={cryptoStatus}
                   quotes={warrantQuotes}
-                  usdHkd={DEFAULT_USD_HKD_RATE}
                   onAdd={handleAddAsset}
                   onUpdate={handleUpdateAsset}
                   onDelete={handleDeleteAsset}
@@ -3681,8 +3771,8 @@ ${JSON.stringify(snapshot)}`;
                         {CHART_GRADIENT_DEFS}
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                         <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000).toFixed(0)}k`} />
-                        <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`HK$ ${Number(val).toLocaleString()}`, 'Value']} />
+                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={money.axis} />
+                        <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`${fmtAuto(Number(val))}`, 'Value']} />
                         {/* Solid green on days the value rose, solid red on days it fell */}
                         <Bar dataKey="value" radius={[3, 3, 0, 0]}>
                           {portfolioGrowth.map((entry, index) => (
@@ -3706,7 +3796,7 @@ ${JSON.stringify(snapshot)}`;
                               <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
                             ))}
                           </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`HK$${val.toLocaleString(undefined, {maximumFractionDigits:0})}`, 'Value']} />
+                          <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`${fmt0(val)}`, 'Value']} />
                         </PieChart>
                       </ResponsiveContainer>}
                     </div>
@@ -3718,7 +3808,7 @@ ${JSON.stringify(snapshot)}`;
                       {accountBalances.map(acc => (
                         <div key={acc.name} className="flex justify-between items-center border-b border-slate-800/50 pb-3 last:border-0 last:pb-0">
                           <div>
-                            <div className="text-lg font-bold text-white">HK${acc.value.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                            <div className="text-lg font-bold text-white">{fmt(acc.value)}</div>
                             <div className="text-[10px] font-mono text-slate-500 uppercase">{acc.name}</div>
                           </div>
                         </div>
@@ -3828,14 +3918,14 @@ ${JSON.stringify(snapshot)}`;
                       <div>
                         <label className="text-xs font-mono text-slate-300 flex justify-between mb-2">
                           <span>Initial Capital</span>
-                          <span className="text-white font-bold">HK${simInitial.toLocaleString()}</span>
+                          <span className="text-white font-bold">{fmtAuto(simInitial)}</span>
                         </label>
                         <input type="range" min="0" max="5000000" step="10000" value={simInitial} onChange={e => setSimInitial(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 flex justify-between mb-2">
                           <span>Monthly Deposit</span>
-                          <span className="text-white font-bold">HK${simMonthly.toLocaleString()}</span>
+                          <span className="text-white font-bold">{fmtAuto(simMonthly)}</span>
                         </label>
                         {/* Expanded max to 500,000 */}
                         <input type="range" min="1000" max="500000" step="1000" value={simMonthly} onChange={e => setSimMonthly(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
@@ -3868,8 +3958,8 @@ ${JSON.stringify(snapshot)}`;
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                             <XAxis dataKey="year" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000000).toFixed(1)}M`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff', fontSize: '11px' }} formatter={(val) => [`HK$${val.toLocaleString()}`, 'Value']} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={money.axis} />
+                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff', fontSize: '11px' }} formatter={(val) => [`${fmtAuto(val)}`, 'Value']} />
                             <Area type="monotone" dataKey="balance" stroke="#00f2fe" strokeWidth={2.5} fillOpacity={1} fill="url(#colorBal)" name="Portfolio Value" />
                             <Area type="monotone" dataKey="invested" stroke="#8b949e" strokeDasharray="4 4" strokeWidth={1.5} fillOpacity={0} name="Total Principal" />
                           </AreaChart>
@@ -3879,7 +3969,7 @@ ${JSON.stringify(snapshot)}`;
                       <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800 flex justify-between items-center text-xs font-mono">
                         <span className="text-slate-400">Projected Value at Year {simYears}:</span>
                         <span className="text-xl font-bold text-[#00f2fe]">
-                          HK${simulationTrajectory[simulationTrajectory.length - 1]?.balance.toLocaleString()}
+                          {fmtAuto(simulationTrajectory[simulationTrajectory.length - 1]?.balance)}
                         </span>
                       </div>
                     </div>
@@ -3930,7 +4020,7 @@ ${JSON.stringify(snapshot)}`;
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Balance (HKD)</label>
+                      <label className="text-[10px] font-mono text-slate-400 uppercase block mb-1">Balance ({homeCurrency})</label>
                       <input type="number" min="0" required placeholder="20000" value={debtDraft.balance} onChange={e => setDebtDraft(d => ({ ...d, balance: e.target.value }))} className="w-full px-3 py-2 glass-input rounded-lg text-sm text-white" />
                     </div>
                     <div>
@@ -3958,7 +4048,7 @@ ${JSON.stringify(snapshot)}`;
                           <tr>
                             <th className="text-left px-3 py-2">Debt</th>
                             <th className="text-left px-3 py-2">Type</th>
-                            <th className="text-right px-3 py-2">Balance (HKD)</th>
+                            <th className="text-right px-3 py-2">Balance ({homeCurrency})</th>
                             <th className="text-right px-3 py-2">APR %</th>
                             <th className="text-right px-3 py-2">Min / month</th>
                             <th className="text-right px-3 py-2">Paid off</th>
@@ -3993,9 +4083,9 @@ ${JSON.stringify(snapshot)}`;
                         <tfoot className="bg-[#0d1117] text-xs font-mono">
                           <tr className="border-t border-slate-800/80">
                             <td className="px-3 py-2 text-slate-400" colSpan={2}>Total · {debts.length} debt{debts.length === 1 ? '' : 's'}</td>
-                            <td className="px-3 py-2 text-right text-white font-bold">HK${debtAmount.toLocaleString()}</td>
+                            <td className="px-3 py-2 text-right text-white font-bold">{fmtAuto(debtAmount)}</td>
                             <td className="px-3 py-2 text-right text-slate-300">{debtRate}% avg</td>
-                            <td className="px-3 py-2 text-right text-slate-300">HK${(debtMinPay - (Number(debtExtra) || 0)).toLocaleString()}</td>
+                            <td className="px-3 py-2 text-right text-slate-300">{fmtAuto((debtMinPay - (Number(debtExtra) || 0)))}</td>
                             <td colSpan={2}></td>
                           </tr>
                         </tfoot>
@@ -4014,9 +4104,9 @@ ${JSON.stringify(snapshot)}`;
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <div className="space-y-4 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
                       <div>
-                        <label className="text-xs font-mono text-slate-300 block mb-1.5">Extra payment per month (HKD)</label>
+                        <label className="text-xs font-mono text-slate-300 block mb-1.5">Extra payment per month ({homeCurrency})</label>
                         <input type="number" min="0" value={debtExtra || ''} placeholder="0" onChange={e => { setDebtExtra(Number(e.target.value) || 0); setDebtSaveState(prev => ({ ...prev, status: 'dirty' })); }} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
-                        <p className="text-[10px] text-slate-500 mt-1">On top of the minimums. Total each month: HK${debtMinPay.toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-500 mt-1">On top of the minimums. Total each month: {fmtAuto(debtMinPay)}</p>
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Payoff Strategy</label>
@@ -4028,9 +4118,9 @@ ${JSON.stringify(snapshot)}`;
                       {debts.length > 1 && !debtPayoffTrajectory.stuck && !debtAltPlan.stuck && (
                         <div className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-800 pt-3">
                           {debtAltPlan.totalInterest > debtPayoffTrajectory.totalInterest
-                            ? <>This strategy saves <span className="text-emerald-400 font-semibold">HK${(debtAltPlan.totalInterest - debtPayoffTrajectory.totalInterest).toLocaleString()}</span> in interest compared with {debtStrategy === 'avalanche' ? 'snowball' : 'avalanche'}.</>
+                            ? <>This strategy saves <span className="text-emerald-400 font-semibold">{fmtAuto((debtAltPlan.totalInterest - debtPayoffTrajectory.totalInterest))}</span> in interest compared with {debtStrategy === 'avalanche' ? 'snowball' : 'avalanche'}.</>
                             : debtAltPlan.totalInterest < debtPayoffTrajectory.totalInterest
-                              ? <>{debtStrategy === 'avalanche' ? 'Snowball' : 'Avalanche'} would cost <span className="text-amber-400 font-semibold">HK${(debtPayoffTrajectory.totalInterest - debtAltPlan.totalInterest).toLocaleString()}</span> less interest, but this order clears accounts sooner.</>
+                              ? <>{debtStrategy === 'avalanche' ? 'Snowball' : 'Avalanche'} would cost <span className="text-amber-400 font-semibold">{fmtAuto((debtPayoffTrajectory.totalInterest - debtAltPlan.totalInterest))}</span> less interest, but this order clears accounts sooner.</>
                               : <>Both strategies cost the same interest for these debts.</>}
                         </div>
                       )}
@@ -4051,7 +4141,7 @@ ${JSON.stringify(snapshot)}`;
                         </div>
                         <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
                           <span className="text-[10px] font-mono text-slate-500 uppercase">Total interest</span>
-                          <div className="text-2xl font-bold text-rose-400 mt-1">{debts.length === 0 || debtPayoffTrajectory.stuck ? '—' : `HK$${debtPayoffTrajectory.totalInterest.toLocaleString()}`}</div>
+                          <div className="text-2xl font-bold text-rose-400 mt-1">{debts.length === 0 || debtPayoffTrajectory.stuck ? '—' : `${fmtAuto(debtPayoffTrajectory.totalInterest)}`}</div>
                         </div>
                         <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
                           <span className="text-[10px] font-mono text-slate-500 uppercase">Pay first</span>
@@ -4064,8 +4154,8 @@ ${JSON.stringify(snapshot)}`;
                           <AreaChart data={debtPayoffTrajectory.trajectory}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                             <XAxis dataKey="month" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} minTickGap={16} />
-                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${Math.round(v/1000)}k`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff' }} formatter={v => [`HK$${Number(v).toLocaleString()}`, 'Remaining balance']} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={money.axis} />
+                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff' }} formatter={v => [`${fmtAuto(Number(v))}`, 'Remaining balance']} />
                             <Area type="monotone" dataKey="balance" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.2} name="Remaining Balance" />
                           </AreaChart>
                         </ResponsiveContainer>
@@ -4089,9 +4179,9 @@ ${JSON.stringify(snapshot)}`;
               <div className="space-y-6 anim-slide-in">
                 <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
                   <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-                    <PiggyBank className="w-4 h-4 text-indigo-400" /> MPF & Tax Savings (TVC)
+                    <PiggyBank className="w-4 h-4 text-indigo-400" /> Hong Kong MPF & Tax Savings (TVC)
                   </h2>
-                  <p className="text-xs text-slate-400 mb-6">Calculate HK MPF statutory contributions and Tax-Deductible Voluntary Contributions (TVC) benefits.</p>
+                  <p className="text-xs text-slate-400 mb-6">For people working in Hong Kong: MPF contributions and the salaries tax saved with Tax-Deductible Voluntary Contributions (TVC), worked out under Hong Kong rules. All figures here are in HK${homeCurrency !== 'HKD' ? `, whatever your app currency (${homeCurrency})` : ''}.</p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4 bg-[#0d1117] p-5 rounded-2xl border border-slate-800/80">
@@ -4111,7 +4201,7 @@ ${JSON.stringify(snapshot)}`;
                           <span className="text-xs text-slate-400 font-mono block">Mandatory Monthly Employee Contribution</span>
                           <span className="text-[10px] text-slate-500">(5% up to HK$1,500 max cap)</span>
                         </div>
-                        <span className="text-xl font-bold text-white">HK${mpfCalc.mandatory.toLocaleString()}</span>
+                        <span className="text-xl font-bold text-white">{fmtHK(mpfCalc.mandatory)}</span>
                       </div>
 
                       <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800 flex justify-between items-center">
@@ -4119,14 +4209,14 @@ ${JSON.stringify(snapshot)}`;
                           <span className="text-xs text-slate-400 font-mono block">Annual TVC Tax Deductible Total</span>
                           <span className="text-[10px] text-slate-500">(Cap: HK$60,000 / year)</span>
                         </div>
-                        <span className="text-xl font-bold text-indigo-400">HK${mpfCalc.annualTvc.toLocaleString()}</span>
+                        <span className="text-xl font-bold text-indigo-400">{fmtHK(mpfCalc.annualTvc)}</span>
                       </div>
 
                       <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex justify-between items-center">
                         <div>
                           <span className="text-xs text-emerald-400 font-mono block">Estimated Annual Salaries Tax Savings</span>
                         </div>
-                        <span className="text-2xl font-black text-emerald-400">HK${mpfCalc.estimatedTaxSaved.toLocaleString()}</span>
+                        <span className="text-2xl font-black text-emerald-400">{fmtHK(mpfCalc.estimatedTaxSaved)}</span>
                       </div>
                     </div>
                   </div>
@@ -4170,7 +4260,7 @@ ${JSON.stringify(snapshot)}`;
                 </div>
 
                 <form onSubmit={handleSendMessage} className="p-3 bg-[#0d1117] flex gap-2">
-                  <input type="text" value={userInput || ''} onChange={(e) => setUserInput(e.target.value)} placeholder="Ask anything, e.g. Can I afford a HK$3,000 trip this week?" className="flex-1 min-w-0 px-4 py-2 rounded-xl bg-[#161b22] border border-slate-800 text-xs text-white focus:outline-none focus:border-[#00f2fe]" />
+                  <input type="text" value={userInput || ''} onChange={(e) => setUserInput(e.target.value)} placeholder={`Ask anything, e.g. Can I afford a ${fmt0(niceAmount(toHome(3000, 'HKD')))} trip this week?`} className="flex-1 min-w-0 px-4 py-2 rounded-xl bg-[#161b22] border border-slate-800 text-xs text-white focus:outline-none focus:border-[#00f2fe]" />
                   <button type="submit" className="bg-[#00f2fe] hover:bg-cyan-400 text-[#0d1117] px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
                     <Send className="w-3.5 h-3.5" /> Send
                   </button>
@@ -4182,7 +4272,7 @@ ${JSON.stringify(snapshot)}`;
 
             {/* REGULATORY FOOTER */}
             <footer className="mt-8 p-4 rounded-2xl bg-[#161b22] border border-slate-800/80 text-[10px] text-slate-500 font-mono leading-relaxed text-center shadow-inner">
-              <p><strong>Please note:</strong> A.F.A. (Automated Financial Assistant) is an educational tool designed for financial literacy, debt modeling, and budgeting habit formation in Hong Kong. It does not provide regulated investment advice under the Securities and Futures Ordinance (SFO).</p>
+              <p><strong>Please note:</strong> A.F.A. (Automated Financial Assistant) is an educational tool designed for financial literacy, debt modeling, and budgeting habit formation. It does not provide regulated investment advice.</p>
             </footer>
 
           </main>
@@ -4213,7 +4303,7 @@ ${JSON.stringify(snapshot)}`;
                    { name: 'Holiday & Festival', spend: 8000, save: 800, desc: 'Higher social/shopping' },
                    { name: 'Travel & Special', spend: 15000, save: 500, desc: 'Vacation or event mode' },
                    { name: 'Aggressive Savings', spend: 2000, save: 3000, desc: 'Maximized capital accumulation' },
-                 ].map((preset) => (
+                 ].map(p => ({ ...p, spend: niceAmount(toHome(p.spend, 'HKD')), save: niceAmount(toHome(p.save, 'HKD')) })).map((preset) => (
                    <button
                      key={preset.name}
                      type="button"
@@ -4228,7 +4318,7 @@ ${JSON.stringify(snapshot)}`;
                        <span>{preset.name}</span>
                        {userProfile.budgetProfile === preset.name && <CheckCircle2 className="w-3.5 h-3.5 text-[#00f2fe]" />}
                      </div>
-                     <div className="text-[10px] font-mono text-slate-400 mt-1">HK$ {preset.spend.toLocaleString()} / week</div>
+                     <div className="text-[10px] font-mono text-slate-400 mt-1">{fmtAuto(preset.spend)} / week</div>
                    </button>
                  ))}
                </div>
@@ -4237,7 +4327,7 @@ ${JSON.stringify(snapshot)}`;
             <form onSubmit={handleSaveBudgetLimits} className="space-y-4">
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">
-                  Weekly Max Spending Limit (HKD)
+                  Weekly Max Spending Limit ({homeCurrency})
                 </label>
                 <input 
                   type="number" 
@@ -4245,14 +4335,14 @@ ${JSON.stringify(snapshot)}`;
                   value={userProfile.weeklyMaxSpend || ''} 
                   onChange={e => setUserProfile({...userProfile, weeklyMaxSpend: e.target.value, budgetProfile: 'Custom'})} 
                   className="w-full px-4 py-3 glass-input rounded-xl text-sm text-white font-mono" 
-                  placeholder="e.g. 3500" 
+                  placeholder={`e.g. ${budgetDefaults.weeklyMaxSpend}`} 
                 />
                 <p className="text-[10px] text-slate-500 mt-1">Triggers a system warning if weekly spending exceeds this amount.</p>
               </div>
 
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">
-                  Weekly Min Savings Target (HKD)
+                  Weekly Min Savings Target ({homeCurrency})
                 </label>
                 <input 
                   type="number" 
@@ -4266,7 +4356,7 @@ ${JSON.stringify(snapshot)}`;
 
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">
-                  Monthly Baseline Income (HKD)
+                  Monthly Baseline Income ({homeCurrency})
                 </label>
                 <input 
                   type="number" 
@@ -4341,7 +4431,7 @@ ${JSON.stringify(snapshot)}`;
                 <div className="w-1/2">
                   <label className="block text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1">Currency</label>
                   <select value={newStock.currency || 'HKD'} onChange={e => setNewStock({ ...newStock, currency: e.target.value })} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white font-mono [&>option]:bg-[#161b22]">
-                    <option value="HKD">HKD ($)</option>
+                    <option value="HKD">HKD (HK$)</option>
                     <option value="USD">USD ($)</option>
                   </select>
                 </div>
@@ -4413,7 +4503,7 @@ ${JSON.stringify(snapshot)}`;
 
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Phone</label>
-                <input type="text" placeholder="+852 9123 4567" value={userProfile.phone || ''} onChange={e => setUserProfile({...userProfile, phone: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+                <input type="text" placeholder="+1 555 123 4567" value={userProfile.phone || ''} onChange={e => setUserProfile({...userProfile, phone: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
               </div>
 
               <div>
@@ -4423,7 +4513,7 @@ ${JSON.stringify(snapshot)}`;
 
               <div>
                 <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Home address</label>
-                <input type="text" placeholder="Harbour City, Tsim Sha Tsui, Hong Kong" value={userProfile.homeAddress || ''} onChange={e => setUserProfile({...userProfile, homeAddress: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
+                <input type="text" placeholder="Street, city, country" value={userProfile.homeAddress || ''} onChange={e => setUserProfile({...userProfile, homeAddress: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
               </div>
 
               {/* Financial profile: drives the Personal Action Plan in Analytics */}
@@ -4431,8 +4521,18 @@ ${JSON.stringify(snapshot)}`;
                 <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#00f2fe] mb-1">Financial profile</h4>
                 <p className="text-[10px] text-slate-500 mb-3">Used to tailor your analysis and recommendations.</p>
                 <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Currency</label>
+                    <select value={homeCurrency} onChange={e => handleChangeCurrency(e.target.value)} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-slate-900">
+                      {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code} · {c.name} ({c.symbol.trim()})</option>)}
+                    </select>
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Changes apply straight away. Your records keep the currency you entered them in and are converted at live rates
+                      {fxStatus.at ? ` (updated ${new Date(fxStatus.at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })})` : ' (approximate until live rates load)'}; income, budgets, goal and debts are converted once at today's rate.
+                    </p>
+                  </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Monthly income (HKD)</label>
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Monthly income ({homeCurrency})</label>
                     <input type="number" min="0" value={userProfile.monthlyIncome || ''} onChange={e => setUserProfile({...userProfile, monthlyIncome: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
                   </div>
                   <div>
@@ -4443,14 +4543,14 @@ ${JSON.stringify(snapshot)}`;
                     <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Main goal</label>
                     <select value={userProfile.goal || ''} onChange={e => setUserProfile({...userProfile, goal: e.target.value})} className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white [&>option]:bg-slate-900">
                       <option value="">Choose a goal</option>
-                      <option value="HK Property Down Payment">HK Property Down Payment</option>
+                      <option value="Property Down Payment">Property Down Payment</option>
                       <option value="Early Retirement (FIRE)">Early Retirement (FIRE)</option>
                       <option value="High-Yield Dividend Cash Flow">High-Yield Dividend Cash Flow</option>
                       <option value="General Wealth Accumulation">General Wealth Accumulation</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Target amount (HKD)</label>
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase tracking-widest mb-1">Target amount ({homeCurrency})</label>
                     <input type="number" min="0" value={userProfile.targetAmount || ''} onChange={e => setUserProfile({...userProfile, targetAmount: e.target.value})} placeholder="600000" className="w-full px-4 py-2.5 glass-input rounded-xl text-xs text-white" />
                   </div>
                   <div>
@@ -4477,5 +4577,6 @@ ${JSON.stringify(snapshot)}`;
       )}
 
     </div>
+    </MoneyContext.Provider>
   );
 }
