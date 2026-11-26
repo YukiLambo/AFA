@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Digits of equal width, so amounts line up in lists and do not jump as they update */
+body { font-variant-numeric: tabular-nums; }
