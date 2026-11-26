@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import ThreadSphere from './ThreadSphere';
+import AssistantSprite, { SPRITE_CSS } from './AssistantSprite';
 import {
   LayoutDashboard, ShieldAlert, Wallet, TrendingUp, Plus, Sliders, CreditCard, PiggyBank, Bot, X, Share, PlusSquare,
   Menu, Bell, ChevronRight, Sparkles, LogOut, UserCog, Smartphone
@@ -7,7 +9,7 @@ import {
 
 // Phone layout (hidden from 768px up, where the desktop sidebar and header are used).
 //  - MobileTopBar: menu button · A.F.A. wordmark · alerts/profile pill, plus a slide-in side drawer
-//  - MobileHero: financial-health orb with three pillar capsules (dashboard only)
+//  - MobileHero: financial-health thread sphere, three pillar gauges and an 'Ask A.F.A.' row with the assistant sprite (dashboard only)
 //  - MobileNav: five-tab bottom bar (AI in the middle) and a floating + for recording
 
 const TABS = [
@@ -68,27 +70,29 @@ const CSS = `
 .afa-switch.on::after { transform: translateX(14px); }
 
 /* Hero */
-.afa-hero { display: flex; flex-direction: column; align-items: center; padding: 6px 0 2px; }
-.afa-orb { position: relative; width: min(58vw, 230px); aspect-ratio: 1; border-radius: 999px; overflow: hidden; cursor: pointer; -webkit-tap-highlight-color: transparent;
-  background: radial-gradient(circle at 50% 50%, #0b3a5c, #061a2c 70%);
-  box-shadow: 0 28px 60px -18px rgba(0, 170, 220, 0.45), inset 0 0 40px rgba(0,0,0,0.5); }
-.afa-orb i { position: absolute; inset: -30%; border-radius: 45%; filter: blur(18px); opacity: .9; }
-.afa-orb i:nth-child(1) { background: conic-gradient(from 0deg, transparent, #00f2fe 18%, transparent 38%, #2f6bff 60%, transparent 80%); animation: afaSpin 14s linear infinite; }
-.afa-orb i:nth-child(2) { background: conic-gradient(from 120deg, transparent, #3fe3c4 15%, transparent 35%, #0a7cff 55%, transparent 75%); animation: afaSpin 21s linear infinite reverse; mix-blend-mode: screen; opacity: .7; }
-.afa-orb::before { content: ''; position: absolute; inset: 0; border-radius: 999px; z-index: 2;
-  background: radial-gradient(circle at 32% 24%, rgba(255,255,255,0.42), transparent 30%), radial-gradient(circle at 70% 85%, rgba(0,0,0,0.55), transparent 55%); }
-.afa-orb::after { content: ''; position: absolute; inset: 0; border-radius: 999px; z-index: 3; box-shadow: inset 0 0 0 1px rgba(190,240,255,0.18); }
-.afa-orb .lbl { position: absolute; inset: 0; z-index: 4; display: grid; place-content: center; text-align: center; color: #f4fdff; }
-.afa-orb .lbl b { font: italic 400 clamp(44px, 15vw, 60px)/1 'Newsreader', Georgia, serif; text-shadow: 0 2px 18px rgba(0,30,50,0.6); }
-.afa-orb .lbl span { margin-top: 6px; font: 500 9.5px/1 'JetBrains Mono', monospace; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(225,248,255,0.8); }
+.afa-hero { display: flex; flex-direction: column; align-items: stretch; padding: 0 0 2px; }
+.afa-orb { position: relative; align-self: center; width: min(74vw, 290px); aspect-ratio: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.afa-orb canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.afa-orb .lbl { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; text-align: center; color: #f4fdff; pointer-events: none; }
+.afa-orb .lbl::before { content: ''; position: absolute; left: 50%; top: 50%; width: 46%; height: 34%; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(6, 10, 16, 0.78), rgba(6, 10, 16, 0)); z-index: -1; }
+.afa-orb .lbl b { font: 400 clamp(46px, 15vw, 62px)/1 'Newsreader', Georgia, serif; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.afa-orb .lbl b small { font: 500 12px/1 'JetBrains Mono', monospace; color: #8494a3; margin-left: 3px; letter-spacing: 0; }
+.afa-orb .lbl span { margin-top: 8px; font: 500 9.5px/1 'JetBrains Mono', monospace; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(225,248,255,0.75); }
 .afa-orb .lbl em { font: italic 400 22px/1.1 'Newsreader', Georgia, serif; }
-.afa-caps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; margin-top: 18px; }
-.afa-cap { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.afa-cap > span { font: 500 9.5px/1 'JetBrains Mono', monospace; letter-spacing: 0.16em; text-transform: uppercase; color: #9fb0bf; }
-.afa-cap .pill { position: relative; width: 74px; height: 30px; border-radius: 99px; overflow: hidden; display: grid; place-items: center;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(148,163,184,0.18); font: 600 12px/1 'JetBrains Mono', monospace; color: #eaf6fb; }
-.afa-cap .pill i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; opacity: .55; }
-.afa-cap .pill b { position: relative; }
+.afa-caps { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; margin-top: 6px; border-top: 1px solid rgba(200,225,240,0.12); border-bottom: 1px solid rgba(200,225,240,0.08); }
+.afa-cap { display: flex; flex-direction: column; gap: 9px; padding: 12px 12px 13px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.afa-cap + .afa-cap { border-left: 1px solid rgba(200,225,240,0.08); }
+.afa-cap > span { font: 500 9.5px/1 'JetBrains Mono', monospace; letter-spacing: 0.14em; text-transform: uppercase; color: #8494a3; }
+.afa-cap > b { font: 500 17px/1 'JetBrains Mono', monospace; color: #edf2f6; font-variant-numeric: tabular-nums; }
+.afa-cap > b small { font-size: 10px; color: #5e6d7b; margin-left: 2px; }
+.afa-cap .bar { position: relative; height: 2px; background: rgba(200,225,240,0.1); }
+.afa-cap .bar i { position: absolute; left: 0; top: 0; bottom: 0; }
+.afa-ask { margin-top: 12px; display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 10px; border: 1px solid rgba(200,225,240,0.12); border-radius: 6px; background: rgba(13,18,24,0.7); color: #edf2f6; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; width: 100%; }
+.afa-ask:active { background: rgba(0,242,254,0.06); }
+.afa-ask .t { flex: 1; min-width: 0; }
+.afa-ask .t span { display: block; font: 500 9.5px/1 'JetBrains Mono', monospace; letter-spacing: 0.14em; text-transform: uppercase; color: #3fe3f0; }
+.afa-ask .t b { display: block; margin-top: 6px; font: 500 13.5px/1.3 'Inter', system-ui, sans-serif; }
+.afa-ask svg.chev { width: 16px; height: 16px; color: #5e6d7b; flex: none; }
 
 /* Bottom bar */
 .afa-tabbar { position: fixed; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); z-index: 45;
@@ -111,10 +115,10 @@ const CSS = `
 @keyframes afaFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes afaSpin { to { transform: rotate(360deg); } }
 @media (min-width: 768px) { .afa-tabbar, .afa-fab, .afa-mtop, .afa-drawer, .afa-drawer-bg, .afa-hero { display: none !important; } }
-@media (prefers-reduced-motion: reduce) { .afa-drawer, .afa-drawer-bg { animation: none; } .afa-orb i { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .afa-drawer, .afa-drawer-bg { animation: none; }  }
 `;
 
-export function MobileStyles() { return <style>{CSS}</style>; }
+export function MobileStyles() { return <style>{CSS + SPRITE_CSS}</style>; }
 
 const scoreColor = (s) => (s >= 70 ? '#16c784' : s >= 45 ? '#ffd166' : '#ea3943');
 const money = (v) => {
@@ -198,26 +202,35 @@ export function MobileTopBar({ activeTab, setActiveTab, user, userProfile, insig
   );
 }
 
-export function MobileHero({ insights, hasData, onOpen }) {
+export function MobileHero({ insights, hasData, onOpen, onAsk }) {
   const pick = ['spending', 'safety', 'investing'];
   const pillars = (insights?.pillars || []).filter(p => pick.includes(p.id)).sort((a, b) => pick.indexOf(a.id) - pick.indexOf(b.id));
   const names = { spending: 'Spending', safety: 'Safety', investing: 'Invest' };
+  const tone = hasData ? scoreColor(insights?.overall ?? 0) : '#00f2fe';
   return (
     <div className="afa-hero md:hidden">
       <div className="afa-orb" onClick={onOpen} role="button" aria-label="Open your financial health analysis">
-        <i /><i />
+        <ThreadSphere tone={tone} />
         <div className="lbl">
-          {hasData ? (<><b>{insights.overall}</b><span>Financial health</span></>) : (<><em>Awaiting data</em><span>Add your first record</span></>)}
+          {hasData ? (<><b>{insights.overall}<small>/100</small></b><span>Financial health</span></>) : (<><em>Awaiting data</em><span>Add your first record</span></>)}
         </div>
       </div>
       <div className="afa-caps">
         {pillars.map(p => (
           <div key={p.id} className="afa-cap" onClick={onOpen}>
             <span>{names[p.id]}</span>
-            <div className="pill"><i style={{ width: `${hasData ? p.score : 0}%`, background: `linear-gradient(90deg, transparent, ${scoreColor(p.score)})` }} /><b>{hasData ? p.score : '—'}</b></div>
+            <b>{hasData ? p.score : '—'}<small>/100</small></b>
+            <div className="bar"><i style={{ width: `${hasData ? p.score : 0}%`, background: scoreColor(p.score) }} /></div>
           </div>
         ))}
       </div>
+      {onAsk && (
+        <button type="button" className="afa-ask" onClick={onAsk}>
+          <AssistantSprite size={34} />
+          <span className="t"><span>A.F.A. AI</span><b>{hasData ? `Why is my score ${insights.overall}?` : 'How do I get started?'}</b></span>
+          <ChevronRight className="chev" />
+        </button>
+      )}
     </div>
   );
 }
