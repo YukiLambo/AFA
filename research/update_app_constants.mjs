@@ -43,5 +43,13 @@ if (R.fdr) {
   else src = src.replace('// Pattern names, the textbook direction', `// States that passed false-discovery control (Benjamini–Hochberg, Newey–West t-statistics). Written by\n// research/update_app_constants.mjs.\n${fdr}\n\n// Pattern names, the textbook direction`);
 }
 
+// STUDY3.walkForward from results/walkforward.json (refit every 6 months, scored on the next 6)
+try {
+  const W = JSON.parse(readFileSync(join(RESEARCH_DIR, 'results/walkforward.json'), 'utf8'));
+  const wf = (h) => `{ icHK: ${W.summary[h].HK.walk.ic.mean}, icUS: ${W.summary[h].US.walk.ic.mean}, posHK: '${W.summary[h].HK.walk.ic.positive}', posUS: '${W.summary[h].US.walk.ic.positive}' }`;
+  src = src.replace(/\n  walkForward: \{[\s\S]*?\n  \},?/, '');
+  src = src.replace(/(export const STUDY3 = \{[\s\S]*?)\n\};/, `$1,\n  walkForward: {\n    from: '${W.firstTest.slice(0, 4)}', short: ${wf('short')},\n    long: ${wf('long')}\n  }\n};`);
+} catch (e) { console.warn('No walkforward.json: STUDY3.walkForward not written'); }
+
 writeFileSync(appFile, src);
 console.log(`Updated ${n} EVIDENCE rows, CALIB and STUDY3 in src/lib/horizonModel.js from ${resFile}`);

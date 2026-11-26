@@ -151,7 +151,11 @@ export const STUDY3 = {
   short: { horizon: 10, icTrainHK: 0.007, icTestHK: 0.005, icTrainUS: 0.047, icTestUS: 0.024, posTestHK: '31 of 60', posTestUS: '21 of 40',
     top: { HK: [-0.31, -3.1], US: [0.1, 0.8] }, bottom: { HK: [0.36, 2.8], US: [0.09, 0.9] } },
   long: { horizon: 120, icTrainHK: -0.045, icTestHK: 0.107, icTrainUS: 0.097, icTestUS: 0.131, posTestHK: '40 of 60', posTestUS: '30 of 40',
-    top: { HK: [-1.81, -5.3], US: [-1.48, -2.9] }, bottom: { HK: [0.36, 0.8], US: [2.75, 5.4] } }
+    top: { HK: [-1.81, -5.3], US: [-1.48, -2.9] }, bottom: { HK: [0.36, 0.8], US: [2.75, 5.4] } },
+  walkForward: {
+    from: '2021', short: { icHK: 0.005, icUS: 0.007, posHK: '7 of 12', posUS: '6 of 12' },
+    long: { icHK: 0.013, icUS: 0.03, posHK: '6 of 11', posUS: '7 of 11' }
+  }
 };
 
 // "+1.7% vs the index, 10 pts more often ahead of it"

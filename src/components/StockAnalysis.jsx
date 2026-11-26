@@ -547,7 +547,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
           {/* How much to trust the outlook: out-of-sample results of the study */}
           {outlook && plan && (() => {
             const pc = plan.percentiles;
-            const Test = ({ m, name }) => (
+            const Test = ({ m, name, wf }) => (
               <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
                 <div className={label}>{name} · next {m.horizon} trading days</div>
                 <table className="w-full mt-2 text-[11px] font-mono">
@@ -563,6 +563,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   </tbody>
                 </table>
                 <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">Return vs the index, and change in how often the stock beat it. Jul 2023 – Nov 2026, not used for tuning. If the highest-score row is not above the lowest-score row, the model had no edge there. Worked on {m.posTestHK} HK and {m.posTestUS} US stocks; tuning-period IC {m.icTrainHK.toFixed(2)} (HK) / {m.icTrainUS.toFixed(2)} (US).</p>
+                {wf && <p className="text-[10px] text-amber-200/80 mt-1 leading-relaxed">Stricter walk-forward test (model refitted every 6 months from {STUDY3.walkForward.from}, each time using only earlier data): IC {wf.icHK.toFixed(2)} HK / {wf.icUS.toFixed(2)} US, above zero in {wf.posHK} and {wf.posUS} half-years. Close to zero means no dependable edge: use this outlook to learn how signals behave, not to time trades.</p>}
               </div>
             );
             return (
@@ -572,8 +573,8 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                   <span className="text-[10px] text-slate-500">{STUDY3.universe} · {STUDY3.period}</span>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <Test m={STUDY3.short} name="Short-term model" />
-                  <Test m={STUDY3.long} name="Long-term model" />
+                  <Test m={STUDY3.short} wf={STUDY3.walkForward?.short} name="Short-term model" />
+                  <Test m={STUDY3.long} wf={STUDY3.walkForward?.long} name="Long-term model" />
                   <div className="p-4 rounded-2xl bg-[#0d1117] border border-slate-800">
                     <div className={label}>Relative strength vs HK blue chips</div>
                     {pc ? (
