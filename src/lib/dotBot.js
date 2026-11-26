@@ -139,16 +139,19 @@ export function startDotBot(canvas) {
 
   const kick = () => { if (!raf && active && !disposed) { last = performance.now(); raf = requestAnimationFrame(frame); } };
   const onMove = (e) => { ptr.x = e.clientX; ptr.y = e.clientY; if (reduce) kick(); };
+  const onTouch = (e) => { const p = e.touches[0]; if (p) onMove(p); };
   const onResize = () => { layout(); kick(); };
   const onVis = () => { if (!document.hidden) kick(); };
   layout();
   window.addEventListener('pointermove', onMove, { passive: true });
+  window.addEventListener('touchstart', onTouch, { passive: true });
+  window.addEventListener('touchmove', onTouch, { passive: true });
   window.addEventListener('resize', onResize);
   document.addEventListener('visibilitychange', onVis);
   kick();
   return {
     exit(done) { if (exitAt >= 0) return; if (reduce) { done(); return; } exitAt = performance.now(); exitDone = done; kick(); },
     setActive(on) { active = on; if (on) kick(); },
-    dispose() { disposed = true; cancelAnimationFrame(raf); window.removeEventListener('pointermove', onMove); window.removeEventListener('resize', onResize); document.removeEventListener('visibilitychange', onVis); },
+    dispose() { disposed = true; cancelAnimationFrame(raf); window.removeEventListener('pointermove', onMove); window.removeEventListener('touchstart', onTouch); window.removeEventListener('touchmove', onTouch); window.removeEventListener('resize', onResize); document.removeEventListener('visibilitychange', onVis); },
   };
 }

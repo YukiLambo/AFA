@@ -448,19 +448,19 @@ const ALLOCATION_COLORS = {
 const CHART_PALETTE = ['#00f2fe', '#8b5cf6', '#ff4fd8', '#2dd4bf', '#ffd166', '#4f8cff', '#ff6b8b', '#a3e635', '#c084fc', '#38bdf8'];
 const colorFor = (name, index) => CATEGORY_COLORS[name] || CHART_PALETTE[index % CHART_PALETTE.length];
 
-// Glowing vertical gradients for bars: url(#afaBar0) ... url(#afaBar9), plus the portfolio bars.
+// Flat bar fills (no glow): url(#afaBar0) ... url(#afaBar9), plus the portfolio bars.
 // A plain <defs> element (not a component): Recharts only renders <defs> it finds directly in a chart.
 const CHART_GRADIENT_DEFS = (
   <defs>
     {CHART_PALETTE.map((c, i) => (
       <linearGradient key={c} id={`afaBar${i}`} x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stopColor={c} stopOpacity={0.95} />
-        <stop offset="100%" stopColor={c} stopOpacity={0.25} />
+        <stop offset="100%" stopColor={c} stopOpacity={0.95} />
       </linearGradient>
     ))}
     <linearGradient id="afaBarPortfolio" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stopColor="#00f2fe" stopOpacity={0.95} />
-      <stop offset="100%" stopColor="#7c5cff" stopOpacity={0.45} />
+      <stop offset="100%" stopColor="#00f2fe" stopOpacity={0.95} />
     </linearGradient>
   </defs>
 );
@@ -3031,7 +3031,7 @@ ${JSON.stringify(snapshot)}`;
                     <p className="text-[10px] text-slate-400 mb-6 text-left w-full">50/30/20 & Rent Burden Evaluation</p>
                     
                     <div className="relative w-48 h-28 flex flex-col items-center justify-end">
-                      <svg viewBox="-10 -15 220 115" className="w-full h-full drop-shadow-lg overflow-visible">
+                      <svg viewBox="-10 -15 220 115" className="w-full h-full overflow-visible">
                         {/* Red Zone 0-30 */}
                         <path d="M 20 90 A 70 70 0 0 1 54 27" fill="none" stroke="#f43f5e" strokeWidth="25" strokeLinecap="butt" />
                         {/* Yellow Zone 30-70 */}
@@ -3123,7 +3123,7 @@ ${JSON.stringify(snapshot)}`;
                         <PieChart>
                           <Pie data={categoryBreakdown} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3} cornerRadius={6} label={renderPieLabel} labelLine={false}>
                             {categoryBreakdown.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
+                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" />
                             ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
@@ -3140,7 +3140,7 @@ ${JSON.stringify(snapshot)}`;
                         <PieChart>
                           <Pie data={incomeCategoryData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={3} cornerRadius={6} label={renderPieLabel} labelLine={false}>
                             {incomeCategoryData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
+                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" />
                             ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
@@ -3793,7 +3793,7 @@ ${JSON.stringify(snapshot)}`;
                         <PieChart>
                           <Pie data={diversityData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={4} cornerRadius={6} dataKey="value" label={renderPieLabel} labelLine={false}>
                             {diversityData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
+                              <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" />
                             ))}
                           </Pie>
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`${fmt0(val)}`, 'Value']} />

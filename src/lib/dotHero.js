@@ -2,7 +2,7 @@
 // An isometric field of cubes rises in on load and keeps a slow wave running through it. A group of cubes
 // stands up in cyan in the shape of the A.F.A. "A", the field lifts gently around the pointer, and a cool
 // light pools under the assistant. The assistant itself is drawn by dotBot.js on its own canvas, placed over
-// the field at bot.x / bot.y (60% across, halfway down).
+// the field at bot.x / bot.y (67% across, halfway down).
 // startDotHero(canvas) returns { exit(done), setActive(on), dispose() }.
 
 // A.F.A. mark as cubes: the "A" chevron with its three nodes (1 = raised, 2 = node, lit brighter)
@@ -24,7 +24,7 @@ export function startDotHero(canvas) {
 
   // grid and layout
   const N = 34;
-  let S = 40, ox = 0, oy = 0, bot = { x: 0, y: 0, H: 0 };
+  let S = 40, ox = 0, oy = 0, phone = false, bot = { x: 0, y: 0, H: 0 };
   const lift = new Float32Array(N * N);   // smoothed pointer lift per cube
   const markAt = new Int8Array(N * N);
 
@@ -34,14 +34,17 @@ export function startDotHero(canvas) {
     w = r.width; h = r.height; canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
     S = Math.max(30, Math.min(46, w / 34));
     // field centre sits right of centre and low, so the left stays calm for the headline
-    bot = { x: w * 0.6, y: h * 0.5, H: Math.min(h * 0.44, w * 0.26) };
+    phone = w < 768; const narrow = w < 1100;
+    // matches the #afl-bot position in IntroLanding's CSS
+    bot = phone ? { x: w * 0.5, y: 56 + h * 0.4, H: Math.min(h * 0.34, w * 0.47) } : { x: w * (narrow ? 0.7 : 0.67), y: h * 0.5, H: Math.min(h * 0.44, w * 0.26) };
     // the field is centred under the assistant
-    ox = bot.x; oy = bot.y + bot.H * 0.62 - (N - 1) * S * 0.5;
+    // (on phones the field stays anchored higher so it still fills the top corners)
+    ox = bot.x; oy = (phone ? 56 + h * 0.2 : bot.y) + bot.H * 0.62 - (N - 1) * S * 0.5;
     markAt.fill(0);
     // the mark lies in the field behind and to the right of the assistant, drawn in grid space like a floor inlay
-    const mu = (w * 0.815 - ox) / S, mv = (h * 0.34 - oy) / (S * 0.5);
+    const mu = (w * 0.845 - ox) / S, mv = (h * 0.7 - oy) / (S * 0.5);
     const ci = Math.round((mu + mv) / 2), cj = Math.round((mv - mu) / 2);
-    MARK.forEach((row, r) => [...row].forEach((ch, c) => {
+    if (!narrow) MARK.forEach((row, r) => [...row].forEach((ch, c) => {
       if (ch === '.') return;
       // columns run along +i (down-right on screen), rows along +j (down-left), so the letter reads at an angle
       const i = ci + (c - 2) + (r - 2), j = cj - (c - 2) + (r - 2);
@@ -72,7 +75,8 @@ export function startDotHero(canvas) {
         z -= kOut * (m ? 0 : 40) * (sum / (2 * N));
         const ty = y - z;
         // fade the field out toward the left edge and the top, under the text
-        const fade = clamp((x - w * 0.18) / (w * 0.32), 0, 1) * (m ? 1 : clamp((y + S * 4) / (h * 0.35), 0, 1)) * rise * (1 - kOut * 0.8);
+        const side = phone ? clamp((h * 0.66 - y) / (h * 0.22), 0, 1) : clamp((x - w * 0.18) / (w * 0.32), 0, 1);
+        const fade = side * (m ? 1 : clamp((y + S * 4) / (h * 0.35), 0, 1)) * rise * (1 - kOut * 0.8);
         if (fade <= 0.01) continue;
         ctx.globalAlpha = fade;
         // side faces
@@ -115,12 +119,18 @@ export function startDotHero(canvas) {
 
   const onMove = (e) => { const r = canvas.getBoundingClientRect(); ptr.x = e.clientX - r.left; ptr.y = e.clientY - r.top; if (reduce && !raf) raf = requestAnimationFrame(frame); };
   const onLeave = () => { ptr.x = ptr.y = -9999; };
+  // phones: a finger drag scrolls the page, which cancels pointer events, so follow touches directly
+  const onTouch = (e) => { const p = e.touches[0]; if (p) onMove(p); };
   const onVis = () => { if (!document.hidden && active && !raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
   const onResize = () => { layout(); if (!raf) raf = requestAnimationFrame(frame); };
   layout();
   window.addEventListener('resize', onResize);
   window.addEventListener('pointermove', onMove, { passive: true });
   document.addEventListener('pointerleave', onLeave);
+  window.addEventListener('touchstart', onTouch, { passive: true });
+  window.addEventListener('touchmove', onTouch, { passive: true });
+  window.addEventListener('touchend', onLeave, { passive: true });
+  window.addEventListener('touchcancel', onLeave, { passive: true });
   document.addEventListener('visibilitychange', onVis);
   raf = requestAnimationFrame(frame);
 
@@ -131,6 +141,8 @@ export function startDotHero(canvas) {
       disposed = true; cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize); window.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerleave', onLeave); document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('touchstart', onTouch); window.removeEventListener('touchmove', onTouch);
+      window.removeEventListener('touchend', onLeave); window.removeEventListener('touchcancel', onLeave);
     },
   };
 }
