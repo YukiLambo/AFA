@@ -72,8 +72,18 @@ for (const sym of symbols) {
   await sleep(600);
 }
 
+// Risk-free rate for the CAPM discount rate: the US 10-year Treasury yield (^TNX, quoted in %). The HKD is pegged
+// to the USD, so Hong Kong long rates track US ones closely; the app uses this for both markets.
+let market = prev.market || null;
+{
+  const j = await getJson('https://query1.finance.yahoo.com/v8/finance/chart/%5ETNX?range=5d&interval=1d', headers);
+  const closes = j?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(Number.isFinite) || [];
+  if (closes.length) market = { riskFree: Math.round(closes[closes.length - 1] * 100) / 10000, riskFreeSource: 'US 10-year Treasury yield (^TNX)', asOf: today };
+}
+
 const out = {
   updated: today,
+  market,
   source: 'Yahoo Finance quoteSummary (unofficial; for education, may be delayed or wrong)',
   note: 'Per-share figures are in the trading currency. asOf = the night each record was last fetched successfully.',
   stocks: Object.fromEntries(Object.entries(stocks).sort(([a], [b]) => (a < b ? -1 : 1)))

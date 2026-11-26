@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Cell, ReferenceLine, ReferenceArea } from 'recharts';
 import { Search, Loader2, Activity, Gauge, BarChart3, Calculator, FlaskConical, AlertTriangle, Crosshair, Star, X as XIcon, Newspaper, ExternalLink } from 'lucide-react';
 import { aggregateNews, companySearchName } from '../lib/newsSentiment';
-import { getFundamentals, growthFromFundamentals } from '../lib/fundamentals';
+import { getFundamentals, growthFromFundamentals, capmDiscount } from '../lib/fundamentals';
 import { horizonOutlook, indicatorTable, PATTERNS, verdict, evText, STUDY3, CROSS_SECTION, SIGNAL_SCALE } from '../lib/horizonModel';
 import { valuationScore } from '../lib/indicators';
 import { sma, bollinger, annualVolatility, periodReturn, sharpe, maxDrawdown, holtForecast, technicalReview, valuationModels, tradePlan, valuationRange, impliedGrowth, dcfValue, pegFairPe, backtestSignals, STUDY_RESULTS, STUDY2, signalSeries, adxSeries, ichimokuSeries, supertrendSeries, stochasticSeries, obvSeries, fibonacciLevels, detectPatterns, ema, macd, rsi } from '../lib/indicators';
@@ -116,8 +116,10 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
       if (f) {
         const eps = f.forwardEps > 0 ? f.forwardEps : f.trailingEps > 0 ? f.trailingEps : null;
         const g = growthFromFundamentals(f);
+        const capm = capmDiscount(f, /\.HK$/.test(q.symbol));
         setVal(v => ({
           ...v,
+          ...(capm ? { discountPct: capm.pct } : {}),
           ...(eps ? { eps: eps.toFixed(2) } : {}),
           ...(f.dps > 0 ? { dps: f.dps.toFixed(2) } : {}),
           ...(f.fcfPerShare > 0 ? { fcf: f.fcfPerShare.toFixed(2) } : {}),
@@ -253,6 +255,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
     fcfPerShare: Number(val.fcf) || 0
   }), [val]);
   const valuation = useMemo(() => valuationModels(valInputs), [valInputs]);
+  const capmInfo = useMemo(() => (fund ? capmDiscount(fund, /\.HK$/.test(fund.symbol)) : null), [fund]);
   const fairRange = useMemo(() => valuationRange(valInputs), [valInputs]);
   const setValField = (k, v) => setVal(prev => {
     const next = { ...prev, [k]: v };
@@ -863,7 +866,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                 </div>
               ))}
               <p className="col-span-2 text-[10px] text-slate-500 leading-relaxed">{fund
-                ? `Pre-filled from company data (${fund.source.split(' (')[0]}, ${fund.asOf}): ${fund.forwardEps > 0 ? 'analysts\' forward EPS' : 'trailing EPS'}${fund.dps > 0 ? ', dividend' : ''}${fund.fcfPerShare > 0 ? ', free cash flow' : ''}${growthFromFundamentals(fund) !== null ? `, growth ${growthFromFundamentals(fund)}% (analyst estimate, capped at −5…25%)` : ''}${fund.financialCurrency && fund.financialCurrency !== fund.currency ? `; reported in ${fund.financialCurrency}, converted to ${fund.currency}` : ''}. Unofficial source: check against the company's latest results.`
+                ? `Pre-filled from company data (${fund.source.split(' (')[0]}, ${fund.asOf}): ${fund.forwardEps > 0 ? 'analysts\' forward EPS' : 'trailing EPS'}${fund.dps > 0 ? ', dividend' : ''}${fund.fcfPerShare > 0 ? ', free cash flow' : ''}${growthFromFundamentals(fund) !== null ? `, growth ${growthFromFundamentals(fund)}% (analyst estimate, capped at −5…25%)` : ''}${fund.financialCurrency && fund.financialCurrency !== fund.currency ? `; reported in ${fund.financialCurrency}, converted to ${fund.currency}` : ''}. ${capmInfo ? ` Required return ${capmInfo.pct}% = risk-free ${capmInfo.riskFreePct}% (US 10-year yield; the HK dollar is pegged to the US dollar) + beta ${capmInfo.beta}${capmInfo.rawBeta !== null ? ` (raw ${capmInfo.rawBeta.toFixed(2)}, pulled towards 1)` : ' (no beta, market average used)'} × equity risk premium ${capmInfo.erp}% (CAPM).` : ''} Unofficial source: check against the company's latest results.`
                 : 'No nightly company data for this stock: EPS is estimated as price ÷ P/E from the quote feed. Enter the other figures from the latest annual report.'}</p>
               {!val.fairPeAuto && <button onClick={() => setVal(v => ({ ...v, fairPe: pegFairPe(Number(v.growthPct) || 0), fairPeAuto: true }))} className="self-end mb-2 text-[10px] text-[#00f2fe] hover:underline cursor-pointer text-left">Reset fair P/E to auto ({pegFairPe(Number(val.growthPct) || 0)})</button>}
             </div>
