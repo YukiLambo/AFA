@@ -14,6 +14,8 @@
 
 **Risk-free rate:** `market.riskFree` holds the US 10-year Treasury yield (^TNX). The app uses it for both markets, because the HKD is pegged to the USD. The CAPM required return is risk-free + adjusted beta × equity risk premium. The premium is 4.5% for the US and 5.5% for HK (`EQUITY_PREMIUM` in `src/lib/fundamentals.js`). Beta is pulled a third of the way towards 1.
 
+**Peer comparison:** `peerComparison()` in `src/lib/fundamentals.js` compares each stock's P/E, EV/EBITDA and P/B with companies in the same market and industry (or sector, if fewer than 4 industry peers have data). The peer-median prices join the fair-value median. Peers come only from the symbols this job covers, so adding related companies to `extra-symbols.json` makes the comparison better. Test: `node scripts/fundamentals/peers.test.mjs`.
+
 **Coverage:** the 100 stocks in `research/universe.json`, plus any symbols listed in `extra-symbols.json`. Other stocks fall back to the old manual inputs in the app.
 
 **Currency:** HK-listed mainland companies often report in CNY or USD. The job converts per-share figures into the trading currency using Yahoo's FX rates. It decides which currency Yahoo's EPS fields are in by checking them against the price-based P/E (see `parse.mjs`; `parse.test.mjs` covers this).

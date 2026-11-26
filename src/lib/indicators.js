@@ -269,11 +269,13 @@ export function technicalReview(rows) {
 //   P/E multiple:    EPS × fair P/E
 //   Earnings DCF:    Σ EPS·(1+g)^t / (1+r)^t, t = 1..5, + EPS·(1+g)^5 × terminal P/E / (1+r)^5
 //   Gordon DDM:      DPS·(1+gd) / (r − gd)            (only when r > gd and DPS > 0)
-//   Graham formula:  EPS × (8.5 + 2g)                  (g in %, the classic 1962 version)
+//   Graham formula:  EPS × (8.5 + 2g)                  (g in %, the 1962 version; shown for reference only and left
+//                    out of the median, because its constants were set for 1960s bond yields)
+//   Peer multiples:  peer median P/E, EV/EBITDA or P/B × the company's own figure (passed in as peerModels)
 //   FCF DCF:         Σ FCF·(1+g)^t / (1+r)^t, t = 1..5, + FCF·(1+g)^5·(1+gT) / (r − gT) / (1+r)^5, gT = 2.5%
 //                    (free cash flow to equity per share, from the nightly company data when available)
 // The fair value shown is the median of the models that apply.
-export function valuationModels({ eps, growthPct, discountPct, terminalPe, fairPe, dps, divGrowthPct, fcfPerShare = 0 }) {
+export function valuationModels({ eps, growthPct, discountPct, terminalPe, fairPe, dps, divGrowthPct, fcfPerShare = 0, peerModels = [] }) {
   const g = (growthPct || 0) / 100, r = (discountPct || 0) / 100, gd = (divGrowthPct || 0) / 100;
   const out = [];
   if (eps > 0 && fairPe > 0) out.push({ id: 'pe', label: 'P/E multiple', value: eps * fairPe, formula: `EPS ${eps.toFixed(2)} × fair P/E ${fairPe}` });
@@ -291,9 +293,10 @@ export function valuationModels({ eps, growthPct, discountPct, terminalPe, fairP
     out.push({ id: 'fcf', label: 'Free-cash-flow DCF (5 yr)', value: pv, formula: `FCF/share ${fcfPerShare.toFixed(2)} grows ${growthPct}% for 5 yrs, then 2.5%, discounted at ${discountPct}%` });
   }
   if (dps > 0 && r > gd) out.push({ id: 'ddm', label: 'Dividend discount', value: (dps * (1 + gd)) / (r - gd), formula: `DPS ${dps.toFixed(2)} × (1 + ${divGrowthPct}%) ÷ (${discountPct}% − ${divGrowthPct}%)` });
-  if (eps > 0) out.push({ id: 'graham', label: 'Graham formula', value: eps * (8.5 + 2 * Math.max(0, Math.min(growthPct || 0, 15))), formula: `EPS × (8.5 + 2 × ${Math.max(0, Math.min(growthPct || 0, 15))})` });
-  // Median of the models, so one extreme assumption does not dominate
-  const sorted = out.map(m => m.value).sort((a, b) => a - b);
+  for (const m of peerModels) if (m && m.value > 0) out.push(m);
+  if (eps > 0) out.push({ id: 'graham', label: 'Graham formula (1962, reference only)', historical: true, value: eps * (8.5 + 2 * Math.max(0, Math.min(growthPct || 0, 15))), formula: `EPS × (8.5 + 2 × ${Math.max(0, Math.min(growthPct || 0, 15))}). Not in the median: its constants assume 1960s bond yields` });
+  // Median of the models (historical ones excluded), so one extreme assumption does not dominate
+  const sorted = out.filter(m => !m.historical).map(m => m.value).sort((a, b) => a - b);
   const fair = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : null;
   return { models: out, fair };
 }
@@ -445,8 +448,9 @@ export function impliedGrowth(price, eps, discountPct, terminalPe) {
 export function valuationRange(inputs) {
   const mid = valuationModels(inputs).fair;
   if (!mid) return null;
-  const low = valuationModels({ ...inputs, growthPct: (inputs.growthPct || 0) - 3, discountPct: (inputs.discountPct || 0) + 1, fairPe: (inputs.fairPe || 0) * 0.85 }).fair;
-  const high = valuationModels({ ...inputs, growthPct: (inputs.growthPct || 0) + 3, discountPct: Math.max(1, (inputs.discountPct || 0) - 1), fairPe: (inputs.fairPe || 0) * 1.15 }).fair;
+  const peers = (k) => (inputs.peerModels || []).map(m => (m ? { ...m, value: m.value * k } : m));
+  const low = valuationModels({ ...inputs, growthPct: (inputs.growthPct || 0) - 3, discountPct: (inputs.discountPct || 0) + 1, fairPe: (inputs.fairPe || 0) * 0.85, peerModels: peers(0.85) }).fair;
+  const high = valuationModels({ ...inputs, growthPct: (inputs.growthPct || 0) + 3, discountPct: Math.max(1, (inputs.discountPct || 0) - 1), fairPe: (inputs.fairPe || 0) * 1.15, peerModels: peers(1.15) }).fair;
   return { low: Math.min(low, mid), mid, high: Math.max(high, mid) };
 }
 
