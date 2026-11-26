@@ -36,9 +36,10 @@ export function startDotHero(canvas) {
     // field centre sits right of centre and low, so the left stays calm for the headline
     phone = w < 768; const narrow = w < 1100;
     // matches the #afl-bot position in IntroLanding's CSS
-    bot = phone ? { x: w * 0.5, y: 56 + h * 0.2, H: Math.min(h * 0.34, w * 0.47) } : { x: w * (narrow ? 0.7 : 0.67), y: h * 0.5, H: Math.min(h * 0.44, w * 0.26) };
+    bot = phone ? { x: w * 0.5, y: 56 + h * 0.4, H: Math.min(h * 0.34, w * 0.47) } : { x: w * (narrow ? 0.7 : 0.67), y: h * 0.5, H: Math.min(h * 0.44, w * 0.26) };
     // the field is centred under the assistant
-    ox = bot.x; oy = bot.y + bot.H * 0.62 - (N - 1) * S * 0.5;
+    // (on phones the field stays anchored higher so it still fills the top corners)
+    ox = bot.x; oy = (phone ? 56 + h * 0.2 : bot.y) + bot.H * 0.62 - (N - 1) * S * 0.5;
     markAt.fill(0);
     // the mark lies in the field behind and to the right of the assistant, drawn in grid space like a floor inlay
     const mu = (w * 0.845 - ox) / S, mv = (h * 0.7 - oy) / (S * 0.5);
@@ -118,12 +119,18 @@ export function startDotHero(canvas) {
 
   const onMove = (e) => { const r = canvas.getBoundingClientRect(); ptr.x = e.clientX - r.left; ptr.y = e.clientY - r.top; if (reduce && !raf) raf = requestAnimationFrame(frame); };
   const onLeave = () => { ptr.x = ptr.y = -9999; };
+  // phones: a finger drag scrolls the page, which cancels pointer events, so follow touches directly
+  const onTouch = (e) => { const p = e.touches[0]; if (p) onMove(p); };
   const onVis = () => { if (!document.hidden && active && !raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
   const onResize = () => { layout(); if (!raf) raf = requestAnimationFrame(frame); };
   layout();
   window.addEventListener('resize', onResize);
   window.addEventListener('pointermove', onMove, { passive: true });
   document.addEventListener('pointerleave', onLeave);
+  window.addEventListener('touchstart', onTouch, { passive: true });
+  window.addEventListener('touchmove', onTouch, { passive: true });
+  window.addEventListener('touchend', onLeave, { passive: true });
+  window.addEventListener('touchcancel', onLeave, { passive: true });
   document.addEventListener('visibilitychange', onVis);
   raf = requestAnimationFrame(frame);
 
@@ -134,6 +141,8 @@ export function startDotHero(canvas) {
       disposed = true; cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize); window.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerleave', onLeave); document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('touchstart', onTouch); window.removeEventListener('touchmove', onTouch);
+      window.removeEventListener('touchend', onLeave); window.removeEventListener('touchcancel', onLeave);
     },
   };
 }
