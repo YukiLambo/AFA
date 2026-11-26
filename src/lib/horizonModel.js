@@ -384,7 +384,7 @@ const signalOf = (lift, cut) => (lift >= cut[1] ? 'Buy' : lift >= cut[0] ? 'Accu
 // Calibration of the plan odds (research/calibration.mjs): stated → observed share of past plans whose target (or
 // stop) was hit first within the horizon. Written by update_app_constants.mjs; empty = no correction.
 export const PLAN_CALIB = {
-  short: { target: { x: [0.179, 0.228, 0.311, 0.377, 0.418, 0.458], y: [0.212, 0.262, 0.282, 0.284, 0.305, 0.36] }, stop: { x: [0.026, 0.076, 0.125, 0.175, 0.225, 0.275, 0.326, 0.376, 0.426, 0.475, 0.524, 0.571, 0.62], y: [0.055, 0.095, 0.141, 0.163, 0.198, 0.263, 0.308, 0.336, 0.381, 0.399, 0.428, 0.436, 0.47] } },
+  short: { target: { x: [0.23, 0.353, 0.418], y: [0.24, 0.292, 0.319] }, stop: { x: [0.029, 0.077, 0.125, 0.175, 0.225, 0.276, 0.325, 0.376, 0.426, 0.504], y: [0.057, 0.079, 0.122, 0.139, 0.178, 0.24, 0.301, 0.336, 0.387, 0.437] } },
   long: null
 };
 
