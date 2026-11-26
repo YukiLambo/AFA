@@ -147,6 +147,20 @@ The app's reliability box now shows these numbers (`CROSS_SECTION` in `horizonMo
 - Stock splits are detected with the app's rule from `adjustSplits` in `src/App.jsx`.
 - **App bug found:** in `adjustSplits` the 1.5-for-1 branch sits inside `ratio >= 1.8`, so it can never run. Bonus issues in that range are missed: Sino Biopharm (2018 and 2020) and CSPC (2020). The research loader handles them through `corporate_actions.json`. The live app still shows a false one-day crash of about 33–40% in those charts.
 
+## Forecast vs random walk (step 9)
+
+`node research/forecast.mjs` scores the chart projection against a random walk (no change), 5 and 20 trading days ahead, and writes `results/forecast.{json,md}`. Then `node research/update_app_constants.mjs` copies the 20-day result into `FORECAST_TEST`. The finding so far: no method beats a random walk (Theil's U ≈ 1.02–1.05 for the new log-price projection, 1.7–4.9 for the old Holt one). Direction is right about half the time. The new 95% range holds the outcome 93–94% of the time.
+
+## Trade-plan calibration (step 10)
+
+`node research/calibration.mjs` takes about 15 seconds. It replays the stock page's short (10-day) and long (120-day) plans every 10 trading days per stock from 2019. Each plan buys at that day's close and is followed through daily highs and lows, then the script compares the stated odds with what happened. It writes `results/calibration.{json,md}`. Running `update_app_constants.mjs` then writes `PLAN_CALIB`.
+
+The old odds came from a formula that ignored the horizon ("eventually", not "within 2 weeks"). A plan stating 51% hit its target first 29% of the time, and 40% of short plans hit neither level. The odds now come from simulated paths within the horizon. A correction table, fitted with pool-adjacent-violators, is applied only where it beat the raw odds on plans made after 2023, which currently means the short plan only. Replaying history like this replaces the original idea of logging live predictions for 3 months.
+
+## Volatility forecasts (step 11)
+
+`node research/volatility.mjs` takes about 10 seconds. It compares three ways of estimating a stock's volatility over the next 10 and 120 days: the old flat one-year figure, EWMA and GARCH(1,1). It writes `results/volatility.{json,md}`. GARCH was best in both markets at both horizons, with QLIKE 8–27% lower and RMSE 3–13% lower than flat. EWMA was worse than flat over 120 days, because it forgets the long-run level. The app now uses GARCH to size the trade plans' stops, ranges and odds.
+
 ## Trading costs (step 12)
 
 `src/lib/tradingCosts.js` holds the cost rules used everywhere:

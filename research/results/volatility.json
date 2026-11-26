@@ -1,0 +1,91 @@
+{
+ "snapshot": "snapshot-2026-11-25",
+ "start": "2019-01-01",
+ "step": 10,
+ "markets": {
+  "HK": {
+   "10": {
+    "flat": {
+     "n": 9118,
+     "qlike": 0.4044,
+     "rmseRatio": 1,
+     "coverage95": 94.1
+    },
+    "ewma": {
+     "n": 9118,
+     "qlike": 0.4207,
+     "rmseRatio": 1.007,
+     "coverage95": 92.7
+    },
+    "garch": {
+     "n": 9118,
+     "qlike": 0.3643,
+     "rmseRatio": 0.962,
+     "coverage95": 94
+    }
+   },
+   "120": {
+    "flat": {
+     "n": 9118,
+     "qlike": 0.1439,
+     "rmseRatio": 1,
+     "coverage95": 95.4
+    },
+    "ewma": {
+     "n": 9118,
+     "qlike": 0.237,
+     "rmseRatio": 1.256,
+     "coverage95": 93.7
+    },
+    "garch": {
+     "n": 9118,
+     "qlike": 0.132,
+     "rmseRatio": 0.965,
+     "coverage95": 96.1
+    }
+   }
+  },
+  "US": {
+   "10": {
+    "flat": {
+     "n": 6400,
+     "qlike": 0.6089,
+     "rmseRatio": 1,
+     "coverage95": 94.1
+    },
+    "ewma": {
+     "n": 6400,
+     "qlike": 0.5032,
+     "rmseRatio": 0.953,
+     "coverage95": 92.7
+    },
+    "garch": {
+     "n": 6400,
+     "qlike": 0.4321,
+     "rmseRatio": 0.897,
+     "coverage95": 94.3
+    }
+   },
+   "120": {
+    "flat": {
+     "n": 6400,
+     "qlike": 0.2903,
+     "rmseRatio": 1,
+     "coverage95": 95.4
+    },
+    "ewma": {
+     "n": 6400,
+     "qlike": 0.3421,
+     "rmseRatio": 1.126,
+     "coverage95": 93.1
+    },
+    "garch": {
+     "n": 6400,
+     "qlike": 0.2129,
+     "rmseRatio": 0.869,
+     "coverage95": 96.5
+    }
+   }
+  }
+ }
+}
