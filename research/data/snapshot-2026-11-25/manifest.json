@@ -1,0 +1,927 @@
+{
+  "source": "Tencent Securities daily kline (web.ifzq.gtimg.cn), unadjusted; split-adjusted on load by lib/data.mjs",
+  "start": "2018-01-01",
+  "end": "2026-11-25",
+  "created": "2026-11-26T11:36:37.967Z",
+  "sha256": "0771e6e46472ed32350e6d4a7245779e0b40abea675e5a2f4b61784bf9ee1911",
+  "symbols": [
+    {
+      "symbol": "00700.HK",
+      "code": "hk00700",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "09988.HK",
+      "code": "hk09988",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 1725,
+      "first": "2019-11-26",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00005.HK",
+      "code": "hk00005",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01299.HK",
+      "code": "hk01299",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00941.HK",
+      "code": "hk00941",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "03690.HK",
+      "code": "hk03690",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2015,
+      "first": "2018-09-20",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00939.HK",
+      "code": "hk00939",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01398.HK",
+      "code": "hk01398",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "03988.HK",
+      "code": "hk03988",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02318.HK",
+      "code": "hk02318",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00388.HK",
+      "code": "hk00388",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00883.HK",
+      "code": "hk00883",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00857.HK",
+      "code": "hk00857",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00386.HK",
+      "code": "hk00386",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01810.HK",
+      "code": "hk01810",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2068,
+      "first": "2018-07-09",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "09618.HK",
+      "code": "hk09618",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 1587,
+      "first": "2020-06-18",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "09999.HK",
+      "code": "hk09999",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 1592,
+      "first": "2020-06-11",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01211.HK",
+      "code": "hk01211",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02020.HK",
+      "code": "hk02020",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00027.HK",
+      "code": "hk00027",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01928.HK",
+      "code": "hk01928",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00016.HK",
+      "code": "hk00016",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00001.HK",
+      "code": "hk00001",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01113.HK",
+      "code": "hk01113",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00011.HK",
+      "code": "hk00011",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 1980,
+      "first": "2018-01-02",
+      "last": "2026-01-14"
+    },
+    {
+      "symbol": "00002.HK",
+      "code": "hk00002",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00003.HK",
+      "code": "hk00003",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00006.HK",
+      "code": "hk00006",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00012.HK",
+      "code": "hk00012",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00066.HK",
+      "code": "hk00066",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00823.HK",
+      "code": "hk00823",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2192,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00101.HK",
+      "code": "hk00101",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00669.HK",
+      "code": "hk00669",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2190,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00175.HK",
+      "code": "hk00175",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02331.HK",
+      "code": "hk02331",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02319.HK",
+      "code": "hk02319",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00291.HK",
+      "code": "hk00291",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01093.HK",
+      "code": "hk01093",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01177.HK",
+      "code": "hk01177",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02269.HK",
+      "code": "hk02269",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2190,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00288.HK",
+      "code": "hk00288",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00267.HK",
+      "code": "hk00267",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00688.HK",
+      "code": "hk00688",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01109.HK",
+      "code": "hk01109",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02628.HK",
+      "code": "hk02628",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02388.HK",
+      "code": "hk02388",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "03328.HK",
+      "code": "hk03328",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00762.HK",
+      "code": "hk00762",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00728.HK",
+      "code": "hk00728",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01088.HK",
+      "code": "hk01088",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02688.HK",
+      "code": "hk02688",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2187,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00868.HK",
+      "code": "hk00868",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00981.HK",
+      "code": "hk00981",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02382.HK",
+      "code": "hk02382",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00992.HK",
+      "code": "hk00992",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "01044.HK",
+      "code": "hk01044",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00960.HK",
+      "code": "hk00960",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "00316.HK",
+      "code": "hk00316",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "06862.HK",
+      "code": "hk06862",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2012,
+      "first": "2018-09-26",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "02313.HK",
+      "code": "hk02313",
+      "market": "HK",
+      "kind": "stock",
+      "rows": 2193,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "AAPL",
+      "code": "usAAPL.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "MSFT",
+      "code": "usMSFT.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "AMZN",
+      "code": "usAMZN.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "GOOGL",
+      "code": "usGOOGL.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "META",
+      "code": "usMETA.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "NVDA",
+      "code": "usNVDA.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "TSLA",
+      "code": "usTSLA.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "AVGO",
+      "code": "usAVGO.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "COST",
+      "code": "usCOST.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "PEP",
+      "code": "usPEP.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "ADBE",
+      "code": "usADBE.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "CSCO",
+      "code": "usCSCO.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "INTC",
+      "code": "usINTC.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "AMD",
+      "code": "usAMD.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "QCOM",
+      "code": "usQCOM.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "NFLX",
+      "code": "usNFLX.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "AMGN",
+      "code": "usAMGN.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "TXN",
+      "code": "usTXN.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "JPM",
+      "code": "usJPM.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "V",
+      "code": "usV.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "MA",
+      "code": "usMA.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "JNJ",
+      "code": "usJNJ.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "PG",
+      "code": "usPG.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "UNH",
+      "code": "usUNH.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "HD",
+      "code": "usHD.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "XOM",
+      "code": "usXOM.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "CVX",
+      "code": "usCVX.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "KO",
+      "code": "usKO.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "MRK",
+      "code": "usMRK.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "PFE",
+      "code": "usPFE.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "WMT",
+      "code": "usWMT.OQ",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "DIS",
+      "code": "usDIS.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "BAC",
+      "code": "usBAC.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "ABT",
+      "code": "usABT.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "MCD",
+      "code": "usMCD.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "NKE",
+      "code": "usNKE.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "CRM",
+      "code": "usCRM.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "ORCL",
+      "code": "usORCL.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "T",
+      "code": "usT.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "IBM",
+      "code": "usIBM.N",
+      "market": "US",
+      "kind": "stock",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "hkHSI",
+      "code": "hkHSI",
+      "market": "HK",
+      "kind": "index",
+      "rows": 2192,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    },
+    {
+      "symbol": "us.INX",
+      "code": "us.INX",
+      "market": "US",
+      "kind": "index",
+      "rows": 2238,
+      "first": "2018-01-02",
+      "last": "2026-11-25"
+    }
+  ]
+}

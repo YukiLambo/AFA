@@ -1,0 +1,84 @@
+{
+ "snapshot": "snapshot-2026-11-25",
+ "periods": {
+  "train": [
+   "2019-10-01",
+   "2023-12-31"
+  ],
+  "test": [
+   "2024-01-01",
+   "9999-12-31"
+  ]
+ },
+ "horizon": 60,
+ "cells": {
+  "HK-train": {
+   "ic": 0.059,
+   "positive": "40 of 60",
+   "top": 0.47,
+   "all": 0,
+   "bottom": 0.26,
+   "indicatorIC": {
+    "emaX": -0.02,
+    "golden": -0.05,
+    "macdX": -0.03,
+    "diDir": -0.03,
+    "ichi": -0.04,
+    "tkX": -0.03,
+    "superT": -0.02,
+    "rev1m": 0.05
+   }
+  },
+  "HK-test": {
+   "ic": 0.165,
+   "positive": "52 of 60",
+   "top": 5.58,
+   "all": 3.82,
+   "bottom": 2.45,
+   "indicatorIC": {
+    "emaX": -0.14,
+    "golden": -0.04,
+    "macdX": -0.02,
+    "diDir": -0.11,
+    "ichi": -0.17,
+    "tkX": -0.1,
+    "superT": -0.1,
+    "rev1m": 0.15
+   }
+  },
+  "US-train": {
+   "ic": 0.121,
+   "positive": "29 of 40",
+   "top": 5.35,
+   "all": 4.27,
+   "bottom": 4.12,
+   "indicatorIC": {
+    "emaX": -0.1,
+    "golden": -0.04,
+    "macdX": -0.06,
+    "diDir": -0.09,
+    "ichi": -0.09,
+    "tkX": -0.1,
+    "superT": -0.09,
+    "rev1m": 0.11
+   }
+  },
+  "US-test": {
+   "ic": 0.125,
+   "positive": "32 of 40",
+   "top": 5.86,
+   "all": 3.97,
+   "bottom": 3.27,
+   "indicatorIC": {
+    "emaX": -0.11,
+    "golden": -0.09,
+    "macdX": -0.01,
+    "diDir": -0.08,
+    "ichi": -0.12,
+    "tkX": -0.08,
+    "superT": -0.08,
+    "rev1m": 0.11
+   }
+  }
+ }
+}

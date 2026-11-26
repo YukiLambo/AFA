@@ -479,3 +479,6 @@ export function indicatorTable(o) {
 }
 
 export const SIGNAL_SCALE = SIGNALS;
+
+// Internals for research/study3.mjs, so the study re-runs with exactly the definitions the app uses
+export const _research = { series, statesAt, featuresAt, composite, zigzag, FEAT, MU, SD, WEIGHTS, CALIB, SHRINK };

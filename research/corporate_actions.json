@@ -1,0 +1,8 @@
+{
+  "note": "Bonus issues the app's split rule misses (ratios below 1.8). Each matches a one-day price gap of the stated size in the raw feed; confirm against HKEX announcements before relying on them. factor = shares after / shares before.",
+  "actions": [
+    { "symbol": "01177.HK", "date": "2018-06-04", "factor": 1.5, "what": "Sino Biopharmaceutical bonus issue, 1 for 2" },
+    { "symbol": "01177.HK", "date": "2020-07-20", "factor": 1.5, "what": "Sino Biopharmaceutical bonus issue, 1 for 2" },
+    { "symbol": "01093.HK", "date": "2020-10-15", "factor": 1.6, "what": "CSPC Pharmaceutical bonus issue, 3 for 5" }
+  ]
+}
