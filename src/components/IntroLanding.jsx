@@ -77,6 +77,7 @@ const CSS = `
 .afl .dhero-tag i { width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
 .afl .dhero h1 { margin: 22px 0 0; font: 400 clamp(44px, 4.8vw, 74px)/1.02 var(--serif); letter-spacing: -0.026em; text-wrap: balance; }
 .afl .dhero h1 em { font-style: italic; color: #d9f6ff; }
+.afl .dhero p .short { display: none; }
 .afl .dhero p { margin: 22px 0 0; max-width: 46ch; font-size: 16.5px; line-height: 1.7; color: var(--soft); }
 .afl .dhero .actions { margin-top: 32px; display: flex; gap: 12px; flex-wrap: wrap; }
 .afl .dhero .pill { border-radius: 999px; padding: 13px 24px; box-shadow: 0 8px 30px -10px rgba(0, 242, 254, 0.7); }
@@ -138,10 +139,12 @@ const CSS = `
 }
 @media (max-width: 767px) {
 .afl .dhero { display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 calc(7vh + 64px + env(safe-area-inset-bottom, 0px)); }
-.afl .dhero #afl-bot { left: 50vw; top: calc(var(--nav-h) + 22vh); width: min(36vh, 72vw); height: min(36vh, 72vw); }
+.afl .dhero #afl-bot { left: 50vw; top: calc(var(--nav-h) + 20vh); width: min(28vh, 56vw); height: min(28vh, 56vw); }
+.afl .dhero p .long { display: none; }
+.afl .dhero p .short { display: inline; }
 .afl .dhero-copy { align-self: stretch; max-width: none; margin: 0; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); text-align: center; }
 .afl .dhero-tag { font-size: 9.5px; justify-content: center; }
-.afl .dhero h1 { margin-top: 16px; font-size: clamp(32px, 9vw, 40px); }
+.afl .dhero h1 { margin-top: 14px; font-size: clamp(28px, 8vw, 34px); }
 .afl .dhero p { margin: 14px auto 0; font-size: 14.5px; line-height: 1.6; }
 .afl .dhero .actions { margin-top: 22px; justify-content: center; gap: 22px; }
 .afl .dhero .pill { height: 46px; padding: 0 20px; }
@@ -241,7 +244,7 @@ export default function IntroLanding({ onEnter }) {
             <div className="dhero-copy">
               <div className="dhero-tag">Meet A.F.A. · your money sidekick</div>
               <h1>Your personal <em>financial</em> assistant</h1>
-              <p>Log what comes in and what goes out. A.F.A. turns it into a score, a story and a plan, explains every number, and nudges you toward your next smart move, from saving and tax to your very first investment.</p>
+              <p><span className="long">Log what comes in and what goes out. A.F.A. turns it into a score, a story and a plan, explains every number, and nudges you toward your next smart move, from saving and tax to your very first investment.</span><span className="short">Track your money. A.F.A. explains it and shows your next step.</span></p>
               <div className="actions"><button className="pill" type="button" onClick={enter}>Get started <svg className="ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5" /></svg></button><a className="btn-line" href="#overview" onClick={go('overview')}>See how it works</a></div>
             </div>
             <ol className="dhero-steps" aria-label="How A.F.A. works">

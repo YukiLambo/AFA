@@ -314,7 +314,7 @@ const GROUPS = [
   { kicker: 'Everyday', title: <>Manage your <em>money.</em></>, text: 'Record, review and act on your monthly finances.', cls: 't-light paper', items: [
     { title: 'Dashboard', text: "This month's income, spending and savings at a glance, with the next step to take at the top.", stat: '1', label: 'Screen for\nyour whole position' },
     { title: 'Transaction recorder', text: 'Log income and spending in a few taps, with a keypad on phones. Salary, rent and subscriptions can repeat automatically.', stat: '38', label: 'Categories,\nrepeating entries' },
-    { title: 'Apple Pay sync', text: 'Bring card payments in automatically through an iPhone Shortcut, so the ledger stays up to date.', stat: 'Auto', label: 'Card payments\nrecorded for you' },
+    { title: 'Apple Pay sync', text: 'Set up an iPhone Shortcut once, and each Apple Pay tap is added to your transactions the next time A.F.A. is open.', stat: 'Auto', label: 'Apple Pay taps\nrecorded for you' },
     { title: 'Analytics and audit', text: 'Budget warnings, unusual spending and a category breakdown, with a printable monthly report.', stat: 'PDF', label: 'Monthly report' },
     { title: 'Financial health', text: 'One score for savings rate, rent burden, emergency fund and investing, with alerts when something slips.', stat: '0–100', label: 'Financial health\nscore' },
     { title: 'Your currency', text: 'Choose a preferred currency and every figure, including foreign stocks and crypto, is converted at live rates.', stat: 'FX', label: 'Live exchange\nrates' },

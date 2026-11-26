@@ -36,7 +36,7 @@ export function startDotHero(canvas) {
     // field centre sits right of centre and low, so the left stays calm for the headline
     phone = w < 768; const narrow = w < 1100;
     // matches the #afl-bot position in IntroLanding's CSS
-    bot = phone ? { x: w * 0.5, y: 56 + h * 0.22, H: Math.min(h * 0.44, w * 0.6) } : { x: w * (narrow ? 0.7 : 0.67), y: h * 0.5, H: Math.min(h * 0.44, w * 0.26) };
+    bot = phone ? { x: w * 0.5, y: 56 + h * 0.2, H: Math.min(h * 0.34, w * 0.47) } : { x: w * (narrow ? 0.7 : 0.67), y: h * 0.5, H: Math.min(h * 0.44, w * 0.26) };
     // the field is centred under the assistant
     ox = bot.x; oy = bot.y + bot.H * 0.62 - (N - 1) * S * 0.5;
     markAt.fill(0);
