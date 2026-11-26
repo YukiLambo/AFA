@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { tradeCost } from '../lib/tradingCosts';
+import { formatMoney, niceAmount, useMoney } from '../lib/currency';
 import { Search, Loader2, RefreshCw, RotateCcw, TrendingUp, TrendingDown, History, FlaskConical, X, Zap, AlertTriangle } from 'lucide-react';
 
 // Simulated ("paper") trading account. Users practise with virtual cash at live HK/US prices; nothing
 // here touches their real holdings. The whole account is one object, saved by the parent via onChange:
 //   { startingCash, cash, realizedPnl, holdings: [{ symbol, name, shares, avgCost, currency }],
-//     trades: [{ id, time, side, symbol, name, shares, price, currency, fee, hkdValue, pnl }], createdAt }
+//     trades: [{ id, time, side, symbol, name, shares, price, currency, fee, value, pnl }], createdAt, currency }
+// Cash, fees, values and P&L are in the account's `currency` (older accounts: HKD); share prices stay in
+// each stock's own currency and are converted with live FX.
 
 // Costs per order come from lib/tradingCosts.js: HK stamp duty 0.1% each side, exchange fees and levies, settlement,
 // broker commission (assumed), US SEC/FINRA fees on sales, and half the bid-ask spread through the fill price.
@@ -25,16 +28,21 @@ export function instrumentKind(symbol = '', name = '') {
 }
 const KIND_LABEL = { warrant: 'Warrant', cbbc: 'CBBC' };
 
-export const newPaperAccount = (startingCash = 1000000) => ({
-  startingCash, cash: startingCash, realizedPnl: 0, holdings: [], trades: [], createdAt: new Date().toISOString()
+export const newPaperAccount = (startingCash = 1000000, currency = 'HKD') => ({
+  currency, startingCash, cash: startingCash, realizedPnl: 0, holdings: [], trades: [], createdAt: new Date().toISOString()
 });
 
-const hkd = (n, d = 2) => `HK$${Number(n || 0).toLocaleString('en-HK', { minimumFractionDigits: d, maximumFractionDigits: d })}`;
-const px = (n, cur) => `${cur === 'USD' ? 'US$' : 'HK$'}${Number(n || 0).toLocaleString('en-HK', { minimumFractionDigits: 2, maximumFractionDigits: 3 })}`;
-const signed = (n) => `${n >= 0 ? '+' : '−'}${hkd(Math.abs(n))}`;
+const px = (n, cur) => formatMoney(n, cur || 'HKD', { dp: Math.abs(Number(n) || 0) < 1 ? 3 : 2 });
 
-export default function PaperTrading({ account, onChange, fetchQuote, searchSymbols, usdHkd, presetSymbol, onAnalyse }) {
-  const fx = (cur) => (cur === 'USD' ? usdHkd : 1);
+export default function PaperTrading({ account, onChange, fetchQuote, searchSymbols, presetSymbol, onAnalyse }) {
+  const money = useMoney();
+  // Existing accounts keep the currency they started in; new or reset accounts use the home currency
+  const acctCur = account ? (account.currency || 'HKD') : money.currency;
+  const fx = (cur) => money.convert(1, cur || 'HKD', acctCur);
+  const hkd = (n, d = 2) => formatMoney(n, acctCur, { dp: d });
+  const signed = (n) => `${n >= 0 ? '+' : '−'}${hkd(Math.abs(n))}`;
+  const startOptions = STARTING_OPTIONS.map(v => niceAmount(money.convert(v, 'HKD', money.currency)));
+  const fmtStart = (v) => formatMoney(v, money.currency, { dp: 0 });
   const [quotes, setQuotes] = useState({});
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
@@ -46,7 +54,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
   const [message, setMessage] = useState(null); // { ok, text }
   const [busy, setBusy] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
-  const [resetTo, setResetTo] = useState(account?.startingCash || 1000000);
+  const [resetTo, setResetTo] = useState(null);
   const accountRef = useRef(account);
   accountRef.current = account;
 
@@ -109,7 +117,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
     const value = h.shares * price * fx(h.currency);
     const cost = h.shares * h.avgCost * fx(h.currency);
     return { ...h, price, dayPct: q?.changePct, value, pnl: value - cost, pnlPct: cost > 0 ? ((value - cost) / cost) * 100 : 0 };
-  }), [account, quotes, usdHkd]);
+  }), [account, quotes, money]);
 
   if (!account) {
     return (
@@ -120,9 +128,9 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
           <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">Buy and sell any HK or US stock at live prices without risking real money. Your real portfolio is not affected.</p>
         </div>
         <div className="flex flex-wrap justify-center gap-2">
-          {STARTING_OPTIONS.map(v => (
-            <button key={v} onClick={() => onChange(newPaperAccount(v))} className="px-4 py-2.5 rounded-xl border border-[#00f2fe]/40 bg-[#00f2fe]/10 text-[#00f2fe] text-xs font-bold cursor-pointer hover:bg-[#00f2fe]/20">
-              Start with {hkd(v, 0)}
+          {startOptions.map(v => (
+            <button key={v} onClick={() => onChange(newPaperAccount(v, money.currency))} className="px-4 py-2.5 rounded-xl border border-[#00f2fe]/40 bg-[#00f2fe]/10 text-[#00f2fe] text-xs font-bold cursor-pointer hover:bg-[#00f2fe]/20">
+              Start with {fmtStart(v)}
             </button>
           ))}
         </div>
@@ -190,7 +198,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
 
     const trade = {
       id: `t${Date.now().toString(36)}`, time: new Date().toISOString(), side, symbol: live.symbol, name: live.name,
-      shares: qty, price, currency: live.currency, fee: orderFee, hkdValue: Math.round(value * 100) / 100, pnl: pnl === null ? null : Math.round(pnl * 100) / 100
+      shares: qty, price, currency: live.currency, fee: orderFee, value: Math.round(value * 100) / 100, pnl: pnl === null ? null : Math.round(pnl * 100) / 100
     };
     try {
       await onChange({ ...acc, cash: Math.round(cash * 100) / 100, realizedPnl: Math.round(realized * 100) / 100, holdings, trades: [trade, ...(acc.trades || [])].slice(0, MAX_TRADES_KEPT) });
@@ -252,10 +260,10 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
           {confirmReset ? (
             <div className="flex items-center gap-2 text-[11px]">
               <span className="text-slate-400">Reset to</span>
-              <select value={resetTo} onChange={e => setResetTo(Number(e.target.value))} className="glass-input rounded-lg px-2 py-1 text-xs text-white [&>option]:bg-[#161b22]">
-                {STARTING_OPTIONS.map(v => <option key={v} value={v}>{hkd(v, 0)}</option>)}
+              <select value={resetTo ?? startOptions[startOptions.length - 1]} onChange={e => setResetTo(Number(e.target.value))} className="glass-input rounded-lg px-2 py-1 text-xs text-white [&>option]:bg-[#161b22]">
+                {startOptions.map(v => <option key={v} value={v}>{fmtStart(v)}</option>)}
               </select>
-              <button onClick={() => { onChange(newPaperAccount(resetTo)); setConfirmReset(false); setSelected(null); setMessage({ ok: true, text: 'Simulation reset.' }); }} className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold cursor-pointer">Reset</button>
+              <button onClick={() => { onChange(newPaperAccount(resetTo ?? startOptions[startOptions.length - 1], money.currency)); setConfirmReset(false); setSelected(null); setMessage({ ok: true, text: 'Simulation reset.' }); }} className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold cursor-pointer">Reset</button>
               <button onClick={() => setConfirmReset(false)} className="px-2 py-1 text-slate-400 cursor-pointer">Cancel</button>
             </div>
           ) : (
@@ -345,7 +353,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
                 <th className="text-right py-3 px-5">Shares</th>
                 <th className="text-right py-3 px-5">Avg cost</th>
                 <th className="text-right py-3 px-5">Live price</th>
-                <th className="text-right py-3 px-5">Value (HKD)</th>
+                <th className="text-right py-3 px-5">Value ({acctCur})</th>
                 <th className="text-right py-3 px-5">P&amp;L</th>
                 <th className="py-3 px-5"></th>
               </tr>
@@ -384,7 +392,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
               <span className="font-bold text-white w-20">{t.symbol}</span>
               <span className="font-mono text-slate-400 flex-1">{t.shares.toLocaleString()} @ {px(t.price, t.currency)}</span>
               {t.pnl !== null && t.pnl !== undefined && <span className={`font-mono ${t.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{t.pnl >= 0 ? <TrendingUp className="w-3 h-3 inline" /> : <TrendingDown className="w-3 h-3 inline" />} {signed(t.pnl)}</span>}
-              <span className="text-[10px] font-mono text-slate-500 hidden sm:inline">{new Date(t.time).toLocaleString('en-HK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+              <span className="text-[10px] font-mono text-slate-500 hidden sm:inline">{new Date(t.time).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
             </li>
           ))}
         </ul>

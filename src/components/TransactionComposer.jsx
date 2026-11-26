@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useMoney } from '../lib/currency';
 import {
   X, Utensils, Coffee, ShoppingCart, ShoppingBag, Shirt, Bus, Car, Home, Zap, Smartphone, Gamepad2, Tv,
   HeartPulse, Sparkles, GraduationCap, Plane, Gift, Users, Shield, PawPrint, Baby, TrendingUp, MoreHorizontal,
@@ -95,8 +96,8 @@ function evaluate(expr) {
   return Math.round(total * 100) / 100;
 }
 
-const money = (n) => n.toLocaleString('en-HK', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const prettyDate = (s) => (s === todayLocal() ? 'Today' : parseLocal(s).toLocaleDateString('en-HK', { day: 'numeric', month: 'short' }));
+const money = (n) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const prettyDate = (s) => (s === todayLocal() ? 'Today' : parseLocal(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
 
 const blankState = (type = 'expense') => ({
   type,
@@ -117,6 +118,7 @@ const blankState = (type = 'expense') => ({
  * Return a promise; the sheet waits for it. "Save & next" keeps the sheet open for another record.
  */
 export default function TransactionComposer({ open, onClose, onSave, colorFor }) {
+  const cur = useMoney(); // amounts are recorded in the home currency
   const [s, setS] = useState(blankState());
   const [panel, setPanel] = useState(null); // 'repeat' | null
   const [saving, setSaving] = useState(false);
@@ -185,7 +187,7 @@ export default function TransactionComposer({ open, onClose, onSave, colorFor })
       if (keepOpen) {
         setS(prev => ({ ...blankState(prev.type), category: prev.category, account: prev.account, date: prev.date }));
         setPanel(null);
-        setFlash(`Saved HK$${money(amount)}`);
+        setFlash(`Saved ${cur.fmt(amount)}`);
       } else {
         onClose();
       }
@@ -328,7 +330,7 @@ export default function TransactionComposer({ open, onClose, onSave, colorFor })
         <div className="shrink-0 mx-4 mb-3 px-4 py-3 [@media(max-height:720px)]:py-2 rounded-2xl bg-[#0d1117]/70 border border-slate-800">
           {/* Computer: type the amount (+ and − still work), Enter saves */}
           <label className="hidden md:flex items-baseline gap-2">
-            <span className="text-xl font-black opacity-80" style={{ color: accent }}>HK$</span>
+            <span className="text-xl font-black opacity-80" style={{ color: accent }}>{cur.symbol}</span>
             <input
               type="text"
               inputMode="decimal"
@@ -346,7 +348,7 @@ export default function TransactionComposer({ open, onClose, onSave, colorFor })
           {/* Phone: amount is shown here and entered with the keypad below */}
           <div className="flex md:hidden items-baseline justify-between gap-3">
             <div className="text-3xl sm:text-4xl [@media(max-height:720px)]:text-2xl font-black tracking-tight tabular-nums truncate" style={{ color: accent }}>
-              <span className="text-lg sm:text-xl mr-1 opacity-80">HK$</span>{money(amount)}
+              <span className="text-lg sm:text-xl mr-1 opacity-80">{cur.symbol}</span>{money(amount)}
             </div>
             {hasOperator && <div className="text-xs font-mono text-slate-500 truncate">{s.expr}</div>}
           </div>

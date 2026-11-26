@@ -25,23 +25,34 @@ const newKey = () => {
 };
 
 // "HK$1,234.50", "-$45.00", "45.00 HKD", "US$12.99" -> { value, currency, refund }
-export function parseAmount(raw) {
+// A bare "$" or no sign at all means the user's home currency.
+export function parseAmount(raw, home = 'HKD') {
   // Works on a bare amount ("HK$45.00") and on a whole Wallet notification line
   // ("HK$1,234.50 with HSBC Visa •••• 1234"): picks the number next to a currency sign first.
   const s = String(raw || '').trim();
-  const CUR = '(HK\\$|US\\$|MOP\\$?|CN¥|JP¥|RMB|HKD|USD|MOP|CNY|JPY|GBP|EUR|[$¥£€])';
+  const CUR = '(HK\\$|US\\$|S\\$|A\\$|C\\$|NT\\$|MOP\\$?|CN¥|JP¥|RMB|HKD|USD|MOP|CNY|JPY|GBP|EUR|SGD|AUD|CAD|TWD|KRW|INR|THB|MYR|CHF|NZD|[$¥£€₩₹฿])';
   const tokens = [...s.matchAll(new RegExp(`(-)?\\s*${CUR}?\\s*(\\d[\\d,.]*\\d|\\d)\\s*${CUR}?`, 'gi'))]
     .map(m => ({ text: m[0], num: m[3], cur: m[2] || m[4] || '', neg: !!m[1] }));
   const pick = tokens.find(t => t.cur) || tokens.find(t => /[.,]\d{2}$/.test(t.num)) || tokens[0];
-  if (!pick) return { value: 0, currency: 'HKD', refund: /refund/i.test(s) };
+  if (!pick) return { value: 0, currency: home, refund: /refund/i.test(s) };
   let num = pick.num;
   if (/,\d{2}$/.test(num) && !/\./.test(num)) num = num.replace(/\./g, '').replace(',', '.'); // 12,50 style
   else num = num.replace(/,/g, '');
   const value = Math.abs(parseFloat(num));
   const refund = pick.neg || /^\(|refund|credit/i.test(s);
   const c = (pick.cur || s).toUpperCase();
-  let currency = 'HKD';
+  let currency = home;
   if (/US\$|USD/.test(c)) currency = 'USD';
+  else if (/NT\$|TWD/.test(c)) currency = 'TWD';
+  else if (/S\$|SGD/.test(c)) currency = 'SGD';
+  else if (/A\$|AUD/.test(c)) currency = 'AUD';
+  else if (/C\$|CAD/.test(c)) currency = 'CAD';
+  else if (/₩|KRW/.test(c)) currency = 'KRW';
+  else if (/₹|INR/.test(c)) currency = 'INR';
+  else if (/฿|THB/.test(c)) currency = 'THB';
+  else if (/MYR/.test(c)) currency = 'MYR';
+  else if (/CHF/.test(c)) currency = 'CHF';
+  else if (/NZD/.test(c)) currency = 'NZD';
   else if (/HK\$|HKD/.test(c)) currency = 'HKD';
   else if (/MOP/.test(c)) currency = 'MOP';
   else if (/RMB|CNY|CN¥|元/.test(c)) currency = 'CNY';
@@ -76,18 +87,17 @@ export const guessCategory = (merchant) => {
   return 'Other';
 };
 
-// Approximate HKD per unit, so foreign payments count in HKD totals (the original amount stays in the description)
-const TO_HKD = { HKD: 1, USD: 7.8, MOP: 0.97, CNY: 1.08, JPY: 0.051, GBP: 10.2, EUR: 8.9 };
-
-// Turn one inbox item into an A.F.A. transaction
-export function toTransaction(item) {
+// Turn one inbox item into an A.F.A. transaction. The amount is saved in the currency actually paid;
+// the app converts it into the home currency with live FX when it shows totals.
+export function toTransaction(item, home = 'HKD') {
   const merchant = String(item.merchant || '').trim() || 'Apple Pay purchase';
   const card = String(item.card || '').trim();
-  const { value, currency, refund } = parseAmount(item.amount);
+  const { value, currency, refund } = parseAmount(item.amount, home);
   const account = /octopus/i.test(card) ? 'Octopus' : 'Credit Card';
   return {
-    description: `${merchant}${currency !== 'HKD' ? ` (paid ${currency} ${value.toFixed(2)})` : ''}`,
-    amount: Math.round(value * (TO_HKD[currency] || 1) * 100) / 100,
+    description: `${merchant}${currency !== home ? ` (paid ${currency} ${value.toFixed(2)})` : ''}`,
+    amount: Math.round(value * 100) / 100,
+    currency,
     category: refund ? 'Refund' : guessCategory(merchant),
     type: refund ? 'income' : 'expense',
     date: todayLocal(),
@@ -99,9 +109,11 @@ export function toTransaction(item) {
 }
 
 // Runs in App: keeps the user's key and moves new inbox items into their transactions
-export function useApplePaySync(db, user) {
+export function useApplePaySync(db, user, home = 'HKD') {
   const [state, setState] = useState({ key: null, loading: true, imported: 0, lastMerchant: '' });
   const busy = useRef(new Set());
+  const homeRef = useRef(home);
+  homeRef.current = home;
 
   useEffect(() => {
     if (!user) return;
@@ -119,7 +131,7 @@ export function useApplePaySync(db, user) {
         list.forEach(d => {
           if (busy.current.has(d.id)) return;
           busy.current.add(d.id);
-          const tx = toTransaction(d.data());
+          const tx = toTransaction(d.data(), homeRef.current);
           // Same id on both sides, so two open devices never record the same tap twice
           setDoc(doc(db, 'artifacts', appIdOf(), 'users', user.uid, 'transactions', `ap_${d.id}`), tx)
             .then(() => deleteDoc(doc(db, 'applePayInbox', key, 'tx', d.id)))
