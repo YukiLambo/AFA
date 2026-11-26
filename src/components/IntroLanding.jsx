@@ -234,7 +234,7 @@ export default function IntroLanding({ onEnter }) {
           <a className="link" href="#why-afa" onClick={go('why-afa')} aria-current={cur('why-afa')}>Why A.F.A.</a>
           <a className="link" href="#features" onClick={go('features')} aria-current={cur('features')}>Features</a>
         </nav>
-        <div className="cta-wrap"><button className="pill" type="button" onClick={enter}>Get started</button></div>
+        <div className="cta-wrap"><button className="pill" type="button" onClick={enter}>Log in</button></div>
       </header>
 
       {/* Home */}
