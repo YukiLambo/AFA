@@ -126,6 +126,8 @@ export function maxDrawdown(closes) {
 
 // Holt's linear exponential smoothing. Alpha/beta are picked by grid search on one-step-ahead error,
 // then the trend is projected `horizon` days ahead with a ±1.96σ band that widens with √h.
+// Old price-level Holt projection. No longer shown in the app (see logForecast below); kept so research/forecast.mjs
+// can score it as a benchmark.
 export function holtForecast(closes, horizon = 20) {
   const y = closes.slice(-250);
   if (y.length < 30) return null;
@@ -151,6 +153,42 @@ export function holtForecast(closes, horizon = 20) {
     path.push({ h, mid, upper: mid + band, lower: Math.max(0, mid - band) });
   }
   return { alpha: best.a, beta: best.b, sigma, path };
+}
+
+// Log-price forecast (step 9): Holt smoothing with a damped trend on log prices, so the projection is in percentage
+// terms, the trend fades instead of running on forever, and the range can never go below zero. The 95% range uses
+// the spread of daily log returns over the last year (√h widening, the random-walk rule), not the smoother's
+// one-step errors, which understate risk. research/forecast.mjs scores it against a random walk (no change).
+export function logForecast(closes, horizon = 20) {
+  const y = closes.slice(-250).filter(c => c > 0).map(Math.log);
+  if (y.length < 30) return null;
+  let best = null;
+  for (const phi of [0.8, 0.9, 0.98]) {
+    for (let a = 0.1; a <= 0.951; a += 0.05) {
+      for (let b = 0.01; b <= 0.31; b += 0.05) {
+        let level = y[0], trend = 0, sse = 0;
+        for (let i = 1; i < y.length; i++) {
+          const pred = level + phi * trend;
+          sse += (y[i] - pred) ** 2;
+          const prevLevel = level;
+          level = a * y[i] + (1 - a) * pred;
+          trend = b * (level - prevLevel) + (1 - b) * phi * trend;
+        }
+        if (!best || sse < best.sse) best = { a, b, phi, sse, level, trend };
+      }
+    }
+  }
+  const r = y.slice(1).map((v, i) => v - y[i]);
+  const m = r.reduce((s, v) => s + v, 0) / r.length;
+  const sigma = Math.sqrt(r.reduce((s, v) => s + (v - m) ** 2, 0) / (r.length - 1));
+  const path = [];
+  let cum = 0, damp = 1;
+  for (let h = 1; h <= horizon; h++) {
+    damp *= best.phi; cum += damp * best.trend;
+    const mu = best.level + cum, band = 1.96 * sigma * Math.sqrt(h);
+    path.push({ h, mid: Math.exp(mu), upper: Math.exp(mu + band), lower: Math.exp(mu - band) });
+  }
+  return { alpha: best.a, beta: best.b, phi: best.phi, sigma, path };
 }
 
 // ---- Indicator verdicts and a combined score (−10 … +10) ----
@@ -526,9 +564,11 @@ export function tradePlan({ rows, price, fair = null, fairRange = null, review =
 
   // Drift (per trading day, log terms), kept small
   const lastClose = closes[closes.length - 1];
-  const trendDaily = forecast ? forecast.path[0].mid / lastClose - 1 : 0;
+  // The projection's trend no longer feeds the drift: research/forecast.mjs found it no better than a random walk
+  // (FORECAST_TEST in horizonModel.js). `forecast` is kept in the signature for callers.
+  void forecast; void lastClose;
   const valueGap = range ? Math.log(range.mid / price) : 0;
-  let nu = 0.25 * Math.max(-0.004, Math.min(0.004, trendDaily)) + 0.2 * Math.max(-0.5, Math.min(0.5, valueGap)) / 252;
+  let nu = 0.2 * Math.max(-0.5, Math.min(0.5, valueGap)) / 252;
   nu = Math.max(-0.002, Math.min(0.002, nu));
 
   // Support / resistance levels

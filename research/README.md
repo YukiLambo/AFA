@@ -146,3 +146,8 @@ The app's reliability box now shows these numbers (`CROSS_SECTION` in `horizonMo
 - Source: `web.ifzq.gtimg.cn/appstock/app/fqkline/get`, the same endpoint the app uses for history. The feed has no service-level agreement. Re-downloads can differ slightly if Tencent revises its history, so studies run on the committed snapshot.
 - Stock splits are detected with the app's rule from `adjustSplits` in `src/App.jsx`.
 - **App bug found:** in `adjustSplits` the 1.5-for-1 branch sits inside `ratio >= 1.8`, so it can never run. Bonus issues in that range are missed: Sino Biopharm (2018 and 2020) and CSPC (2020). The research loader handles them through `corporate_actions.json`. The live app still shows a false one-day crash of about 33–40% in those charts.
+
+## Forecast vs random walk (step 9)
+
+`node research/forecast.mjs` scores the chart projection against a random walk (no change), 5 and 20 trading days ahead, and writes `results/forecast.{json,md}`. Then `node research/update_app_constants.mjs` copies the 20-day result into `FORECAST_TEST`. The finding so far: no method beats a random walk (Theil's U ≈ 1.02–1.05 for the new log-price projection, 1.7–4.9 for the old Holt one). Direction is right about half the time. The new 95% range holds the outcome 93–94% of the time.
+

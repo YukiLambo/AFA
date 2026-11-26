@@ -1,0 +1,130 @@
+{
+ "snapshot": "snapshot-2026-11-25",
+ "start": "2019-10-01",
+ "markets": {
+  "HK": {
+   "5": {
+    "holt": {
+     "n": 4912,
+     "rmsePct": 5.77,
+     "theilU": 1.101,
+     "hitRate": 50.3,
+     "coverage95": 93
+    },
+    "logDamped": {
+     "n": 4912,
+     "rmsePct": 5.29,
+     "theilU": 1.009,
+     "hitRate": 49.4,
+     "coverage95": 94.3
+    },
+    "drift": {
+     "n": 4912,
+     "rmsePct": 5.25,
+     "theilU": 1.001,
+     "hitRate": 51.3,
+     "coverage95": null
+    },
+    "randomWalk": {
+     "n": 4912,
+     "rmsePct": 5.24,
+     "theilU": 1,
+     "hitRate": null,
+     "coverage95": null
+    }
+   },
+   "20": {
+    "holt": {
+     "n": 4912,
+     "rmsePct": 52.56,
+     "theilU": 4.924,
+     "hitRate": 48.6,
+     "coverage95": 87.6
+    },
+    "logDamped": {
+     "n": 4912,
+     "rmsePct": 10.88,
+     "theilU": 1.02,
+     "hitRate": 50.1,
+     "coverage95": 94
+    },
+    "drift": {
+     "n": 4912,
+     "rmsePct": 11.05,
+     "theilU": 1.035,
+     "hitRate": 51,
+     "coverage95": null
+    },
+    "randomWalk": {
+     "n": 4912,
+     "rmsePct": 10.67,
+     "theilU": 1,
+     "hitRate": null,
+     "coverage95": null
+    }
+   }
+  },
+  "US": {
+   "5": {
+    "holt": {
+     "n": 3400,
+     "rmsePct": 5.09,
+     "theilU": 1.124,
+     "hitRate": 48.8,
+     "coverage95": 92.3
+    },
+    "logDamped": {
+     "n": 3400,
+     "rmsePct": 4.67,
+     "theilU": 1.032,
+     "hitRate": 50.5,
+     "coverage95": 94.2
+    },
+    "drift": {
+     "n": 3400,
+     "rmsePct": 4.57,
+     "theilU": 1.01,
+     "hitRate": 51,
+     "coverage95": null
+    },
+    "randomWalk": {
+     "n": 3400,
+     "rmsePct": 4.53,
+     "theilU": 1,
+     "hitRate": null,
+     "coverage95": null
+    }
+   },
+   "20": {
+    "holt": {
+     "n": 3400,
+     "rmsePct": 17.17,
+     "theilU": 1.726,
+     "hitRate": 50.7,
+     "coverage95": 86.6
+    },
+    "logDamped": {
+     "n": 3400,
+     "rmsePct": 10.45,
+     "theilU": 1.05,
+     "hitRate": 50.4,
+     "coverage95": 92.7
+    },
+    "drift": {
+     "n": 3400,
+     "rmsePct": 10.21,
+     "theilU": 1.026,
+     "hitRate": 52.2,
+     "coverage95": null
+    },
+    "randomWalk": {
+     "n": 3400,
+     "rmsePct": 9.95,
+     "theilU": 1,
+     "hitRate": null,
+     "coverage95": null
+    }
+   }
+  }
+ }
+}
