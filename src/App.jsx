@@ -2692,7 +2692,7 @@ ${JSON.stringify(snapshot)}`;
                                    <span className="text-[10px] text-slate-500 block font-mono">{tx.date} • {tx.category}</span>
                                  </div>
                                  <span className={`text-xs font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-300'}`}>
-                                   {tx.type === 'income' ? '+' : '-'}${Number(tx.amount).toLocaleString()}
+                                   {tx.type === 'income' ? '+' : '-'}HK${Number(tx.amount).toLocaleString()}
                                  </span>
                                </div>
                              ))}
@@ -2784,7 +2784,7 @@ ${JSON.stringify(snapshot)}`;
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><Wallet className="w-3.5 h-3.5 text-[#00f2fe]"/> Total Balance</span>
                     </div>
                     <div className="text-2xl font-black text-white mt-1 mb-2">
-                       ${(portfolioTotalValue + (netSavings > 0 ? netSavings : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                       HK${(portfolioTotalValue + (netSavings > 0 ? netSavings : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
 
@@ -2793,7 +2793,7 @@ ${JSON.stringify(snapshot)}`;
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><TrendingUp className="w-3.5 h-3.5 text-blue-400"/> Total Income</span>
                     </div>
                     <div className="text-2xl font-black text-white mt-1 mb-2">
-                       ${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                       HK${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
 
@@ -2802,7 +2802,7 @@ ${JSON.stringify(snapshot)}`;
                        <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5"><ArrowDownRight className="w-3.5 h-3.5 text-rose-400"/> Total Expenses</span>
                     </div>
                     <div className="text-2xl font-black text-white mt-1 mb-2">
-                       ${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                       HK${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
                 </div>
@@ -2840,7 +2840,7 @@ ${JSON.stringify(snapshot)}`;
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                             <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${v/1000}k`} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${v/1000}k`} />
                             <Tooltip 
                                contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '12px' }} 
                                itemStyle={{ color: '#fff' }}
@@ -2895,7 +2895,7 @@ ${JSON.stringify(snapshot)}`;
                       <LineChart data={balanceOverTime}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                         <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000).toFixed(0)}k`} />
                         <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
                         <Line type="monotone" dataKey="balance" stroke="#3b82f6" strokeWidth={3} dot={false} />
                       </LineChart>
@@ -2912,7 +2912,7 @@ ${JSON.stringify(snapshot)}`;
                         <BarChart data={paymentMethodsData}>
                           {CHART_GRADIENT_DEFS}
                           <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000).toFixed(0)}k`} />
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
                           <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={72}>
                             {paymentMethodsData.map((entry, index) => <Cell key={`pay-${index}`} fill={`url(#afaBar${index % CHART_PALETTE.length})`} />)}
@@ -2930,7 +2930,7 @@ ${JSON.stringify(snapshot)}`;
                         <BarChart data={receivingMethodsData}>
                           {CHART_GRADIENT_DEFS}
                           <XAxis dataKey="name" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                          <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000).toFixed(0)}k`} />
                           <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
                           <Bar dataKey="amount" radius={[6, 6, 0, 0]} maxBarSize={72}>
                             {receivingMethodsData.map((entry, index) => <Cell key={`recv-${index}`} fill={`url(#afaBar${(index + 3) % CHART_PALETTE.length})`} />)}
@@ -3019,7 +3019,7 @@ ${JSON.stringify(snapshot)}`;
                                  </td>
                                  <td className="py-3 px-5 text-slate-500 font-mono text-[11px]">{tx.date}</td>
                                  <td className={`py-3 px-5 text-right font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-white'}`}>
-                                    {tx.type === 'income' ? '+' : '-'}${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    {tx.type === 'income' ? '+' : '-'}HK${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
                                  </td>
                               </tr>
                            ))}
@@ -3083,7 +3083,7 @@ ${JSON.stringify(snapshot)}`;
                                 {repeatLabel(rule.frequency)} · {t.account || 'Bank Account'} · {rule.active ? `next ${rule.nextDate}` : (rule.endDate && rule.nextDate > rule.endDate ? 'ended' : 'paused')}{rule.endDate ? ` · until ${rule.endDate}` : ''}
                               </div>
                             </div>
-                            <span className={`font-mono font-bold text-sm whitespace-nowrap ${t.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>{t.type === 'income' ? '+' : '-'} ${Number(t.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className={`font-mono font-bold text-sm whitespace-nowrap ${t.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>{t.type === 'income' ? '+' : '-'} HK${Number(t.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             <button onClick={() => handleToggleRecurring(rule)} className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-lg border border-slate-700 text-slate-300 hover:text-white cursor-pointer">{rule.active ? 'Pause' : 'Resume'}</button>
                             <button onClick={() => handleDeleteRecurring(rule)} aria-label="Stop repeating" title="Stop repeating (past records stay)" className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                           </li>
@@ -3112,7 +3112,7 @@ ${JSON.stringify(snapshot)}`;
                           <div className="text-[11px] text-slate-500 truncate">{tx.category} · {tx.account || 'Bank Account'} · {tx.date}</div>
                         </div>
                         <div className={`text-sm font-mono font-bold whitespace-nowrap ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>
-                          {tx.type === 'income' ? '+' : '-'}${Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {tx.type === 'income' ? '+' : '-'}HK${Number(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </div>
                         <button onClick={() => handleDeleteTransaction(tx.id)} aria-label="Delete record" className="text-slate-600 hover:text-rose-400 p-2 -mr-2 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                       </div>
@@ -3153,7 +3153,7 @@ ${JSON.stringify(snapshot)}`;
                             </span>
                           </td>
                           <td className={`py-3 px-5 text-right font-mono font-bold ${tx.type === 'income' ? 'text-[#00f2fe]' : 'text-slate-200'}`}>
-                            {tx.type === 'income' ? '+' : '-'} ${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits:2})}
+                            {tx.type === 'income' ? '+' : '-'} HK${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits:2})}
                           </td>
                           <td className="py-3 px-5 text-center">
                             <button onClick={() => handleDeleteTransaction(tx.id)} className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer transition-colors"><Trash2 className="w-4 h-4" /></button>
@@ -3351,7 +3351,7 @@ ${JSON.stringify(snapshot)}`;
                           </div>
                           <div className="min-w-0">
                              <p className="text-xs text-slate-400 mb-1">Weekend Spending Total</p>
-                             <p className="text-xl font-bold text-[#00f2fe]">${anomalyAnalysis.weekendTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                             <p className="text-xl font-bold text-[#00f2fe]">HK${anomalyAnalysis.weekendTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                              <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">High weekend ratios often indicate impulsive leisure and entertainment spending.</p>
                           </div>
                        </div>
@@ -3393,7 +3393,7 @@ ${JSON.stringify(snapshot)}`;
                                     <p className="text-[10px] text-slate-500 font-mono mt-0.5">{tx.date} • {tx.category}</p>
                                  </div>
                                  <div className="text-sm font-bold text-rose-400 font-mono">
-                                    -${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    -HK${Number(tx.amount).toLocaleString(undefined, {minimumFractionDigits: 2})}
                                  </div>
                               </div>
                            ))
@@ -3478,16 +3478,16 @@ ${JSON.stringify(snapshot)}`;
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                     <span className="text-xs font-mono uppercase text-slate-500">Total Market Valuation</span>
-                    <div className="text-2xl font-black text-white mt-1">${portfolioTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="text-2xl font-black text-white mt-1">HK${portfolioTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                   </div>
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                     <span className="text-xs font-mono uppercase text-slate-500">Cost Basis</span>
-                    <div className="text-2xl font-black text-slate-300 mt-1">${portfolioTotalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                    <div className="text-2xl font-black text-slate-300 mt-1">HK${portfolioTotalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                   </div>
                   <div className="bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                     <span className="text-xs font-mono uppercase text-slate-500">Unrealized P&L</span>
                     <div className={`text-2xl font-black mt-1 ${portfolioUnrealizedGain >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {portfolioUnrealizedGain >= 0 ? '+' : ''}${portfolioUnrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({portfolioGainPercent}%)
+                      {portfolioUnrealizedGain >= 0 ? '+' : ''}HK${portfolioUnrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({portfolioGainPercent}%)
                     </div>
                   </div>
                 </div>
@@ -3569,7 +3569,7 @@ ${JSON.stringify(snapshot)}`;
                               )}
                             </td>
                             <td className="py-3.5 px-5 text-right font-mono font-bold text-emerald-400">
-                              ${valueInHkd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              HK${valueInHkd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                             <td className="py-3.5 px-5 text-center">
                               <button onClick={() => handleDeleteStock(item.id)} className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"><Trash2 className="w-4 h-4" /></button>
@@ -3604,7 +3604,7 @@ ${JSON.stringify(snapshot)}`;
                         {CHART_GRADIENT_DEFS}
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                         <XAxis dataKey="date" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                        <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000).toFixed(0)}k`} />
                         <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`HK$ ${Number(val).toLocaleString()}`, 'Value']} />
                         {/* Solid green on days the value rose, solid red on days it fell */}
                         <Bar dataKey="value" radius={[3, 3, 0, 0]}>
@@ -3629,7 +3629,7 @@ ${JSON.stringify(snapshot)}`;
                               <Cell key={`cell-${index}`} fill={colorFor(entry.name, index)} stroke="none" style={{ filter: `drop-shadow(0 0 6px ${colorFor(entry.name, index)}66)` }} />
                             ))}
                           </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`$${val.toLocaleString(undefined, {maximumFractionDigits:0})}`, 'Value']} />
+                          <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }} formatter={(val) => [`HK$${val.toLocaleString(undefined, {maximumFractionDigits:0})}`, 'Value']} />
                         </PieChart>
                       </ResponsiveContainer>}
                     </div>
@@ -3641,7 +3641,7 @@ ${JSON.stringify(snapshot)}`;
                       {accountBalances.map(acc => (
                         <div key={acc.name} className="flex justify-between items-center border-b border-slate-800/50 pb-3 last:border-0 last:pb-0">
                           <div>
-                            <div className="text-lg font-bold text-white">${acc.value.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                            <div className="text-lg font-bold text-white">HK${acc.value.toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
                             <div className="text-[10px] font-mono text-slate-500 uppercase">{acc.name}</div>
                           </div>
                         </div>
@@ -3751,14 +3751,14 @@ ${JSON.stringify(snapshot)}`;
                       <div>
                         <label className="text-xs font-mono text-slate-300 flex justify-between mb-2">
                           <span>Initial Capital</span>
-                          <span className="text-white font-bold">${simInitial.toLocaleString()}</span>
+                          <span className="text-white font-bold">HK${simInitial.toLocaleString()}</span>
                         </label>
                         <input type="range" min="0" max="5000000" step="10000" value={simInitial} onChange={e => setSimInitial(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 flex justify-between mb-2">
                           <span>Monthly Deposit</span>
-                          <span className="text-white font-bold">${simMonthly.toLocaleString()}</span>
+                          <span className="text-white font-bold">HK${simMonthly.toLocaleString()}</span>
                         </label>
                         {/* Expanded max to 500,000 */}
                         <input type="range" min="1000" max="500000" step="1000" value={simMonthly} onChange={e => setSimMonthly(Number(e.target.value))} className="w-full accent-[#00f2fe]" />
@@ -3791,8 +3791,8 @@ ${JSON.stringify(snapshot)}`;
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                             <XAxis dataKey="year" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${(v/1000000).toFixed(1)}M`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff', fontSize: '11px' }} formatter={(val) => [`$${val.toLocaleString()}`, 'Value']} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${(v/1000000).toFixed(1)}M`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff', fontSize: '11px' }} formatter={(val) => [`HK$${val.toLocaleString()}`, 'Value']} />
                             <Area type="monotone" dataKey="balance" stroke="#00f2fe" strokeWidth={2.5} fillOpacity={1} fill="url(#colorBal)" name="Portfolio Value" />
                             <Area type="monotone" dataKey="invested" stroke="#8b949e" strokeDasharray="4 4" strokeWidth={1.5} fillOpacity={0} name="Total Principal" />
                           </AreaChart>
@@ -3802,7 +3802,7 @@ ${JSON.stringify(snapshot)}`;
                       <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800 flex justify-between items-center text-xs font-mono">
                         <span className="text-slate-400">Projected Value at Year {simYears}:</span>
                         <span className="text-xl font-bold text-[#00f2fe]">
-                          ${simulationTrajectory[simulationTrajectory.length - 1]?.balance.toLocaleString()}
+                          HK${simulationTrajectory[simulationTrajectory.length - 1]?.balance.toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -3916,9 +3916,9 @@ ${JSON.stringify(snapshot)}`;
                         <tfoot className="bg-[#0d1117] text-xs font-mono">
                           <tr className="border-t border-slate-800/80">
                             <td className="px-3 py-2 text-slate-400" colSpan={2}>Total · {debts.length} debt{debts.length === 1 ? '' : 's'}</td>
-                            <td className="px-3 py-2 text-right text-white font-bold">${debtAmount.toLocaleString()}</td>
+                            <td className="px-3 py-2 text-right text-white font-bold">HK${debtAmount.toLocaleString()}</td>
                             <td className="px-3 py-2 text-right text-slate-300">{debtRate}% avg</td>
-                            <td className="px-3 py-2 text-right text-slate-300">${(debtMinPay - (Number(debtExtra) || 0)).toLocaleString()}</td>
+                            <td className="px-3 py-2 text-right text-slate-300">HK${(debtMinPay - (Number(debtExtra) || 0)).toLocaleString()}</td>
                             <td colSpan={2}></td>
                           </tr>
                         </tfoot>
@@ -3939,7 +3939,7 @@ ${JSON.stringify(snapshot)}`;
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Extra payment per month (HKD)</label>
                         <input type="number" min="0" value={debtExtra || ''} placeholder="0" onChange={e => { setDebtExtra(Number(e.target.value) || 0); setDebtSaveState(prev => ({ ...prev, status: 'dirty' })); }} className="w-full px-4 py-2.5 glass-input rounded-xl text-sm text-white" />
-                        <p className="text-[10px] text-slate-500 mt-1">On top of the minimums. Total each month: ${debtMinPay.toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-500 mt-1">On top of the minimums. Total each month: HK${debtMinPay.toLocaleString()}</p>
                       </div>
                       <div>
                         <label className="text-xs font-mono text-slate-300 block mb-1.5">Payoff Strategy</label>
@@ -3951,9 +3951,9 @@ ${JSON.stringify(snapshot)}`;
                       {debts.length > 1 && !debtPayoffTrajectory.stuck && !debtAltPlan.stuck && (
                         <div className="text-[11px] text-slate-400 leading-relaxed border-t border-slate-800 pt-3">
                           {debtAltPlan.totalInterest > debtPayoffTrajectory.totalInterest
-                            ? <>This strategy saves <span className="text-emerald-400 font-semibold">${(debtAltPlan.totalInterest - debtPayoffTrajectory.totalInterest).toLocaleString()}</span> in interest compared with {debtStrategy === 'avalanche' ? 'snowball' : 'avalanche'}.</>
+                            ? <>This strategy saves <span className="text-emerald-400 font-semibold">HK${(debtAltPlan.totalInterest - debtPayoffTrajectory.totalInterest).toLocaleString()}</span> in interest compared with {debtStrategy === 'avalanche' ? 'snowball' : 'avalanche'}.</>
                             : debtAltPlan.totalInterest < debtPayoffTrajectory.totalInterest
-                              ? <>{debtStrategy === 'avalanche' ? 'Snowball' : 'Avalanche'} would cost <span className="text-amber-400 font-semibold">${(debtPayoffTrajectory.totalInterest - debtAltPlan.totalInterest).toLocaleString()}</span> less interest, but this order clears accounts sooner.</>
+                              ? <>{debtStrategy === 'avalanche' ? 'Snowball' : 'Avalanche'} would cost <span className="text-amber-400 font-semibold">HK${(debtPayoffTrajectory.totalInterest - debtAltPlan.totalInterest).toLocaleString()}</span> less interest, but this order clears accounts sooner.</>
                               : <>Both strategies cost the same interest for these debts.</>}
                         </div>
                       )}
@@ -3974,7 +3974,7 @@ ${JSON.stringify(snapshot)}`;
                         </div>
                         <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
                           <span className="text-[10px] font-mono text-slate-500 uppercase">Total interest</span>
-                          <div className="text-2xl font-bold text-rose-400 mt-1">{debts.length === 0 || debtPayoffTrajectory.stuck ? '—' : `$${debtPayoffTrajectory.totalInterest.toLocaleString()}`}</div>
+                          <div className="text-2xl font-bold text-rose-400 mt-1">{debts.length === 0 || debtPayoffTrajectory.stuck ? '—' : `HK$${debtPayoffTrajectory.totalInterest.toLocaleString()}`}</div>
                         </div>
                         <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800">
                           <span className="text-[10px] font-mono text-slate-500 uppercase">Pay first</span>
@@ -3987,8 +3987,8 @@ ${JSON.stringify(snapshot)}`;
                           <AreaChart data={debtPayoffTrajectory.trajectory}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#21262d" opacity={0.6} />
                             <XAxis dataKey="month" stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} minTickGap={16} />
-                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `$${Math.round(v/1000)}k`} />
-                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff' }} formatter={v => [`$${Number(v).toLocaleString()}`, 'Remaining balance']} />
+                            <YAxis stroke="#8b949e" tick={{fontSize: 10}} tickLine={false} axisLine={false} tickFormatter={v => `HK$${Math.round(v/1000)}k`} />
+                            <Tooltip contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', color: '#fff' }} formatter={v => [`HK$${Number(v).toLocaleString()}`, 'Remaining balance']} />
                             <Area type="monotone" dataKey="balance" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.2} name="Remaining Balance" />
                           </AreaChart>
                         </ResponsiveContainer>
@@ -4034,7 +4034,7 @@ ${JSON.stringify(snapshot)}`;
                           <span className="text-xs text-slate-400 font-mono block">Mandatory Monthly Employee Contribution</span>
                           <span className="text-[10px] text-slate-500">(5% up to HK$1,500 max cap)</span>
                         </div>
-                        <span className="text-xl font-bold text-white">${mpfCalc.mandatory.toLocaleString()}</span>
+                        <span className="text-xl font-bold text-white">HK${mpfCalc.mandatory.toLocaleString()}</span>
                       </div>
 
                       <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800 flex justify-between items-center">
@@ -4042,14 +4042,14 @@ ${JSON.stringify(snapshot)}`;
                           <span className="text-xs text-slate-400 font-mono block">Annual TVC Tax Deductible Total</span>
                           <span className="text-[10px] text-slate-500">(Cap: $60,000 / year)</span>
                         </div>
-                        <span className="text-xl font-bold text-indigo-400">${mpfCalc.annualTvc.toLocaleString()}</span>
+                        <span className="text-xl font-bold text-indigo-400">HK${mpfCalc.annualTvc.toLocaleString()}</span>
                       </div>
 
                       <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex justify-between items-center">
                         <div>
                           <span className="text-xs text-emerald-400 font-mono block">Estimated Annual Salaries Tax Savings</span>
                         </div>
-                        <span className="text-2xl font-black text-emerald-400">${mpfCalc.estimatedTaxSaved.toLocaleString()}</span>
+                        <span className="text-2xl font-black text-emerald-400">HK${mpfCalc.estimatedTaxSaved.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
