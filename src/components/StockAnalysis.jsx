@@ -371,54 +371,81 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
 
       {status === 'ok' && analysis && (
         <>
-          {/* Key statistics */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-            <div className={card}>
-              <div className={label}>Last session · {lastRow.date}</div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-1.5">
-                {[['Open', lastRow.open, 'text-white'], ['Close', lastRow.close, lastRow.close >= lastRow.open ? 'text-emerald-400' : 'text-rose-400'], ['High', lastRow.high, 'text-white'], ['Low', lastRow.low, 'text-white']].map(([k, v, c]) => (
-                  <div key={k}>
-                    <div className="text-[10px] font-mono uppercase text-slate-500 leading-none">{k}</div>
-                    <div className={`text-xs font-mono font-bold ${c}`}>{fmt(v)}</div>
-                  </div>
+          {/* Chart */}
+          <div className={card}>
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 mb-3">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2"><BarChart3 className="w-4 h-4 text-[#00f2fe]" /> {quote.symbol} price chart</h4>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex p-0.5 rounded-lg bg-[#0d1117] border border-slate-800 mr-1">
+                  {[['candle', 'Candles'], ['area', 'Line']].map(([id, l]) => (
+                    <button key={id} onClick={() => setChartType(id)} className={`px-2.5 py-1 rounded-md text-[10px] font-bold cursor-pointer ${chartType === id ? 'bg-[#00f2fe] text-[#0d1117]' : 'text-slate-400'}`}>{l}</button>
+                  ))}
+                </div>
+                {MAS.map(m => (
+                  <button key={m.n} onClick={() => setShownMas(s => ({ ...s, [m.n]: !s[m.n] }))} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${shownMas[m.n] ? 'text-[#0d1117]' : 'text-slate-400 border-slate-700 bg-transparent'}`} style={shownMas[m.n] ? { backgroundColor: m.color, borderColor: m.color } : undefined}>MA{m.n}</button>
                 ))}
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1">Day range {((lastRow.high - lastRow.low) / lastRow.low * 100).toFixed(1)}%</div>
-            </div>
-            <div className={card}>
-              <div className={label}>Volume</div>
-              <div className="text-sm font-bold text-white mt-1 font-mono">{fmt(lastRow.volume, 0)}</div>
-              <div className="text-[10px] text-slate-500 mt-1">5-day avg {fmt(analysis.vol5, 0)} · {analysis.vol20 > 0 ? `${(lastRow.volume / analysis.vol20).toFixed(1)}× 20-day avg` : ''}</div>
-            </div>
-            <div className={card}>
-              <div className={label}>52-week high / low</div>
-              <div className="flex justify-between text-sm font-bold font-mono mt-1"><span className="text-rose-300">{fmt(analysis.lo52)}</span><span className="text-emerald-300">{fmt(analysis.hi52)}</span></div>
-              <div className="h-1.5 rounded-full bg-slate-800 mt-1.5 relative">
-                <div className="absolute h-full rounded-full bg-gradient-to-r from-rose-400 via-amber-300 to-emerald-400" style={{ width: `${Math.min(100, Math.max(0, ((price - analysis.lo52) / (analysis.hi52 - analysis.lo52 || 1)) * 100))}%` }} />
-              </div>
-              <div className="text-[10px] text-slate-500 mt-1">{pctTxt(price / analysis.hi52 - 1)} from high</div>
-            </div>
-            <div className={card}>
-              <div className={label}>Returns</div>
-              <div className="text-[11px] font-mono mt-1 space-y-0.5">
-                {[['1M', analysis.r1m], ['3M', analysis.r3m], ['1Y', analysis.r1y]].map(([k, v]) => (
-                  <div key={k} className="flex justify-between"><span className="text-slate-500">{k}</span><span className={v === null ? 'text-slate-500' : v >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{pctTxt(v)}</span></div>
+                <button onClick={() => setShowBands(v => !v)} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${showBands ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/50' : 'text-slate-400 border-slate-700'}`}>Bollinger</button>
+                {[['fib', 'Fibonacci', 'bg-violet-500/20 text-violet-200 border-violet-400/50'], ['supertrend', 'Supertrend', 'bg-sky-500/20 text-sky-200 border-sky-400/50'], ['cloud', 'Ichimoku', 'bg-fuchsia-500/20 text-fuchsia-200 border-fuchsia-400/50']].map(([k, l, on]) => (
+                  <button key={k} onClick={() => setOverlay(o => ({ ...o, [k]: !o[k] }))} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${overlay[k] ? on : 'text-slate-400 border-slate-700'}`}>{l}</button>
                 ))}
+                <button onClick={() => setShowPlan(v => !v)} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${showPlan ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/50' : 'text-slate-400 border-slate-700'}`}>Plan levels</button>
+                <button onClick={() => setShowForecast(v => !v)} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${showForecast ? 'bg-amber-500/20 text-amber-200 border-amber-400/50' : 'text-slate-400 border-slate-700'}`}>20-day projection</button>
+                <div className="flex p-0.5 rounded-lg bg-[#0d1117] border border-slate-800 ml-1">
+                  {RANGES.map(([l, n]) => (
+                    <button key={l} onClick={() => setRange(n)} className={`px-2 py-1 rounded-md text-[10px] font-bold cursor-pointer ${range === n ? 'bg-white/10 text-white' : 'text-slate-500'}`}>{l}</button>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className={card}>
-              <div className={label}>Risk (1 year)</div>
-              <div className="text-[11px] font-mono mt-1 space-y-0.5">
-                <div className="flex justify-between"><span className="text-slate-500">Volatility</span><span className="text-white">{analysis.vol ? `${(analysis.vol * 100).toFixed(1)}%` : '—'}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Sharpe (rf 3%)</span><span className={analysis.sharpe >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{analysis.sharpe === null ? '—' : analysis.sharpe.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Max drawdown</span><span className="text-rose-400">{pctTxt(analysis.mdd)}</span></div>
-              </div>
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" opacity={0.6} />
+                  <XAxis dataKey="date" stroke="#8b949e" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={40} tickFormatter={d => String(d).slice(5)} />
+                  <YAxis orientation="right" domain={yDomain} stroke="#8b949e" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={55} tickFormatter={v => v.toFixed(v < 10 ? 2 : 1)} allowDataOverflow />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }}
+                    labelStyle={{ color: '#8b949e' }}
+                    formatter={(v, name) => (Array.isArray(v) ? [`${fmt(v[0])} – ${fmt(v[1])}`, name] : [fmt(v), name])}
+                  />
+                  {showBands && <Area type="monotone" dataKey="band" name="Bollinger band" stroke="#818cf8" strokeOpacity={0.5} strokeDasharray="3 3" fill="#6366f1" fillOpacity={0.08} isAnimationActive={false} connectNulls />}
+                  {showForecast && <Area type="monotone" dataKey="fBand" name="Projection range (95%)" stroke="none" fill="#f59e0b" fillOpacity={0.12} isAnimationActive={false} />}
+                  {chartType === 'candle'
+                    ? <Bar dataKey="wick" name="Low – high" shape={<Candle />} isAnimationActive={false} />
+                    : <Area type="monotone" dataKey="close" name="Close" stroke="#00f2fe" fill="#00f2fe" fillOpacity={0.08} strokeWidth={1.5} isAnimationActive={false} />}
+                  {MAS.filter(m => shownMas[m.n]).map(m => (
+                    <Line key={m.n} type="monotone" dataKey={`ma${m.n}`} name={`MA${m.n}`} stroke={m.color} dot={false} strokeWidth={1.2} isAnimationActive={false} connectNulls />
+                  ))}
+                  {showForecast && <Line type="monotone" dataKey="fMid" name="Projection" stroke="#f59e0b" strokeDasharray="5 4" dot={false} strokeWidth={1.5} isAnimationActive={false} />}
+                  {overlay.cloud && <Area type="monotone" dataKey="cloud" name="Ichimoku cloud" stroke="none" fill="#d946ef" fillOpacity={0.1} isAnimationActive={false} />}
+                  {overlay.supertrend && <Line type="stepAfter" dataKey="stUp" name="Supertrend (up)" stroke={GREEN} dot={false} strokeWidth={1.3} isAnimationActive={false} />}
+                  {overlay.supertrend && <Line type="stepAfter" dataKey="stDn" name="Supertrend (down)" stroke={RED} dot={false} strokeWidth={1.3} isAnimationActive={false} />}
+                  {overlay.fib && analysis.fib && analysis.fib.levels.map(l => (
+                    <ReferenceLine key={l.ratio} y={l.price} stroke="#a78bfa" strokeOpacity={0.6} strokeDasharray="2 3" label={{ value: `${(l.ratio * 100).toFixed(1)}%`, position: 'insideRight', fill: '#a78bfa', fontSize: 9 }} />
+                  ))}
+                  {price && <ReferenceLine y={price} stroke="#00f2fe" strokeOpacity={0.4} strokeDasharray="2 4" />}
+                  {showPlan && outlook && <ReferenceLine y={outlook[horizon].target} stroke="#00f2fe" strokeDasharray="6 3" label={{ value: `${horizon === 'short' ? '2-wk' : '6-mo'} target ${fmt(outlook[horizon].target)}`, position: 'insideTopLeft', fill: '#00f2fe', fontSize: 10 }} />}
+                  {showPlan && outlook && <ReferenceLine y={outlook[horizon].stop} stroke={RED} strokeDasharray="6 3" label={{ value: `${horizon === 'short' ? '2-wk' : '6-mo'} stop ${fmt(outlook[horizon].stop)}`, position: 'insideBottomLeft', fill: RED, fontSize: 10 }} />}
+                </ComposedChart>
+              </ResponsiveContainer>
             </div>
-            <div className={card}>
-              <div className={label}>Textbook technical score</div>
-              <div className={`text-lg font-black mt-1 ${analysis.review.total > 1 ? 'text-emerald-400' : analysis.review.total < -1 ? 'text-rose-400' : 'text-slate-200'}`}>{analysis.review.verdict}</div>
-              <div className="text-[10px] text-slate-500">Classic reading of 5 indicators, {analysis.review.total > 0 ? '+' : ''}{analysis.review.total} / 10 (not used in the outlook)</div>
+            <div className="h-20 w-full mt-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 0, right: 60, bottom: 0, left: 0 }}>
+                  <XAxis dataKey="date" hide />
+                  <YAxis hide />
+                  <Bar dataKey="volume" isAnimationActive={false}>
+                    {chartData.map((d, i) => <Cell key={i} fill={d.close >= d.open ? GREEN : RED} fillOpacity={0.5} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
+            {showForecast && analysis.forecast && (
+              <p className="text-[10px] text-slate-500 mt-2">
+                Projection: Holt linear trend smoothing fitted to the last year (α {analysis.forecast.alpha.toFixed(2)}, β {analysis.forecast.beta.toFixed(2)}), with a 95% range that widens over time.
+                In 20 trading days it points to {cur}{fmt(analysis.forecast.path[19].mid)} ({cur}{fmt(analysis.forecast.path[19].lower)}–{fmt(analysis.forecast.path[19].upper)}). It only extends the recent trend; it is not a prediction.
+              </p>
+            )}
           </div>
 
           {/* Trade plan: separate short-term (about 2 weeks) and long-term (about 6 months) outlooks */}
@@ -565,6 +592,56 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
               </div>
             );
           })()}
+
+          {/* Key statistics */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            <div className={card}>
+              <div className={label}>Last session · {lastRow.date}</div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-1.5">
+                {[['Open', lastRow.open, 'text-white'], ['Close', lastRow.close, lastRow.close >= lastRow.open ? 'text-emerald-400' : 'text-rose-400'], ['High', lastRow.high, 'text-white'], ['Low', lastRow.low, 'text-white']].map(([k, v, c]) => (
+                  <div key={k}>
+                    <div className="text-[10px] font-mono uppercase text-slate-500 leading-none">{k}</div>
+                    <div className={`text-xs font-mono font-bold ${c}`}>{fmt(v)}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">Day range {((lastRow.high - lastRow.low) / lastRow.low * 100).toFixed(1)}%</div>
+            </div>
+            <div className={card}>
+              <div className={label}>Volume</div>
+              <div className="text-sm font-bold text-white mt-1 font-mono">{fmt(lastRow.volume, 0)}</div>
+              <div className="text-[10px] text-slate-500 mt-1">5-day avg {fmt(analysis.vol5, 0)} · {analysis.vol20 > 0 ? `${(lastRow.volume / analysis.vol20).toFixed(1)}× 20-day avg` : ''}</div>
+            </div>
+            <div className={card}>
+              <div className={label}>52-week high / low</div>
+              <div className="flex justify-between text-sm font-bold font-mono mt-1"><span className="text-rose-300">{fmt(analysis.lo52)}</span><span className="text-emerald-300">{fmt(analysis.hi52)}</span></div>
+              <div className="h-1.5 rounded-full bg-slate-800 mt-1.5 relative">
+                <div className="absolute h-full rounded-full bg-gradient-to-r from-rose-400 via-amber-300 to-emerald-400" style={{ width: `${Math.min(100, Math.max(0, ((price - analysis.lo52) / (analysis.hi52 - analysis.lo52 || 1)) * 100))}%` }} />
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">{pctTxt(price / analysis.hi52 - 1)} from high</div>
+            </div>
+            <div className={card}>
+              <div className={label}>Returns</div>
+              <div className="text-[11px] font-mono mt-1 space-y-0.5">
+                {[['1M', analysis.r1m], ['3M', analysis.r3m], ['1Y', analysis.r1y]].map(([k, v]) => (
+                  <div key={k} className="flex justify-between"><span className="text-slate-500">{k}</span><span className={v === null ? 'text-slate-500' : v >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{pctTxt(v)}</span></div>
+                ))}
+              </div>
+            </div>
+            <div className={card}>
+              <div className={label}>Risk (1 year)</div>
+              <div className="text-[11px] font-mono mt-1 space-y-0.5">
+                <div className="flex justify-between"><span className="text-slate-500">Volatility</span><span className="text-white">{analysis.vol ? `${(analysis.vol * 100).toFixed(1)}%` : '—'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Sharpe (rf 3%)</span><span className={analysis.sharpe >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{analysis.sharpe === null ? '—' : analysis.sharpe.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Max drawdown</span><span className="text-rose-400">{pctTxt(analysis.mdd)}</span></div>
+              </div>
+            </div>
+            <div className={card}>
+              <div className={label}>Textbook technical score</div>
+              <div className={`text-lg font-black mt-1 ${analysis.review.total > 1 ? 'text-emerald-400' : analysis.review.total < -1 ? 'text-rose-400' : 'text-slate-200'}`}>{analysis.review.verdict}</div>
+              <div className="text-[10px] text-slate-500">Classic reading of 5 indicators, {analysis.review.total > 0 ? '+' : ''}{analysis.review.total} / 10 (not used in the outlook)</div>
+            </div>
+          </div>
 
           {/* How much to trust the outlook: out-of-sample results of the study */}
           {outlook && plan && (() => {
@@ -758,83 +835,6 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
               </div>
             );
           })()}
-
-          {/* Chart */}
-          <div className={card}>
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 mb-3">
-              <h4 className="text-sm font-bold text-white flex items-center gap-2"><BarChart3 className="w-4 h-4 text-[#00f2fe]" /> {quote.symbol} price chart</h4>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <div className="flex p-0.5 rounded-lg bg-[#0d1117] border border-slate-800 mr-1">
-                  {[['candle', 'Candles'], ['area', 'Line']].map(([id, l]) => (
-                    <button key={id} onClick={() => setChartType(id)} className={`px-2.5 py-1 rounded-md text-[10px] font-bold cursor-pointer ${chartType === id ? 'bg-[#00f2fe] text-[#0d1117]' : 'text-slate-400'}`}>{l}</button>
-                  ))}
-                </div>
-                {MAS.map(m => (
-                  <button key={m.n} onClick={() => setShownMas(s => ({ ...s, [m.n]: !s[m.n] }))} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${shownMas[m.n] ? 'text-[#0d1117]' : 'text-slate-400 border-slate-700 bg-transparent'}`} style={shownMas[m.n] ? { backgroundColor: m.color, borderColor: m.color } : undefined}>MA{m.n}</button>
-                ))}
-                <button onClick={() => setShowBands(v => !v)} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${showBands ? 'bg-indigo-500/30 text-indigo-200 border-indigo-400/50' : 'text-slate-400 border-slate-700'}`}>Bollinger</button>
-                {[['fib', 'Fibonacci', 'bg-violet-500/20 text-violet-200 border-violet-400/50'], ['supertrend', 'Supertrend', 'bg-sky-500/20 text-sky-200 border-sky-400/50'], ['cloud', 'Ichimoku', 'bg-fuchsia-500/20 text-fuchsia-200 border-fuchsia-400/50']].map(([k, l, on]) => (
-                  <button key={k} onClick={() => setOverlay(o => ({ ...o, [k]: !o[k] }))} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${overlay[k] ? on : 'text-slate-400 border-slate-700'}`}>{l}</button>
-                ))}
-                <button onClick={() => setShowPlan(v => !v)} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${showPlan ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/50' : 'text-slate-400 border-slate-700'}`}>Plan levels</button>
-                <button onClick={() => setShowForecast(v => !v)} className={`px-2 py-1 rounded-md text-[10px] font-bold border cursor-pointer ${showForecast ? 'bg-amber-500/20 text-amber-200 border-amber-400/50' : 'text-slate-400 border-slate-700'}`}>20-day projection</button>
-                <div className="flex p-0.5 rounded-lg bg-[#0d1117] border border-slate-800 ml-1">
-                  {RANGES.map(([l, n]) => (
-                    <button key={l} onClick={() => setRange(n)} className={`px-2 py-1 rounded-md text-[10px] font-bold cursor-pointer ${range === n ? 'bg-white/10 text-white' : 'text-slate-500'}`}>{l}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#21262d" opacity={0.6} />
-                  <XAxis dataKey="date" stroke="#8b949e" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} minTickGap={40} tickFormatter={d => String(d).slice(5)} />
-                  <YAxis orientation="right" domain={yDomain} stroke="#8b949e" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={55} tickFormatter={v => v.toFixed(v < 10 ? 2 : 1)} allowDataOverflow />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: '#161b22', borderColor: '#30363d', borderRadius: '8px', color: '#fff', fontSize: '11px' }}
-                    labelStyle={{ color: '#8b949e' }}
-                    formatter={(v, name) => (Array.isArray(v) ? [`${fmt(v[0])} – ${fmt(v[1])}`, name] : [fmt(v), name])}
-                  />
-                  {showBands && <Area type="monotone" dataKey="band" name="Bollinger band" stroke="#818cf8" strokeOpacity={0.5} strokeDasharray="3 3" fill="#6366f1" fillOpacity={0.08} isAnimationActive={false} connectNulls />}
-                  {showForecast && <Area type="monotone" dataKey="fBand" name="Projection range (95%)" stroke="none" fill="#f59e0b" fillOpacity={0.12} isAnimationActive={false} />}
-                  {chartType === 'candle'
-                    ? <Bar dataKey="wick" name="Low – high" shape={<Candle />} isAnimationActive={false} />
-                    : <Area type="monotone" dataKey="close" name="Close" stroke="#00f2fe" fill="#00f2fe" fillOpacity={0.08} strokeWidth={1.5} isAnimationActive={false} />}
-                  {MAS.filter(m => shownMas[m.n]).map(m => (
-                    <Line key={m.n} type="monotone" dataKey={`ma${m.n}`} name={`MA${m.n}`} stroke={m.color} dot={false} strokeWidth={1.2} isAnimationActive={false} connectNulls />
-                  ))}
-                  {showForecast && <Line type="monotone" dataKey="fMid" name="Projection" stroke="#f59e0b" strokeDasharray="5 4" dot={false} strokeWidth={1.5} isAnimationActive={false} />}
-                  {overlay.cloud && <Area type="monotone" dataKey="cloud" name="Ichimoku cloud" stroke="none" fill="#d946ef" fillOpacity={0.1} isAnimationActive={false} />}
-                  {overlay.supertrend && <Line type="stepAfter" dataKey="stUp" name="Supertrend (up)" stroke={GREEN} dot={false} strokeWidth={1.3} isAnimationActive={false} />}
-                  {overlay.supertrend && <Line type="stepAfter" dataKey="stDn" name="Supertrend (down)" stroke={RED} dot={false} strokeWidth={1.3} isAnimationActive={false} />}
-                  {overlay.fib && analysis.fib && analysis.fib.levels.map(l => (
-                    <ReferenceLine key={l.ratio} y={l.price} stroke="#a78bfa" strokeOpacity={0.6} strokeDasharray="2 3" label={{ value: `${(l.ratio * 100).toFixed(1)}%`, position: 'insideRight', fill: '#a78bfa', fontSize: 9 }} />
-                  ))}
-                  {price && <ReferenceLine y={price} stroke="#00f2fe" strokeOpacity={0.4} strokeDasharray="2 4" />}
-                  {showPlan && outlook && <ReferenceLine y={outlook[horizon].target} stroke="#00f2fe" strokeDasharray="6 3" label={{ value: `${horizon === 'short' ? '2-wk' : '6-mo'} target ${fmt(outlook[horizon].target)}`, position: 'insideTopLeft', fill: '#00f2fe', fontSize: 10 }} />}
-                  {showPlan && outlook && <ReferenceLine y={outlook[horizon].stop} stroke={RED} strokeDasharray="6 3" label={{ value: `${horizon === 'short' ? '2-wk' : '6-mo'} stop ${fmt(outlook[horizon].stop)}`, position: 'insideBottomLeft', fill: RED, fontSize: 10 }} />}
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="h-20 w-full mt-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 0, right: 60, bottom: 0, left: 0 }}>
-                  <XAxis dataKey="date" hide />
-                  <YAxis hide />
-                  <Bar dataKey="volume" isAnimationActive={false}>
-                    {chartData.map((d, i) => <Cell key={i} fill={d.close >= d.open ? GREEN : RED} fillOpacity={0.5} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            {showForecast && analysis.forecast && (
-              <p className="text-[10px] text-slate-500 mt-2">
-                Projection: Holt linear trend smoothing fitted to the last year (α {analysis.forecast.alpha.toFixed(2)}, β {analysis.forecast.beta.toFixed(2)}), with a 95% range that widens over time.
-                In 20 trading days it points to {cur}{fmt(analysis.forecast.path[19].mid)} ({cur}{fmt(analysis.forecast.path[19].lower)}–{fmt(analysis.forecast.path[19].upper)}). It only extends the recent trend; it is not a prediction.
-              </p>
-            )}
-          </div>
         </>
       )}
 
