@@ -12,6 +12,8 @@
 | `growthNextYear`, `growth5y`, `earningsGrowth` | Analysts' growth estimates (fractions, e.g. 0.12 = 12%) |
 | `asOf` | The night this record was last fetched successfully |
 
+**Risk-free rate:** `market.riskFree` holds the US 10-year Treasury yield (^TNX). The app uses it for both markets, because the HKD is pegged to the USD. The CAPM required return is risk-free + adjusted beta × equity risk premium. The premium is 4.5% for the US and 5.5% for HK (`EQUITY_PREMIUM` in `src/lib/fundamentals.js`). Beta is pulled a third of the way towards 1.
+
 **Coverage:** the 100 stocks in `research/universe.json`, plus any symbols listed in `extra-symbols.json`. Other stocks fall back to the old manual inputs in the app.
 
 **Currency:** HK-listed mainland companies often report in CNY or USD. The job converts per-share figures into the trading currency using Yahoo's FX rates. It decides which currency Yahoo's EPS fields are in by checking them against the price-based P/E (see `parse.mjs`; `parse.test.mjs` covers this).
