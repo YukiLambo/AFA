@@ -378,7 +378,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
               <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-1.5">
                 {[['Open', lastRow.open, 'text-white'], ['Close', lastRow.close, lastRow.close >= lastRow.open ? 'text-emerald-400' : 'text-rose-400'], ['High', lastRow.high, 'text-white'], ['Low', lastRow.low, 'text-white']].map(([k, v, c]) => (
                   <div key={k}>
-                    <div className="text-[9px] font-mono uppercase text-slate-500 leading-none">{k}</div>
+                    <div className="text-[10px] font-mono uppercase text-slate-500 leading-none">{k}</div>
                     <div className={`text-xs font-mono font-bold ${c}`}>{fmt(v)}</div>
                   </div>
                 ))}
@@ -455,7 +455,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                     {SIGNAL_SCALE.map(st => (
                       <div key={st} className="flex-1">
                         <div className="h-1 rounded-full" style={{ backgroundColor: st === o.signal ? tone.dot : '#21262d' }} />
-                        <div className={`text-[8px] font-mono uppercase mt-1 text-center ${st === o.signal ? 'text-slate-200' : 'text-slate-600'}`}>{st}</div>
+                        <div className={`text-[10px] font-mono uppercase mt-1 text-center ${st === o.signal ? 'text-slate-200' : 'text-slate-600'}`}>{st}</div>
                       </div>
                     ))}
                   </div>
@@ -463,19 +463,19 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
 
                   <div className="grid grid-cols-3 gap-2 mt-3">
                     <div className="p-2.5 rounded-xl bg-[#161b22] border border-slate-800">
-                      <div className="text-[9px] font-mono uppercase text-slate-500">Chance higher</div>
+                      <div className="text-[10px] font-mono uppercase text-slate-500">Chance higher</div>
                       <div className={`text-lg font-black ${o.probUp > o.baseUp + 0.02 ? 'text-emerald-400' : o.probUp < o.baseUp - 0.02 ? 'text-rose-400' : 'text-slate-200'}`}>{pp(o.probUp)}</div>
-                      <div className="text-[9px] text-slate-500">usually {pp(o.baseUp)}</div>
+                      <div className="text-[10px] text-slate-500">usually {pp(o.baseUp)}</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-[#161b22] border border-slate-800">
-                      <div className="text-[9px] font-mono uppercase text-slate-500">Expected move</div>
+                      <div className="text-[10px] font-mono uppercase text-slate-500">Expected move</div>
                       <div className={`text-lg font-black ${o.expRet > o.baseMean ? 'text-emerald-400' : 'text-rose-400'}`}>{pctTxt(o.expRet)}</div>
-                      <div className="text-[9px] text-slate-500">usually {pctTxt(o.baseMean)}</div>
+                      <div className="text-[10px] text-slate-500">usually {pctTxt(o.baseMean)}</div>
                     </div>
                     <div className="p-2.5 rounded-xl bg-[#161b22] border border-slate-800">
-                      <div className="text-[9px] font-mono uppercase text-slate-500">Likely range</div>
+                      <div className="text-[10px] font-mono uppercase text-slate-500">Likely range</div>
                       <div className="text-[11px] font-mono font-bold text-white mt-1">{fmt(o.range[0])} – {fmt(o.range[1])}</div>
-                      <div className="text-[9px] text-slate-500">2 in 3 chance</div>
+                      <div className="text-[10px] text-slate-500">2 in 3 chance</div>
                     </div>
                   </div>
 
@@ -643,7 +643,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                 <ul className="lg:col-span-3 divide-y divide-slate-800/70">
                   {newsSummary.scored.slice(0, 6).map((n, i) => (
                     <li key={n.id || i} className="py-2 flex items-start gap-3">
-                      <span className={`shrink-0 mt-0.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${n.sentiment.label === 'Positive' ? 'border-emerald-500/30 text-emerald-300' : n.sentiment.label === 'Negative' ? 'border-rose-500/30 text-rose-300' : 'border-slate-600 text-slate-400'}`}>{n.sentiment.label}</span>
+                      <span className={`shrink-0 mt-0.5 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border ${n.sentiment.label === 'Positive' ? 'border-emerald-500/30 text-emerald-300' : n.sentiment.label === 'Negative' ? 'border-rose-500/30 text-rose-300' : 'border-slate-600 text-slate-400'}`}>{n.sentiment.label}</span>
                       <div className="min-w-0 flex-1">
                         <a href={n.url} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-200 hover:text-white hover:underline leading-snug inline-flex gap-1">{n.title}<ExternalLink className="w-3 h-3 shrink-0 mt-0.5 text-slate-500" /></a>
                         <div className="text-[10px] text-slate-500 font-mono">{n.source}{n.publishedAt ? ` · ${ago(n.publishedAt)}` : ''}{n.sentiment.severe.length ? <span className="text-rose-400"> · flagged: {n.sentiment.severe.join(', ')}</span> : ''}</div>
@@ -717,7 +717,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                               <div className="flex justify-between gap-2"><span className="text-slate-500">2 weeks</span><Cell v={verdict(pt.key, 'short')} /></div>
                               <div className="flex justify-between gap-2"><span className="text-slate-500">6 months</span><Cell v={verdict(pt.key, 'long')} /></div>
                             </div>
-                            <span className={`inline-block mt-1.5 text-[9px] font-mono px-1.5 py-0.5 rounded border ${tag[1]}`}>{tag[0]}</span>
+                            <span className={`inline-block mt-1.5 text-[10px] font-mono px-1.5 py-0.5 rounded border ${tag[1]}`}>{tag[0]}</span>
                           </div>
                         );
                       })}
@@ -742,7 +742,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                               <td className={`py-1.5 pr-3 ${taught > 0 ? 'text-emerald-300/80' : taught < 0 ? 'text-rose-300/80' : 'text-slate-400'}`}>{taughtTxt(taught)}</td>
                               <td className="py-1.5 pr-3 font-mono text-[10px]"><Cell v={verdict(key, 'short')} /></td>
                               <td className="py-1.5 pr-3 font-mono text-[10px]"><Cell v={verdict(key, 'long')} /></td>
-                              <td className="py-1.5"><span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${tag[1]}`}>{tag[0]}</span></td>
+                              <td className="py-1.5"><span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${tag[1]}`}>{tag[0]}</span></td>
                             </tr>
                           );
                         })}

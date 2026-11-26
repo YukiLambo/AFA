@@ -211,7 +211,7 @@ export default function OtherAssets({ assets, cryptoPrices, cryptoStatus, usdHkd
                           )}
                         </div>
                       )}
-                      {a.currency === 'USD' && a.type !== 'crypto' && a.type !== 'warrant' && <span className="ml-1 text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">USD</span>}
+                      {a.currency === 'USD' && a.type !== 'crypto' && a.type !== 'warrant' && <span className="ml-1 text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">USD</span>}
                       {a.note && <div className="text-[10px] text-slate-500 truncate max-w-[220px]">{a.note}</div>}
                     </td>
                     <td className="py-3 px-5 text-right font-mono font-bold text-white">{hkd(value)}</td>

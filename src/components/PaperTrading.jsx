@@ -264,7 +264,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
             <div className="absolute z-20 mt-1 w-full bg-[#0d1117] border border-slate-700 rounded-xl overflow-hidden shadow-xl">
               {matches.map(m => (
                 <button key={m.symbol} onClick={() => pick(m.symbol)} className="w-full text-left px-4 py-2.5 hover:bg-white/5 flex justify-between gap-3 cursor-pointer">
-                  <span className="text-sm font-bold text-white flex items-center gap-1.5">{m.symbol}{instrumentKind(m.symbol, m.name) !== 'stock' && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">{KIND_LABEL[instrumentKind(m.symbol, m.name)]}</span>}</span>
+                  <span className="text-sm font-bold text-white flex items-center gap-1.5">{m.symbol}{instrumentKind(m.symbol, m.name) !== 'stock' && <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">{KIND_LABEL[instrumentKind(m.symbol, m.name)]}</span>}</span>
                   <span className="text-xs text-slate-400 truncate">{m.name}</span>
                 </button>
               ))}
@@ -345,7 +345,7 @@ export default function PaperTrading({ account, onChange, fetchQuote, searchSymb
               {rows.length === 0 && <tr><td colSpan="7" className="py-8 text-center text-xs text-slate-500">No simulated positions yet. Search a stock above and place your first order.</td></tr>}
               {rows.map(r => (
                 <tr key={r.symbol} className="hover:bg-slate-800/20">
-                  <td className="py-3 px-5"><div className="font-bold text-white flex items-center gap-1.5">{r.symbol}{instrumentKind(r.symbol, r.name) !== 'stock' && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">{KIND_LABEL[instrumentKind(r.symbol, r.name)]}</span>}</div><div className="text-[11px] text-slate-500 truncate max-w-[180px]">{r.name}</div></td>
+                  <td className="py-3 px-5"><div className="font-bold text-white flex items-center gap-1.5">{r.symbol}{instrumentKind(r.symbol, r.name) !== 'stock' && <span className="text-[10px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30">{KIND_LABEL[instrumentKind(r.symbol, r.name)]}</span>}</div><div className="text-[11px] text-slate-500 truncate max-w-[180px]">{r.name}</div></td>
                   <td className="py-3 px-5 text-right font-mono">{r.shares.toLocaleString()}</td>
                   <td className="py-3 px-5 text-right font-mono text-slate-400">{px(r.avgCost, r.currency)}</td>
                   <td className="py-3 px-5 text-right font-mono text-white">{px(r.price, r.currency)}{r.dayPct !== undefined && <span className={`block text-[10px] ${r.dayPct >= 0 ? 'text-emerald-400/80' : 'text-rose-400/80'}`}>{r.dayPct >= 0 ? '+' : ''}{Number(r.dayPct).toFixed(2)}% today</span>}</td>

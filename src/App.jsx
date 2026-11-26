@@ -2453,7 +2453,7 @@ ${JSON.stringify(snapshot)}`;
                 </LiquidLogo>
                 <div className="flex flex-col min-w-0">
                    <h1 translate="no" className="notranslate text-lg font-black tracking-wider text-white leading-none">A.F.A.</h1>
-                   <p className="text-[8.5px] text-cyan-400/80 font-mono tracking-normal uppercase mt-1.5 whitespace-nowrap leading-none">Automated Financial Assistant</p>
+                   <p className="text-[10px] text-cyan-400/80 font-medium tracking-wide uppercase mt-1.5 whitespace-nowrap leading-none">Automated Financial Assistant</p>
                 </div>
              </div>
           </div>
@@ -2468,14 +2468,14 @@ ${JSON.stringify(snapshot)}`;
              )}
              <div className="overflow-hidden flex-1">
                 <p className="text-xs font-bold text-white truncate group-hover:text-[#00f2fe] transition-colors">{userProfile.name || 'User'}</p>
-                <p className="text-[9px] text-slate-500 truncate">{user.email}</p>
+                <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
              </div>
           </div>
 
           <div className="flex-1 px-3 py-4 space-y-6 overflow-y-auto no-scrollbar text-xs font-medium">
             
             <div className="space-y-1">
-              <p className="px-3 text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-2">Main Menu</p>
+              <p className="px-3 text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-2">Main Menu</p>
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
                 { id: 'report', label: 'Analytics', icon: ShieldAlert },
@@ -2502,7 +2502,7 @@ ${JSON.stringify(snapshot)}`;
             </div>
 
             <div className="space-y-1">
-              <p className="px-3 text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-2">Planning & Tools</p>
+              <p className="px-3 text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-2">Planning & Tools</p>
               {[
                 { id: 'simulator', label: 'Strategic Modeler', icon: Sliders },
                 { id: 'debt', label: 'Debt Health', icon: CreditCard },
@@ -2593,7 +2593,7 @@ ${JSON.stringify(snapshot)}`;
                         {/* Matching Modules/Pages */}
                         {searchNavMatches.length > 0 && (
                           <div className="mb-3">
-                             <div className="text-[9px] font-mono text-[#00f2fe] uppercase px-2 mb-1">Modules & Pages</div>
+                             <div className="text-[10px] font-mono text-[#00f2fe] uppercase px-2 mb-1">Modules & Pages</div>
                              {searchNavMatches.map(t => {
                                const Icon = t.icon;
                                return (
@@ -2620,7 +2620,7 @@ ${JSON.stringify(snapshot)}`;
                         {/* Matching Portfolio Assets */}
                         {searchPortfolioMatches.length > 0 && (
                           <div className="mb-3">
-                             <div className="text-[9px] font-mono text-emerald-400 uppercase px-2 mb-1">Portfolio Assets</div>
+                             <div className="text-[10px] font-mono text-emerald-400 uppercase px-2 mb-1">Portfolio Assets</div>
                              {searchPortfolioMatches.map(p => (
                                <div 
                                  key={p.id}
@@ -2643,7 +2643,7 @@ ${JSON.stringify(snapshot)}`;
                         {/* Live market lookup: any HK / US stock, with its live price */}
                         {(isSearchingMarket || marketMatches.length > 0) && (
                           <div className="mb-3">
-                             <div className="text-[9px] font-mono text-amber-400 uppercase px-2 mb-1 flex items-center gap-1.5">
+                             <div className="text-[10px] font-mono text-amber-400 uppercase px-2 mb-1 flex items-center gap-1.5">
                                <span>Live Market</span>
                                {isSearchingMarket && <Loader2 className="w-3 h-3 animate-spin" />}
                              </div>
@@ -2662,7 +2662,7 @@ ${JSON.stringify(snapshot)}`;
                                    <div className="min-w-0">
                                      <span className="text-xs font-bold text-white group-hover:text-amber-400">{quote.symbol}</span>
                                      <span className="text-[10px] text-slate-400 block truncate">{quote.name}</span>
-                                     <span className="text-[9px] font-mono text-slate-600 block">{owned ? 'In your portfolio' : 'Click to add to portfolio'}</span>
+                                     <span className="text-[10px] font-mono text-slate-600 block">{owned ? 'In your portfolio' : 'Click to add to portfolio'}</span>
                                    </div>
                                    <div className="text-right shrink-0">
                                      <span className="text-xs font-mono font-bold text-white block">{quote.currency === 'USD' ? '$' : 'HK$'}{quote.price.toFixed(2)}</span>
@@ -2677,7 +2677,7 @@ ${JSON.stringify(snapshot)}`;
                         {/* Matching Ledger Transactions */}
                         {searchTransactionMatches.length > 0 && (
                           <div>
-                             <div className="text-[9px] font-mono text-cyan-300 uppercase px-2 mb-1">Transactions</div>
+                             <div className="text-[10px] font-mono text-cyan-300 uppercase px-2 mb-1">Transactions</div>
                              {searchTransactionMatches.map(tx => (
                                <div 
                                  key={tx.id}
@@ -2746,7 +2746,7 @@ ${JSON.stringify(snapshot)}`;
                                  </div>
                                </div>
                                <div className="text-[10px] text-slate-400 leading-relaxed">{a.message}</div>
-                               <button onClick={() => { setShowAlerts(false); setShowBudgetModal(true); }} className="mt-2 text-[9px] font-mono text-[#00f2fe] hover:underline">
+                               <button onClick={() => { setShowAlerts(false); setShowBudgetModal(true); }} className="mt-2 text-[10px] font-mono text-[#00f2fe] hover:underline">
                                  Modify limit settings →
                                </button>
                             </div>
@@ -2989,7 +2989,7 @@ ${JSON.stringify(snapshot)}`;
                   </div>
                   <div className="overflow-x-auto">
                      <table className="w-full text-left text-xs text-slate-300">
-                        <thead className="bg-[#0d1117] text-slate-500 uppercase font-mono text-[9px] border-b border-slate-800">
+                        <thead className="bg-[#0d1117] text-slate-500 uppercase font-mono text-[10px] border-b border-slate-800">
                            <tr>
                               <th className="py-3 px-5 font-medium">Description</th>
                               <th className="py-3 px-5 font-medium">Account</th>
@@ -3195,7 +3195,7 @@ ${JSON.stringify(snapshot)}`;
                           <circle cx="18" cy="18" r="15.9" fill="none" stroke="#21262d" strokeWidth="3" />
                           <circle cx="18" cy="18" r="15.9" fill="none" stroke={insights.overall >= 70 ? '#16c784' : insights.overall >= 45 ? '#ffd166' : '#ea3943'} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${insights.overall} 100`} pathLength="100" />
                         </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-xl font-black text-white">{insights.overall}</span><span className="text-[8px] font-mono text-slate-500 uppercase">score</span></div>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center"><span className="text-xl font-black text-white">{insights.overall}</span><span className="text-[10px] font-mono text-slate-500 uppercase">score</span></div>
                       </div>
                       <div className="space-y-1.5 w-44">
                         {insights.pillars.map(pl => (
@@ -3249,7 +3249,7 @@ ${JSON.stringify(snapshot)}`;
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2 mb-1">
                                 <span className="text-[10px] font-mono text-slate-500">#{idx + 1}</span>
-                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${tone.badge}`}>{rec.priority}</span>
+                                <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${tone.badge}`}>{rec.priority}</span>
                                 <span className="text-[10px] font-mono uppercase text-slate-500">{rec.area}</span>
                               </div>
                               <h4 className="text-sm font-bold text-white">{rec.title}</h4>
@@ -3546,7 +3546,7 @@ ${JSON.stringify(snapshot)}`;
                             <td className="py-3.5 px-5 font-bold text-white">
                               <div className="flex items-center gap-2">
                                 <span>{item.symbol}</span>
-                                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">{currency}</span>
+                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">{currency}</span>
                               </div>
                               <span className="block text-xs font-normal text-slate-500 mt-0.5">{item.name}</span>
                             </td>
@@ -4040,7 +4040,7 @@ ${JSON.stringify(snapshot)}`;
                       <div className="p-4 bg-[#0d1117] rounded-xl border border-slate-800 flex justify-between items-center">
                         <div>
                           <span className="text-xs text-slate-400 font-mono block">Annual TVC Tax Deductible Total</span>
-                          <span className="text-[10px] text-slate-500">(Cap: $60,000 / year)</span>
+                          <span className="text-[10px] text-slate-500">(Cap: HK$60,000 / year)</span>
                         </div>
                         <span className="text-xl font-bold text-indigo-400">HK${mpfCalc.annualTvc.toLocaleString()}</span>
                       </div>
@@ -4066,7 +4066,7 @@ ${JSON.stringify(snapshot)}`;
                     <h3 className="font-bold text-sm text-white">A.F.A. AI Advisor</h3>
                     <p className="text-[10px] text-slate-500 font-mono truncate">Tailored for {userProfile.name || 'User'} • Goal: {userProfile.goal || 'General Wealth Accumulation'} • Uses your live profile data</p>
                   </div>
-                  {aiEngine && <span className="hidden sm:inline text-[9px] font-mono px-2 py-1 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase">{aiEngine}</span>}
+                  {aiEngine && <span className="hidden sm:inline text-[10px] font-mono px-2 py-1 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase">{aiEngine}</span>}
                   <button type="button" onClick={handleClearChat} className="bg-[#21262d] hover:bg-[#30363d] text-white border border-slate-700 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 cursor-pointer">
                     <RefreshCw className="w-3 h-3" /> New Chat
                   </button>

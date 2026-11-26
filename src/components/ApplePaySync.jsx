@@ -189,7 +189,7 @@ export function ApplePayCard({ sync }) {
           <div className="w-9 h-9 rounded-xl bg-[#0d1117] border border-slate-800 flex items-center justify-center shrink-0"><Smartphone className="w-4 h-4 text-[#00f2fe]" /></div>
           <div>
             <h3 className="text-sm font-bold text-white flex items-center gap-2">Apple Pay auto-sync
-              <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${connected ? 'border-emerald-400/40 text-emerald-300' : 'border-slate-700 text-slate-500'}`}>{connected ? 'CONNECTED' : 'OFF'}</span>
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${connected ? 'border-emerald-400/40 text-emerald-300' : 'border-slate-700 text-slate-500'}`}>{connected ? 'CONNECTED' : 'OFF'}</span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {connected
