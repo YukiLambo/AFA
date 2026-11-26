@@ -6,88 +6,78 @@
   "short": {
    "target": {
     "x": [
-     0.179,
-     0.228,
-     0.311,
-     0.377,
-     0.418,
-     0.458
+     0.23,
+     0.353,
+     0.418
     ],
     "y": [
-     0.212,
-     0.262,
-     0.282,
-     0.284,
-     0.305,
-     0.36
+     0.24,
+     0.292,
+     0.319
     ]
    },
    "stop": {
     "x": [
-     0.026,
-     0.076,
+     0.029,
+     0.077,
      0.125,
      0.175,
      0.225,
-     0.275,
-     0.326,
+     0.276,
+     0.325,
      0.376,
      0.426,
-     0.475,
-     0.524,
-     0.571,
-     0.62
+     0.504
     ],
     "y": [
-     0.055,
-     0.095,
-     0.141,
-     0.163,
-     0.198,
-     0.263,
-     0.308,
+     0.057,
+     0.079,
+     0.122,
+     0.139,
+     0.178,
+     0.24,
+     0.301,
      0.336,
-     0.381,
-     0.399,
-     0.428,
-     0.436,
-     0.47
+     0.387,
+     0.437
     ]
    }
   },
   "long": {
    "target": {
     "x": [
-     0.458,
-     0.523,
+     0.465,
+     0.522,
      0.572,
-     0.621,
-     0.668
+     0.62,
+     0.667
     ],
     "y": [
-     0.361,
-     0.422,
-     0.529,
-     0.663,
-     0.743
+     0.347,
+     0.429,
+     0.526,
+     0.66,
+     0.745
     ]
    },
    "stop": {
     "x": [
-     0.024,
-     0.075,
+     0.026,
+     0.074,
      0.126,
      0.231,
-     0.323,
-     0.404
+     0.322,
+     0.373,
+     0.435
     ],
     "y": [
-     0.112,
-     0.167,
-     0.215,
-     0.246,
-     0.259,
-     0.335
+     0.089,
+     0.145,
+     0.198,
+     0.243,
+     0.301,
+     0.314,
+     0.32
     ]
    }
   }
@@ -96,134 +86,134 @@
   "short": {
    "fitPlans": 9663,
    "testPlans": 8455,
-   "brierRaw": 0.219,
-   "brierCalibrated": 0.2147,
-   "brierConstant": 0.2145,
-   "statedRawPct": 36.3,
-   "statedCalibratedPct": 26.9,
-   "actualPct": 30.8
+   "brierRaw": 0.2205,
+   "brierCalibrated": 0.217,
+   "brierConstant": 0.2168,
+   "statedRawPct": 36.8,
+   "statedCalibratedPct": 28.3,
+   "actualPct": 31.5
   },
   "long": {
    "fitPlans": 9663,
    "testPlans": 8455,
-   "brierRaw": 0.2475,
-   "brierCalibrated": 0.2528,
-   "brierConstant": 0.2585,
-   "statedRawPct": 52.1,
-   "statedCalibratedPct": 43,
-   "actualPct": 49.3
+   "brierRaw": 0.2466,
+   "brierCalibrated": 0.2503,
+   "brierConstant": 0.258,
+   "statedRawPct": 52.3,
+   "statedCalibratedPct": 43.1,
+   "actualPct": 49.1
   }
  },
  "plans": {
   "short": {
    "HK": {
     "trades": 10678,
-    "targetFirst": 29.8,
-    "stopFirst": 31.5,
-    "open": 38.6,
-    "stated": 35,
-    "brier": 0.2152,
-    "brierBaseline": 0.2094,
-    "avgReturnPct": 0.11,
-    "statedReturnPct": 0.17,
+    "targetFirst": 30.7,
+    "stopFirst": 31.4,
+    "open": 37.9,
+    "stated": 35.6,
+    "brier": 0.2168,
+    "brierBaseline": 0.2126,
+    "avgReturnPct": 0.12,
+    "statedReturnPct": 0.2,
     "bySignal": {
      "Hold": {
       "n": 10678,
-      "targetFirst": 29.8,
-      "avgReturnPct": 0.11
+      "targetFirst": 30.7,
+      "avgReturnPct": 0.12
      }
     },
     "buckets": [
      {
       "from": 0,
       "to": 0.3,
-      "n": 2190,
-      "stated": 24.1,
-      "targetFirst": 27.9,
-      "stopFirst": 30.1,
-      "targetOfResolved": 48.1
+      "n": 1841,
+      "stated": 25.8,
+      "targetFirst": 29.4,
+      "stopFirst": 32.2,
+      "targetOfResolved": 47.8
      },
      {
       "from": 0.3,
       "to": 0.4,
-      "n": 6087,
-      "stated": 36,
-      "targetFirst": 29.3,
-      "stopFirst": 36.5,
-      "targetOfResolved": 44.5
+      "n": 6361,
+      "stated": 35.9,
+      "targetFirst": 29.7,
+      "stopFirst": 35.8,
+      "targetOfResolved": 45.3
      },
      {
       "from": 0.4,
       "to": 0.5,
-      "n": 2401,
+      "n": 2476,
       "stated": 42.3,
-      "targetFirst": 33,
-      "stopFirst": 20,
-      "targetOfResolved": 62.2
+      "targetFirst": 34,
+      "stopFirst": 19.4,
+      "targetOfResolved": 63.6
      }
     ]
    },
    "US": {
     "trades": 7440,
-    "targetFirst": 27.2,
-    "stopFirst": 30.5,
-    "open": 42.4,
-    "stated": 36.7,
-    "brier": 0.2083,
-    "brierBaseline": 0.1978,
-    "avgReturnPct": 0.32,
-    "statedReturnPct": 0.31,
+    "targetFirst": 28.8,
+    "stopFirst": 30.4,
+    "open": 40.8,
+    "stated": 37.8,
+    "brier": 0.2142,
+    "brierBaseline": 0.2051,
+    "avgReturnPct": 0.3,
+    "statedReturnPct": 0.35,
     "bySignal": {
      "Hold": {
       "n": 7440,
-      "targetFirst": 27.2,
-      "avgReturnPct": 0.32
+      "targetFirst": 28.8,
+      "avgReturnPct": 0.3
      }
     },
     "buckets": [
      {
       "from": 0,
       "to": 0.3,
-      "n": 763,
-      "stated": 23,
-      "targetFirst": 25.4,
-      "stopFirst": 30.5,
-      "targetOfResolved": 45.4
+      "n": 380,
+      "stated": 26.3,
+      "targetFirst": 26.8,
+      "stopFirst": 27.1,
+      "targetOfResolved": 49.8
      },
      {
       "from": 0.3,
       "to": 0.4,
-      "n": 4547,
-      "stated": 36.6,
-      "targetFirst": 27,
-      "stopFirst": 36.7,
-      "targetOfResolved": 42.4
+      "n": 4795,
+      "stated": 36.9,
+      "targetFirst": 28.2,
+      "stopFirst": 37.2,
+      "targetOfResolved": 43.1
      },
      {
       "from": 0.4,
       "to": 0.5,
-      "n": 2130,
+      "n": 2265,
       "stated": 41.7,
-      "targetFirst": 28.1,
-      "stopFirst": 17.2,
-      "targetOfResolved": 62
+      "targetFirst": 30.5,
+      "stopFirst": 16.7,
+      "targetOfResolved": 64.6
      }
     ]
    },
    "all": {
     "trades": 18118,
-    "targetFirst": 28.7,
-    "stopFirst": 31.1,
-    "open": 40.2,
-    "stated": 35.7,
-    "brier": 0.2124,
-    "brierBaseline": 0.2048,
+    "targetFirst": 29.9,
+    "stopFirst": 31,
+    "open": 39.1,
+    "stated": 36.5,
+    "brier": 0.2158,
+    "brierBaseline": 0.2096,
     "avgReturnPct": 0.2,
-    "statedReturnPct": 0.23,
+    "statedReturnPct": 0.26,
     "bySignal": {
      "Hold": {
       "n": 18118,
-      "targetFirst": 28.7,
+      "targetFirst": 29.9,
       "avgReturnPct": 0.2
      }
     },
@@ -231,29 +221,29 @@
      {
       "from": 0,
       "to": 0.3,
-      "n": 2953,
-      "stated": 23.8,
-      "targetFirst": 27.3,
-      "stopFirst": 30.2,
-      "targetOfResolved": 47.4
+      "n": 2221,
+      "stated": 25.9,
+      "targetFirst": 29,
+      "stopFirst": 31.3,
+      "targetOfResolved": 48.1
      },
      {
       "from": 0.3,
       "to": 0.4,
-      "n": 10634,
+      "n": 11156,
       "stated": 36.3,
-      "targetFirst": 28.3,
-      "stopFirst": 36.6,
-      "targetOfResolved": 43.6
+      "targetFirst": 29.1,
+      "stopFirst": 36.4,
+      "targetOfResolved": 44.4
      },
      {
       "from": 0.4,
       "to": 0.5,
-      "n": 4531,
+      "n": 4741,
       "stated": 42,
-      "targetFirst": 30.7,
-      "stopFirst": 18.7,
-      "targetOfResolved": 62.1
+      "targetFirst": 32.3,
+      "stopFirst": 18.1,
+      "targetOfResolved": 64.1
      }
     ]
    }
@@ -261,220 +251,220 @@
   "long": {
    "HK": {
     "trades": 10678,
-    "targetFirst": 46.5,
-    "stopFirst": 25.7,
-    "open": 27.9,
-    "stated": 52.2,
-    "brier": 0.2453,
+    "targetFirst": 46.3,
+    "stopFirst": 25.2,
+    "open": 28.4,
+    "stated": 52.6,
+    "brier": 0.2473,
     "brierBaseline": 0.2487,
-    "avgReturnPct": 0.06,
-    "statedReturnPct": 2.72,
+    "avgReturnPct": 0.04,
+    "statedReturnPct": 4.2,
     "bySignal": {
      "Accumulate": {
       "n": 999,
-      "targetFirst": 43.6,
-      "avgReturnPct": 3.29
+      "targetFirst": 43.4,
+      "avgReturnPct": 3.33
      },
      "Hold": {
       "n": 9679,
-      "targetFirst": 46.8,
-      "avgReturnPct": -0.27
+      "targetFirst": 46.6,
+      "avgReturnPct": -0.3
      }
     },
     "buckets": [
      {
       "from": 0,
       "to": 0.3,
-      "n": 232,
-      "stated": 23.9,
-      "targetFirst": 32.3,
-      "stopFirst": 42.2,
-      "targetOfResolved": 43.4
+      "n": 141,
+      "stated": 26.2,
+      "targetFirst": 46.8,
+      "stopFirst": 34.8,
+      "targetOfResolved": 57.4
      },
      {
       "from": 0.3,
       "to": 0.4,
-      "n": 662,
-      "stated": 35.6,
-      "targetFirst": 41.5,
-      "stopFirst": 38.4,
-      "targetOfResolved": 52
+      "n": 611,
+      "stated": 36.3,
+      "targetFirst": 49.1,
+      "stopFirst": 31.9,
+      "targetOfResolved": 60.6
      },
      {
       "from": 0.4,
       "to": 0.5,
-      "n": 2558,
+      "n": 2660,
       "stated": 46.8,
-      "targetFirst": 39.9,
-      "stopFirst": 28.5,
-      "targetOfResolved": 58.3
+      "targetFirst": 37.7,
+      "stopFirst": 29.6,
+      "targetOfResolved": 56.1
      },
      {
       "from": 0.5,
       "to": 0.6,
-      "n": 5596,
+      "n": 5529,
       "stated": 54.5,
-      "targetFirst": 44.2,
-      "stopFirst": 26,
-      "targetOfResolved": 63
+      "targetFirst": 43.4,
+      "stopFirst": 25.7,
+      "targetOfResolved": 62.8
      },
      {
       "from": 0.6,
       "to": 0.7,
-      "n": 1590,
-      "stated": 63.3,
-      "targetFirst": 67.8,
-      "stopFirst": 13,
-      "targetOfResolved": 83.9
+      "n": 1686,
+      "stated": 63.2,
+      "targetFirst": 67.5,
+      "stopFirst": 14.1,
+      "targetOfResolved": 82.8
      },
      {
       "from": 0.7,
       "to": 0.8,
-      "n": 40,
-      "stated": 71,
-      "targetFirst": 95,
-      "stopFirst": 0,
-      "targetOfResolved": 100
+      "n": 51,
+      "stated": 71.1,
+      "targetFirst": 84.3,
+      "stopFirst": 9.8,
+      "targetOfResolved": 89.6
      }
     ]
    },
    "US": {
     "trades": 7440,
-    "targetFirst": 41.3,
-    "stopFirst": 19.9,
-    "open": 38.8,
-    "stated": 50.3,
-    "brier": 0.2436,
-    "brierBaseline": 0.2424,
-    "avgReturnPct": 4.83,
-    "statedReturnPct": 4.19,
+    "targetFirst": 41.4,
+    "stopFirst": 18.9,
+    "open": 39.8,
+    "stated": 50.5,
+    "brier": 0.2434,
+    "brierBaseline": 0.2425,
+    "avgReturnPct": 4.7,
+    "statedReturnPct": 7.21,
     "bySignal": {
      "Accumulate": {
       "n": 947,
-      "targetFirst": 35.2,
-      "avgReturnPct": 8.55
+      "targetFirst": 35,
+      "avgReturnPct": 8.41
      },
      "Hold": {
       "n": 6493,
-      "targetFirst": 42.2,
-      "avgReturnPct": 4.29
+      "targetFirst": 42.3,
+      "avgReturnPct": 4.16
      }
     },
     "buckets": [
      {
       "from": 0.3,
       "to": 0.4,
-      "n": 65,
-      "stated": 37.6,
-      "targetFirst": 53.8,
-      "stopFirst": 21.5,
-      "targetOfResolved": 71.4
+      "n": 43,
+      "stated": 38.2,
+      "targetFirst": 81.4,
+      "stopFirst": 4.7,
+      "targetOfResolved": 94.6
      },
      {
       "from": 0.4,
       "to": 0.5,
-      "n": 3663,
-      "stated": 47.1,
-      "targetFirst": 32.2,
-      "stopFirst": 24.9,
-      "targetOfResolved": 56.4
+      "n": 3572,
+      "stated": 47.5,
+      "targetFirst": 30,
+      "stopFirst": 21.5,
+      "targetOfResolved": 58.3
      },
      {
       "from": 0.5,
       "to": 0.6,
-      "n": 3433,
-      "stated": 53,
-      "targetFirst": 48.4,
-      "stopFirst": 15.4,
-      "targetOfResolved": 75.9
+      "n": 3592,
+      "stated": 52.9,
+      "targetFirst": 50.2,
+      "stopFirst": 16.8,
+      "targetOfResolved": 74.9
      },
      {
       "from": 0.6,
       "to": 0.7,
-      "n": 277,
-      "stated": 62.9,
-      "targetFirst": 70.4,
-      "stopFirst": 9.4,
-      "targetOfResolved": 88.2
+      "n": 232,
+      "stated": 62.7,
+      "targetFirst": 71.1,
+      "stopFirst": 12.5,
+      "targetOfResolved": 85.1
      }
     ]
    },
    "all": {
     "trades": 18118,
     "targetFirst": 44.3,
-    "stopFirst": 23.3,
-    "open": 32.3,
-    "stated": 51.4,
-    "brier": 0.2446,
-    "brierBaseline": 0.2468,
-    "avgReturnPct": 2.02,
-    "statedReturnPct": 3.32,
+    "stopFirst": 22.6,
+    "open": 33.1,
+    "stated": 51.7,
+    "brier": 0.2457,
+    "brierBaseline": 0.2467,
+    "avgReturnPct": 1.95,
+    "statedReturnPct": 5.44,
     "bySignal": {
      "Accumulate": {
       "n": 1946,
-      "targetFirst": 39.5,
-      "avgReturnPct": 5.85
+      "targetFirst": 39.3,
+      "avgReturnPct": 5.8
      },
      "Hold": {
       "n": 16172,
       "targetFirst": 44.9,
-      "avgReturnPct": 1.56
+      "avgReturnPct": 1.49
      }
     },
     "buckets": [
      {
       "from": 0,
       "to": 0.3,
-      "n": 232,
-      "stated": 23.9,
-      "targetFirst": 32.3,
-      "stopFirst": 42.2,
-      "targetOfResolved": 43.4
+      "n": 141,
+      "stated": 26.2,
+      "targetFirst": 46.8,
+      "stopFirst": 34.8,
+      "targetOfResolved": 57.4
      },
      {
       "from": 0.3,
       "to": 0.4,
-      "n": 727,
-      "stated": 35.8,
-      "targetFirst": 42.6,
-      "stopFirst": 36.9,
-      "targetOfResolved": 53.6
+      "n": 654,
+      "stated": 36.4,
+      "targetFirst": 51.2,
+      "stopFirst": 30.1,
+      "targetOfResolved": 63
      },
      {
       "from": 0.4,
       "to": 0.5,
-      "n": 6221,
-      "stated": 47,
-      "targetFirst": 35.3,
-      "stopFirst": 26.4,
+      "n": 6232,
+      "stated": 47.2,
+      "targetFirst": 33.3,
+      "stopFirst": 24.9,
       "targetOfResolved": 57.2
      },
      {
       "from": 0.5,
       "to": 0.6,
-      "n": 9029,
-      "stated": 53.9,
-      "targetFirst": 45.8,
-      "stopFirst": 22,
-      "targetOfResolved": 67.6
+      "n": 9121,
+      "stated": 53.8,
+      "targetFirst": 46.1,
+      "stopFirst": 22.2,
+      "targetOfResolved": 67.5
      },
      {
       "from": 0.6,
       "to": 0.7,
-      "n": 1867,
-      "stated": 63.2,
-      "targetFirst": 68.2,
-      "stopFirst": 12.5,
-      "targetOfResolved": 84.5
+      "n": 1918,
+      "stated": 63.1,
+      "targetFirst": 67.9,
+      "stopFirst": 13.9,
+      "targetOfResolved": 83
      },
      {
       "from": 0.7,
       "to": 0.8,
-      "n": 42,
-      "stated": 71,
-      "targetFirst": 95.2,
-      "stopFirst": 0,
-      "targetOfResolved": 100
+      "n": 52,
+      "stated": 71.1,
+      "targetFirst": 84.6,
+      "stopFirst": 9.6,
+      "targetOfResolved": 89.8
      }
     ]
    }

@@ -8,84 +8,84 @@ Table fitted on plans before 2023-01-01, scored on plans after. Brier score: low
 
 | Plan | Test plans | Stated (raw) | Stated (corrected) | Actual target first | Brier raw | Brier corrected | Brier, constant average |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| short | 8455 | 36.3% | 26.9% | 30.8% | 0.219 | 0.2147 | 0.2145 |
-| long | 8455 | 52.1% | 43% | 49.3% | 0.2475 | 0.2528 | 0.2585 |
+| short | 8455 | 36.8% | 28.3% | 31.5% | 0.2205 | 0.217 | 0.2168 |
+| long | 8455 | 52.3% | 43.1% | 49.1% | 0.2466 | 0.2503 | 0.258 |
 
 ## Short-term plan (10 days) · HK
 
-10678 plans. Target first 29.8% (plans said 35%), stop first 31.5%, neither by the end 38.6%. Brier 0.2152 vs 0.2094 for always predicting the average. Average result 0.11% per trade (plans said 0.17%).
+10678 plans. Target first 30.7% (plans said 35.6%), stop first 31.4%, neither by the end 37.9%. Brier 0.2168 vs 0.2126 for always predicting the average. Average result 0.12% per trade (plans said 0.2%).
 
-By signal: Hold 10678 (target first 29.8%, average 0.11%).
+By signal: Hold 10678 (target first 30.7%, average 0.12%).
 
 | Stated probability | Plans | Stated (avg) | Target first | Stop first | Target first, of those resolved |
 | --- | --- | --- | --- | --- | --- |
-| 0–30% | 2190 | 24.1% | 27.9% | 30.1% | 48.1% |
-| 30–40% | 6087 | 36% | 29.3% | 36.5% | 44.5% |
-| 40–50% | 2401 | 42.3% | 33% | 20% | 62.2% |
+| 0–30% | 1841 | 25.8% | 29.4% | 32.2% | 47.8% |
+| 30–40% | 6361 | 35.9% | 29.7% | 35.8% | 45.3% |
+| 40–50% | 2476 | 42.3% | 34% | 19.4% | 63.6% |
 
 ## Short-term plan (10 days) · US
 
-7440 plans. Target first 27.2% (plans said 36.7%), stop first 30.5%, neither by the end 42.4%. Brier 0.2083 vs 0.1978 for always predicting the average. Average result 0.32% per trade (plans said 0.31%).
+7440 plans. Target first 28.8% (plans said 37.8%), stop first 30.4%, neither by the end 40.8%. Brier 0.2142 vs 0.2051 for always predicting the average. Average result 0.3% per trade (plans said 0.35%).
 
-By signal: Hold 7440 (target first 27.2%, average 0.32%).
+By signal: Hold 7440 (target first 28.8%, average 0.3%).
 
 | Stated probability | Plans | Stated (avg) | Target first | Stop first | Target first, of those resolved |
 | --- | --- | --- | --- | --- | --- |
-| 0–30% | 763 | 23% | 25.4% | 30.5% | 45.4% |
-| 30–40% | 4547 | 36.6% | 27% | 36.7% | 42.4% |
-| 40–50% | 2130 | 41.7% | 28.1% | 17.2% | 62% |
+| 0–30% | 380 | 26.3% | 26.8% | 27.1% | 49.8% |
+| 30–40% | 4795 | 36.9% | 28.2% | 37.2% | 43.1% |
+| 40–50% | 2265 | 41.7% | 30.5% | 16.7% | 64.6% |
 
 ## Short-term plan (10 days) · all
 
-18118 plans. Target first 28.7% (plans said 35.7%), stop first 31.1%, neither by the end 40.2%. Brier 0.2124 vs 0.2048 for always predicting the average. Average result 0.2% per trade (plans said 0.23%).
+18118 plans. Target first 29.9% (plans said 36.5%), stop first 31%, neither by the end 39.1%. Brier 0.2158 vs 0.2096 for always predicting the average. Average result 0.2% per trade (plans said 0.26%).
 
-By signal: Hold 18118 (target first 28.7%, average 0.2%).
+By signal: Hold 18118 (target first 29.9%, average 0.2%).
 
 | Stated probability | Plans | Stated (avg) | Target first | Stop first | Target first, of those resolved |
 | --- | --- | --- | --- | --- | --- |
-| 0–30% | 2953 | 23.8% | 27.3% | 30.2% | 47.4% |
-| 30–40% | 10634 | 36.3% | 28.3% | 36.6% | 43.6% |
-| 40–50% | 4531 | 42% | 30.7% | 18.7% | 62.1% |
+| 0–30% | 2221 | 25.9% | 29% | 31.3% | 48.1% |
+| 30–40% | 11156 | 36.3% | 29.1% | 36.4% | 44.4% |
+| 40–50% | 4741 | 42% | 32.3% | 18.1% | 64.1% |
 
 ## Long-term plan (120 days) · HK
 
-10678 plans. Target first 46.5% (plans said 52.2%), stop first 25.7%, neither by the end 27.9%. Brier 0.2453 vs 0.2487 for always predicting the average. Average result 0.06% per trade (plans said 2.72%).
+10678 plans. Target first 46.3% (plans said 52.6%), stop first 25.2%, neither by the end 28.4%. Brier 0.2473 vs 0.2487 for always predicting the average. Average result 0.04% per trade (plans said 4.2%).
 
-By signal: Accumulate 999 (target first 43.6%, average 3.29%); Hold 9679 (target first 46.8%, average -0.27%).
+By signal: Accumulate 999 (target first 43.4%, average 3.33%); Hold 9679 (target first 46.6%, average -0.3%).
 
 | Stated probability | Plans | Stated (avg) | Target first | Stop first | Target first, of those resolved |
 | --- | --- | --- | --- | --- | --- |
-| 0–30% | 232 | 23.9% | 32.3% | 42.2% | 43.4% |
-| 30–40% | 662 | 35.6% | 41.5% | 38.4% | 52% |
-| 40–50% | 2558 | 46.8% | 39.9% | 28.5% | 58.3% |
-| 50–60% | 5596 | 54.5% | 44.2% | 26% | 63% |
-| 60–70% | 1590 | 63.3% | 67.8% | 13% | 83.9% |
-| 70–80% | 40 | 71% | 95% | 0% | 100% |
+| 0–30% | 141 | 26.2% | 46.8% | 34.8% | 57.4% |
+| 30–40% | 611 | 36.3% | 49.1% | 31.9% | 60.6% |
+| 40–50% | 2660 | 46.8% | 37.7% | 29.6% | 56.1% |
+| 50–60% | 5529 | 54.5% | 43.4% | 25.7% | 62.8% |
+| 60–70% | 1686 | 63.2% | 67.5% | 14.1% | 82.8% |
+| 70–80% | 51 | 71.1% | 84.3% | 9.8% | 89.6% |
 
 ## Long-term plan (120 days) · US
 
-7440 plans. Target first 41.3% (plans said 50.3%), stop first 19.9%, neither by the end 38.8%. Brier 0.2436 vs 0.2424 for always predicting the average. Average result 4.83% per trade (plans said 4.19%).
+7440 plans. Target first 41.4% (plans said 50.5%), stop first 18.9%, neither by the end 39.8%. Brier 0.2434 vs 0.2425 for always predicting the average. Average result 4.7% per trade (plans said 7.21%).
 
-By signal: Accumulate 947 (target first 35.2%, average 8.55%); Hold 6493 (target first 42.2%, average 4.29%).
+By signal: Accumulate 947 (target first 35%, average 8.41%); Hold 6493 (target first 42.3%, average 4.16%).
 
 | Stated probability | Plans | Stated (avg) | Target first | Stop first | Target first, of those resolved |
 | --- | --- | --- | --- | --- | --- |
-| 30–40% | 65 | 37.6% | 53.8% | 21.5% | 71.4% |
-| 40–50% | 3663 | 47.1% | 32.2% | 24.9% | 56.4% |
-| 50–60% | 3433 | 53% | 48.4% | 15.4% | 75.9% |
-| 60–70% | 277 | 62.9% | 70.4% | 9.4% | 88.2% |
+| 30–40% | 43 | 38.2% | 81.4% | 4.7% | 94.6% |
+| 40–50% | 3572 | 47.5% | 30% | 21.5% | 58.3% |
+| 50–60% | 3592 | 52.9% | 50.2% | 16.8% | 74.9% |
+| 60–70% | 232 | 62.7% | 71.1% | 12.5% | 85.1% |
 
 ## Long-term plan (120 days) · all
 
-18118 plans. Target first 44.3% (plans said 51.4%), stop first 23.3%, neither by the end 32.3%. Brier 0.2446 vs 0.2468 for always predicting the average. Average result 2.02% per trade (plans said 3.32%).
+18118 plans. Target first 44.3% (plans said 51.7%), stop first 22.6%, neither by the end 33.1%. Brier 0.2457 vs 0.2467 for always predicting the average. Average result 1.95% per trade (plans said 5.44%).
 
-By signal: Accumulate 1946 (target first 39.5%, average 5.85%); Hold 16172 (target first 44.9%, average 1.56%).
+By signal: Accumulate 1946 (target first 39.3%, average 5.8%); Hold 16172 (target first 44.9%, average 1.49%).
 
 | Stated probability | Plans | Stated (avg) | Target first | Stop first | Target first, of those resolved |
 | --- | --- | --- | --- | --- | --- |
-| 0–30% | 232 | 23.9% | 32.3% | 42.2% | 43.4% |
-| 30–40% | 727 | 35.8% | 42.6% | 36.9% | 53.6% |
-| 40–50% | 6221 | 47% | 35.3% | 26.4% | 57.2% |
-| 50–60% | 9029 | 53.9% | 45.8% | 22% | 67.6% |
-| 60–70% | 1867 | 63.2% | 68.2% | 12.5% | 84.5% |
-| 70–80% | 42 | 71% | 95.2% | 0% | 100% |
+| 0–30% | 141 | 26.2% | 46.8% | 34.8% | 57.4% |
+| 30–40% | 654 | 36.4% | 51.2% | 30.1% | 63% |
+| 40–50% | 6232 | 47.2% | 33.3% | 24.9% | 57.2% |
+| 50–60% | 9121 | 53.8% | 46.1% | 22.2% | 67.5% |
+| 60–70% | 1918 | 63.1% | 67.9% | 13.9% | 83% |
+| 70–80% | 52 | 71.1% | 84.6% | 9.6% | 89.8% |
