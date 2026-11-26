@@ -1,8 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { startLandingScene } from '../lib/landingScene';
+import { startIntroScene } from '../lib/introScene';
 
-// Entry screen: the light-pour animation plus the Overview / Why A.F.A. / Features pages.
-// "Get started" brightens the scene, fades this screen out and calls onEnter().
+// Entry screen: the minting animation plus the Overview / Why A.F.A. / Features pages.
+// "Get started" flies the coin into the logo, fades this screen out and calls onEnter().
+const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+
+function loadThree() {
+  if (window.THREE) return Promise.resolve(window.THREE);
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${THREE_URL}"]`);
+    const s = existing || document.createElement('script');
+    s.addEventListener('load', () => resolve(window.THREE));
+    s.addEventListener('error', reject);
+    if (!existing) { s.src = THREE_URL; s.async = true; document.head.appendChild(s); }
+  });
+}
+
 const CSS = `
 .afl { position: fixed; inset: 0; z-index: 60; overflow: hidden; transition: opacity .6s ease; }
 .afl.leaving { opacity: 0; pointer-events: none; }
@@ -197,9 +210,20 @@ export default function IntroLanding({ onEnter }) {
   finishRef.current = finish;
 
   useEffect(() => {
-    const api = startLandingScene(rootRef.current, { onEnter: () => finishRef.current() });
-    apiRef.current = api;
-    return () => api.dispose();
+    let api = null, cancelled = false;
+    const fallback = () => {
+      // No WebGL or the 3D library could not load: show the headline and let "Get started" go straight in
+      const h = rootRef.current && rootRef.current.querySelector('#afl-headline');
+      if (h) { h.textContent = 'Your personal financial assistant'; h.classList.add('on'); }
+      apiRef.current = { startExit: () => finishRef.current(), setHome() {}, dispose() {} };
+    };
+    loadThree().then(THREE => {
+      if (cancelled || !rootRef.current) return;
+      if (!THREE) { fallback(); return; }
+      api = startIntroScene(rootRef.current, THREE, { onEnter: () => finishRef.current() });
+      apiRef.current = api;
+    }).catch(fallback);
+    return () => { cancelled = true; if (api) api.dispose(); };
   }, []);
 
   useEffect(() => {
