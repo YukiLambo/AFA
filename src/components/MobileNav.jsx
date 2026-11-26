@@ -17,7 +17,7 @@ const TABS = [
   { id: 'portfolio', label: 'Invest', icon: TrendingUp },
   { id: 'ledger', label: 'Records', icon: Wallet }
 ];
-const PAGE = { dashboard: 'Home', report: 'Analytics', ledger: 'Records', portfolio: 'Investments', simulator: 'Strategic Modeler', debt: 'Debt Health', mpf: 'MPF & Tax', advisor: 'A.F.A. AI' };
+const PAGE = { dashboard: 'Home', report: 'Analytics', ledger: 'Records', portfolio: 'Investments', simulator: 'Wealth Planner', debt: 'Debt Health', mpf: 'MPF & Tax', advisor: 'A.F.A. AI' };
 
 const CSS = `
 @media (max-width: 767px) {
@@ -177,7 +177,7 @@ export function MobileTopBar({ activeTab, setActiveTab, user, userProfile, insig
             <div className="afa-sep" />
 
             <h5>Planning &amp; tools</h5>
-            <Row id="simulator" icon={Sliders} label="Strategic Modeler" sub="Test savings and investing plans" />
+            <Row id="simulator" icon={Sliders} label="Wealth Planner" sub="Test savings and investing plans" />
             <Row id="debt" icon={CreditCard} label="Debt Health" sub="Cards, loans and payoff order" />
             <Row id="mpf" icon={PiggyBank} label="MPF & Tax" sub="Retirement and salaries tax" />
             <Row id="portfolio" icon={TrendingUp} label="Investments" sub="Holdings, simulated trading, analysis" />

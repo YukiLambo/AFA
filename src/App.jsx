@@ -1118,7 +1118,7 @@ export default function App() {
       { id: 'ledger', label: 'Transactions Ledger', icon: Wallet, keywords: 'expense income transactions record history' },
       { id: 'report', label: 'Analytics & Audit', icon: ShieldAlert, keywords: 'report budget warning alert anomaly analytics' },
       { id: 'portfolio', label: 'Investments & Stocks', icon: TrendingUp, keywords: 'stock equity portfolio shares crypto asset' },
-      { id: 'simulator', label: 'Strategic Modeler', icon: Sliders, keywords: 'wealth simulation compounding plan scenario' },
+      { id: 'simulator', label: 'Wealth Planner', icon: Sliders, keywords: 'wealth simulation compounding plan scenario' },
       { id: 'debt', label: 'Debt Health', icon: CreditCard, keywords: 'credit card debt loan repayment interest' },
       { id: 'mpf', label: 'MPF & Tax', icon: PiggyBank, keywords: 'tax mpf tvc deduction savings salary' },
       { id: 'advisor', label: 'A.F.A. AI Chat', icon: Bot, keywords: 'ai advisor assistant prompt chat help' }
@@ -1977,7 +1977,7 @@ export default function App() {
           (remaining === 0 ? `You've reached it — congratulations! Time to set the next target.` :
             months ? `At this month's pace (about ${hkd(monthlySurplus)} left after spending), the remaining ${hkd(remaining)} takes roughly ${months >= 24 ? `${(months / 12).toFixed(1)} years` : `${months} months`}, before any investment growth.` :
               `Right now there's no monthly surplus recorded, so the gap of ${hkd(remaining)} isn't closing yet.`) +
-          `\n\nWant to see how much faster it gets if you invest the surplus? Try the Strategic Modeler, or ask me "where can I cut spending?"`;
+          `\n\nWant to see how much faster it gets if you invest the surplus? Try the Wealth Planner, or ask me "where can I cut spending?"`;
       }
 
       case 'afford': {
@@ -2029,7 +2029,7 @@ export default function App() {
         if (!s.targetAmountHKD || monthlySurplus <= 0) return `Saving an extra ${hkd(extra)} a month adds up to ${hkd(extra * 12)} a year. Set a target amount on the Dashboard and I'll translate that into time saved on your goal.`;
         const before = Math.ceil(remaining / monthlySurplus);
         const after = Math.ceil(remaining / (monthlySurplus + extra));
-        return `Putting an extra ${hkd(extra)} a month towards "${s.goal}"${cuttable ? ` (20% less ${cuttable.category})` : ''} brings the timeline from about ${before} months down to ${after} — ${before - after} month${before - after === 1 ? '' : 's'} sooner, and more once investment growth is included.\n\nThe Strategic Modeler shows the compounding effect. Would you like to talk about where to keep that money — savings, investments or TVC?`;
+        return `Putting an extra ${hkd(extra)} a month towards "${s.goal}"${cuttable ? ` (20% less ${cuttable.category})` : ''} brings the timeline from about ${before} months down to ${after} — ${before - after} month${before - after === 1 ? '' : 's'} sooner, and more once investment growth is included.\n\nThe Wealth Planner shows the compounding effect. Would you like to talk about where to keep that money — savings, investments or TVC?`;
       }
 
       case 'spending':
@@ -2100,7 +2100,7 @@ How to talk:
 - Plain text only. No markdown symbols such as ** or #, because the chat window shows raw text.
 - Answer exactly what was asked using the user's real numbers from the snapshot below (currency HK$). Do not recite the whole profile.
 - Remember the earlier messages in this conversation and build on them.
-- When natural, end with one short follow-up question or a concrete next step inside the app (tabs: Dashboard, Transactions, Analytics, Investments, Strategic Modeler, Debt Health, MPF & Tax).
+- When natural, end with one short follow-up question or a concrete next step inside the app (tabs: Dashboard, Transactions, Analytics, Investments, Wealth Planner, Debt Health, MPF & Tax).
 - If the data needed is missing (for example no transactions logged), say so and tell them where to add it. Never invent figures.
 
 Rules:
@@ -2374,11 +2374,11 @@ ${JSON.stringify(snapshot)}`;
                       <input type="password" required value={userProfile.password || ''} onChange={e => setUserProfile({...userProfile, password: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" placeholder="••••••••" />
                     </div>
                     <button type="submit" disabled={authActionLoading} className="w-full py-4 mt-2 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] hover:from-cyan-400 hover:to-blue-500 text-[#0a0a0a] rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(0,242,254,0.3)] disabled:opacity-50">
-                      {authActionLoading ? 'Syncing...' : 'Initiate Sequence'}
+                      {authActionLoading ? 'Signing in…' : 'Sign in'}
                     </button>
                   </form>
                   <p className="text-center text-xs text-slate-400 mt-5">
-                    Unregistered? <button onClick={() => { setAuthMode('register'); setOnboardingStep(1); setAuthError(''); }} className="text-[#00f2fe] font-bold">Create Profile</button>
+                    New to A.F.A.? <button onClick={() => { setAuthMode('register'); setOnboardingStep(1); setAuthError(''); }} className="text-[#00f2fe] font-bold">Create an account</button>
                   </p>
                 </div>
               )}
@@ -2386,7 +2386,7 @@ ${JSON.stringify(snapshot)}`;
               {authMode === 'register' && (
                 <div>
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-sm font-bold text-white tracking-widest uppercase">Profile Creation</h2>
+                    <h2 className="text-sm font-bold text-white tracking-widest uppercase">Create your account</h2>
                     <span className="text-[10px] font-mono text-cyan-300 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">Step {onboardingStep}/5</span>
                   </div>
 
@@ -2396,7 +2396,7 @@ ${JSON.stringify(snapshot)}`;
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Full Name</label>
                         <input type="text" placeholder="e.g. Chloe Chan" value={userProfile.name || ''} onChange={e => setUserProfile({...userProfile, name: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
                       </div>
-                      <button disabled={!userProfile.name} onClick={() => setOnboardingStep(2)} className="w-full py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase tracking-widest">Next Phase</button>
+                      <button disabled={!userProfile.name} onClick={() => setOnboardingStep(2)} className="w-full py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase tracking-widest">Next</button>
                     </div>
                   )}
 
@@ -2405,12 +2405,12 @@ ${JSON.stringify(snapshot)}`;
                       <div>
                         <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Email Address</label>
                         <input type="email" placeholder="chloe@hktech.io" value={userProfile.email || ''} onChange={e => setUserProfile({...userProfile, email: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white mb-4" />
-                        <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Password Key</label>
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Password (6+ characters)</label>
                         <input type="password" placeholder="Min 6 characters" value={userProfile.password || ''} onChange={e => setUserProfile({...userProfile, password: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(1)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
-                        <button disabled={!userProfile.email || (userProfile.password || '').length < 6} onClick={() => setOnboardingStep(3)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next Phase</button>
+                        <button disabled={!userProfile.email || (userProfile.password || '').length < 6} onClick={() => setOnboardingStep(3)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next</button>
                       </div>
                     </div>
                   )}
@@ -2418,9 +2418,9 @@ ${JSON.stringify(snapshot)}`;
                   {onboardingStep === 3 && (
                     <div className="space-y-4 anim-slide-in">
                       <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Wealth Target</label>
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Your main goal</label>
                         <select value={userProfile.goal || ''} onChange={e => setUserProfile({...userProfile, goal: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white [&>option]:bg-slate-900">
-                          <option value="">-- Select Objective --</option>
+                          <option value="">Choose a goal</option>
                           <option value="HK Property Down Payment">HK Property Down Payment</option>
                           <option value="Early Retirement (FIRE)">Early Retirement (FIRE)</option>
                           <option value="High-Yield Dividend Cash Flow">High-Yield Dividend Cash Flow</option>
@@ -2429,7 +2429,7 @@ ${JSON.stringify(snapshot)}`;
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(2)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
-                        <button disabled={!userProfile.goal} onClick={() => setOnboardingStep(4)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next Phase</button>
+                        <button disabled={!userProfile.goal} onClick={() => setOnboardingStep(4)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next</button>
                       </div>
                     </div>
                   )}
@@ -2437,19 +2437,19 @@ ${JSON.stringify(snapshot)}`;
                   {onboardingStep === 4 && (
                     <div className="space-y-4 anim-slide-in">
                       <div>
-                        <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Capital Target (HKD)</label>
+                        <label className="block text-[10px] font-mono uppercase tracking-widest text-cyan-300 mb-1.5">Target amount (HK$)</label>
                         <input type="number" placeholder="e.g. 500000" value={userProfile.targetAmount || ''} onChange={e => setUserProfile({...userProfile, targetAmount: e.target.value})} className="w-full px-4 py-3.5 glass-input rounded-xl text-sm text-white" />
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button onClick={() => setOnboardingStep(3)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
-                        <button disabled={!userProfile.targetAmount} onClick={() => setOnboardingStep(5)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next Phase</button>
+                        <button disabled={!userProfile.targetAmount} onClick={() => setOnboardingStep(5)} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">Next</button>
                       </div>
                     </div>
                   )}
 
                   {onboardingStep === 5 && (
                     <div className="space-y-4 anim-slide-in">
-                      <p className="text-xs text-slate-300">Calibrate market volatility tolerance.</p>
+                      <p className="text-xs text-slate-300">How much can your investments rise and fall before you worry?</p>
                       <div className="space-y-2.5">
                         {['Conservative (Bonds & DIS)', 'Moderate (Balanced Tech & Value)', 'Aggressive (High-Beta Equities)'].map(risk => (
                           <button key={risk} onClick={() => setUserProfile({...userProfile, riskTolerance: risk})} className={`w-full p-3.5 rounded-xl border text-left text-xs font-medium ${userProfile.riskTolerance === risk ? 'bg-cyan-500/20 border-[#00f2fe] text-cyan-300' : 'bg-black/20 border-white/10 text-slate-300'}`}>
@@ -2460,7 +2460,7 @@ ${JSON.stringify(snapshot)}`;
                       <div className="flex gap-3 pt-4">
                         <button onClick={() => setOnboardingStep(4)} className="w-1/3 bg-white/5 py-4 rounded-xl text-xs text-slate-300">Back</button>
                         <button disabled={!userProfile.riskTolerance || authActionLoading} onClick={handleRegister} className="w-2/3 py-4 bg-gradient-to-r from-[#00f2fe] to-[#4facfe] text-[#0a0a0a] rounded-xl text-xs font-black uppercase">
-                          {authActionLoading ? 'Initializing...' : 'Launch A.F.A.'}
+                          {authActionLoading ? 'Setting up…' : 'Start using A.F.A.'}
                         </button>
                       </div>
                     </div>
@@ -2534,7 +2534,7 @@ ${JSON.stringify(snapshot)}`;
             <div className="space-y-1">
               <p className="px-3 text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-2">Planning & Tools</p>
               {[
-                { id: 'simulator', label: 'Strategic Modeler', icon: Sliders },
+                { id: 'simulator', label: 'Wealth Planner', icon: Sliders },
                 { id: 'debt', label: 'Debt Health', icon: CreditCard },
                 { id: 'mpf', label: 'MPF & Tax', icon: PiggyBank },
                 { id: 'advisor', label: 'A.F.A. AI Chat', icon: Bot },
@@ -2581,7 +2581,7 @@ ${JSON.stringify(snapshot)}`;
                    activeTab === 'ledger' ? 'Transactions' : 
                    activeTab === 'report' ? 'Analytics' : 
                    activeTab === 'portfolio' ? 'Investments' : 
-                   activeTab === 'simulator' ? 'Strategic Wealth Modeler' : 
+                   activeTab === 'simulator' ? 'Wealth Planner' : 
                    activeTab === 'debt' ? 'Debt Health' : 
                    activeTab === 'mpf' ? 'MPF & Tax' : 
                    activeTab === 'advisor' ? 'A.F.A AI Chat' : 'Analytics'}
@@ -3124,9 +3124,9 @@ ${JSON.stringify(snapshot)}`;
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-[#161b22] p-5 rounded-2xl border border-slate-800/80 shadow-md">
                   <div>
                     <h2 className="text-base font-bold text-white flex items-center gap-2">
-                      <Wallet className="w-4 h-4 text-[#00f2fe]" /> Integrated Ledger & Audit
+                      <Wallet className="w-4 h-4 text-[#00f2fe]" /> Transactions
                     </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">Real-time transaction tracking and spending analytics.</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Everything you spend and receive. Add a record yourself or let Apple Pay add them.</p>
                   </div>
                   
                   <div className="flex items-center gap-2">
@@ -3177,7 +3177,7 @@ ${JSON.stringify(snapshot)}`;
 
                 <div className="bg-[#161b22] rounded-2xl border border-slate-800/80 shadow-md overflow-hidden">
                   <div className="px-5 py-3 bg-[#0d1117] border-b border-slate-800 flex justify-between items-center">
-                    <span className="text-xs font-mono uppercase text-[#00f2fe]">Transaction History Log</span>
+                    <span className="text-xs font-mono uppercase text-[#00f2fe]">History</span>
                     <span className="text-[10px] text-slate-500 font-mono">{filteredTransactions.length} Records</span>
                   </div>
 
@@ -3808,7 +3808,7 @@ ${JSON.stringify(snapshot)}`;
               <div className="space-y-6 anim-slide-in">
                 <div className="bg-[#161b22] p-6 rounded-2xl border border-slate-800/80 shadow-md">
                   <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Strategic Wealth Modeler
+                    <Sliders className="w-4 h-4 text-[#00f2fe]" /> Wealth Planner
                   </h2>
                   <p className="text-xs text-slate-400 mb-6">Test live financial life events and compound wealth towards your target.</p>
 
@@ -4182,7 +4182,7 @@ ${JSON.stringify(snapshot)}`;
 
             {/* REGULATORY FOOTER */}
             <footer className="mt-8 p-4 rounded-2xl bg-[#161b22] border border-slate-800/80 text-[10px] text-slate-500 font-mono leading-relaxed text-center shadow-inner">
-              <p><strong>Regulatory Compliance Disclaimer:</strong> A.F.A. (Automated Financial Advisor) is an educational tool designed for financial literacy, debt modeling, and budgeting habit formation in Hong Kong. It does not provide regulated investment advice under the Securities and Futures Ordinance (SFO).</p>
+              <p><strong>Please note:</strong> A.F.A. (Automated Financial Assistant) is an educational tool designed for financial literacy, debt modeling, and budgeting habit formation in Hong Kong. It does not provide regulated investment advice under the Securities and Futures Ordinance (SFO).</p>
             </footer>
 
           </main>
