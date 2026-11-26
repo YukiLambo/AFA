@@ -729,7 +729,7 @@ export default function StockAnalysis({ initialSymbol = '0700.HK', fetchQuote, f
                 </details>
 
                 <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
-                  What the test found (measured against the Hang Seng Index or S&amp;P 500, so whole-market swings are taken out): short-term &quot;oversold&quot; and &quot;overbought&quot; readings added little. Over about six months, relative strength tended to last: stocks that had risen most over the past year, sat above their 200-day average or were near their 52-week high beat the index more often than average, and stocks in deep drawdowns did not catch up. Most candlestick and chart patterns had no reliable edge. The sample is today's large caps, which flatters strength, so treat these as tendencies, not predictions.
+                  What the test found (measured against the Hang Seng Index or S&amp;P 500, so whole-market swings are taken out): short-term &quot;oversold&quot; and &quot;overbought&quot; readings added little. Over about six months, relative strength tended to last: stocks that had risen most over the past year, sat above their 200-day average or were near their 52-week high beat the index more often than average, and stocks in deep drawdowns did not catch up. Most candlestick and chart patterns had no reliable edge. After correcting for overlapping time windows and for testing about 100 signals at once, only a handful of signals (mainly new lows and breakdowns, which tended to keep lagging) passed; the others are shown with their numbers but marked as no reliable edge. The sample is today's large caps, which flatters strength, so treat these as tendencies, not predictions.
                 </p>
               </div>
             );

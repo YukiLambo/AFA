@@ -21,54 +21,62 @@ const SHRINK = 0.75;
 // hit = change in how often the stock beat the index; "cells agreeing" = how many of the four market/period
 // cells had the same sign with |t| >= 1.5. Written by research/update_app_constants.mjs; do not edit by hand.
 export const EVIDENCE = {
-  farBelow50: [0.42, 2.3, 3, 0.96, -1.2, 2], farAbove50: [0.37, 0.7, 3, 4.03, 1.6, 3],
-  aboveSma200: [0.09, 0.7, 2, 1.62, 3.3, 4], belowSma200: [-0.09, -0.7, 2, -1.81, -4, 4],
-  golden: [0.1, 0.6, 1, 1.63, 3.3, 3], death: [-0.1, -0.5, 2, -1.83, -4.1, 3],
-  emaBull: [0.08, 0.5, 2, 0.71, 1.5, 2], emaBear: [-0.07, -0.3, 2, -0.71, -1.5, 2],
-  macdAbove: [0.05, 0.3, 2, 0.14, 0, 2], macdBelow: [-0.05, -0.3, 2, -0.15, 0, 2],
-  macdXup: [0.04, -0.1, 1, -0.02, -0.2, 0], macdXdn: [0.01, -0.7, 0, -0.1, 0, 2],
-  rsi14lt30: [0.18, 1.1, 2, -1.2, -1.1, 2], rsi14gt70: [0.45, 3.2, 4, 2.87, 3.9, 2],
-  stochLt20: [-0.1, -0.8, 2, -0.7, -1, 3], stochGt80: [0.09, 1.2, 1, 0.77, 1.5, 3],
-  cciVeryLow: [-0.07, -0.4, 1, -0.82, -0.3, 1], cciLow: [-0.13, -1.1, 3, -0.55, -1, 2], cciHigh: [0.12, 0.9, 1, 0.78, 1.4, 3],
-  bbBelow: [-0.07, -0.8, 1, -0.53, -0.7, 2], bbAbove: [0.23, 1.6, 2, 1.81, 2.2, 3],
-  adxUp: [0.25, 2, 4, 1.04, 1.9, 2], adxDown: [0.22, 2.3, 2, -0.1, 0.3, 1], adxWeak: [-0.16, -1.5, 4, -0.35, -1.2, 2],
-  aboveCloud: [0.11, 0.9, 2, 0.98, 2, 2], belowCloud: [-0.06, -0.5, 2, -0.88, -1.7, 4],
-  superUp: [0.09, 0.6, 1, 0.18, 0.8, 2], superDown: [-0.09, -0.5, 1, -0.17, -0.8, 2],
-  psarUp: [0.06, 0.4, 2, 0.31, 0.6, 2], psarDown: [-0.06, -0.4, 2, -0.31, -0.6, 2],
-  psarFlipUp: [0.03, 1, 0, -0.19, -0.6, 0], psarFlipDown: [-0.14, -0.9, 1, -0.45, -0.5, 0],
-  obvUp: [0.06, 0.6, 1, 0.56, 1, 3], obvDown: [-0.06, -0.6, 1, -0.56, -1, 3],
-  cmfPos: [0.07, 1.3, 2, 0.44, 1.9, 3], cmfNeg: [-0.09, -0.9, 1, -0.28, -0.7, 1],
-  volOscPos: [0.05, 0.1, 1, 0.57, 0.3, 2], volOscNeg: [0.17, 0.5, 3, 0.54, 0.6, 2],
-  aboveR1: [0.17, 0.7, 2, 0.52, 0.1, 2], belowS1: [-0.06, -0.2, 2, -0.12, -0.4, 1],
-  mom12Strong: [0.24, 1.2, 3, 3.77, 6, 4], mom12Weak: [-0.09, -2.6, 2, 0.06, -3.7, 2],
-  near52High: [0.24, 2.7, 2, 1.48, 4.3, 2], deepDraw: [0.1, -0.7, 1, 0.28, -3.9, 1],
-  lowVol: [0.08, 0.3, 2, 2.31, 4.6, 3], highVol: [-0.19, -1.4, 3, -1.29, -5.3, 2],
-  new20Low: [-0.11, -1.1, 1, -0.91, -1.2, 2], new20High: [0.14, 0.9, 2, 1.25, 2.3, 2],
-  new55Low: [0.05, -0.4, 1, -0.84, -1, 2], new55High: [0.19, 1.8, 2, 2.07, 3.5, 3],
-  drop5: [0.15, 0.4, 2, 1.33, -0.5, 3], rsiReclaim30: [0.13, 0.6, 1, -0.93, -0.8, 1],
+  farBelow50: [0.42, 2.3, 0, 0.96, -1.2, 0], farAbove50: [0.37, 0.7, 1, 4.03, 1.6, 1],
+  aboveSma200: [0.09, 0.7, 0, 1.62, 3.3, 0], belowSma200: [-0.09, -0.7, 0, -1.81, -4, 2],
+  golden: [0.1, 0.6, 0, 1.63, 3.3, 0], death: [-0.1, -0.5, 0, -1.83, -4.1, 2],
+  emaBull: [0.08, 0.5, 0, 0.71, 1.5, 0], emaBear: [-0.07, -0.3, 0, -0.71, -1.5, 0],
+  macdAbove: [0.05, 0.3, 0, 0.14, 0, 0], macdBelow: [-0.05, -0.3, 0, -0.15, 0, 0],
+  macdXup: [0.04, -0.1, 0, -0.02, -0.2, 0], macdXdn: [0.01, -0.7, 0, -0.1, 0, 0],
+  rsi14lt30: [0.18, 1.1, 1, -1.2, -1.1, 1], rsi14gt70: [0.45, 3.2, 1, 2.87, 3.9, 1],
+  stochLt20: [-0.1, -0.8, 0, -0.7, -1, 0], stochGt80: [0.09, 1.2, 0, 0.77, 1.5, 0],
+  cciVeryLow: [-0.07, -0.4, 0, -0.82, -0.3, 2], cciLow: [-0.13, -1.1, 1, -0.55, -1, 1], cciHigh: [0.12, 0.9, 0, 0.78, 1.4, 0],
+  bbBelow: [-0.07, -0.8, 1, -0.53, -0.7, 2], bbAbove: [0.23, 1.6, 2, 1.81, 2.2, 0],
+  adxUp: [0.25, 2, 0, 1.04, 1.9, 0], adxDown: [0.22, 2.3, 0, -0.1, 0.3, 1], adxWeak: [-0.16, -1.5, 1, -0.35, -1.2, 1],
+  aboveCloud: [0.11, 0.9, 0, 0.98, 2, 0], belowCloud: [-0.06, -0.5, 1, -0.88, -1.7, 2],
+  superUp: [0.09, 0.6, 0, 0.18, 0.8, 0], superDown: [-0.09, -0.5, 0, -0.17, -0.8, 1],
+  psarUp: [0.06, 0.4, 0, 0.31, 0.6, 0], psarDown: [-0.06, -0.4, 0, -0.31, -0.6, 0],
+  psarFlipUp: [0.03, 1, 0, -0.19, -0.6, 1], psarFlipDown: [-0.14, -0.9, 0, -0.45, -0.5, 1],
+  obvUp: [0.06, 0.6, 1, 0.56, 1, 0], obvDown: [-0.06, -0.6, 1, -0.56, -1, 0],
+  cmfPos: [0.07, 1.3, 0, 0.44, 1.9, 0], cmfNeg: [-0.09, -0.9, 1, -0.28, -0.7, 0],
+  volOscPos: [0.05, 0.1, 1, 0.57, 0.3, 1], volOscNeg: [0.17, 0.5, 0, 0.54, 0.6, 0],
+  aboveR1: [0.17, 0.7, 1, 0.52, 0.1, 0], belowS1: [-0.06, -0.2, 1, -0.12, -0.4, 0],
+  mom12Strong: [0.24, 1.2, 1, 3.77, 6, 1], mom12Weak: [-0.09, -2.6, 1, 0.06, -3.7, 0],
+  near52High: [0.24, 2.7, 0, 1.48, 4.3, 0], deepDraw: [0.1, -0.7, 0, 0.28, -3.9, 1],
+  lowVol: [0.08, 0.3, 0, 2.31, 4.6, 1], highVol: [-0.19, -1.4, 2, -1.29, -5.3, 1],
+  new20Low: [-0.11, -1.1, 1, -0.91, -1.2, 2], new20High: [0.14, 0.9, 0, 1.25, 2.3, 0],
+  new55Low: [0.05, -0.4, 0, -0.84, -1, 2], new55High: [0.19, 1.8, 0, 2.07, 3.5, 0],
+  drop5: [0.15, 0.4, 1, 1.33, -0.5, 1], rsiReclaim30: [0.13, 0.6, 0, -0.93, -0.8, 1],
   // candlesticks
-  hammer: [0.16, 0.3, 0, -0.43, -1.3, 1], invHammer: [0.04, 1.5, 0, 0.49, 0.6, 2], shootingStar: [0.12, 0.8, 1, 1.71, 2.8, 2],
-  hangingMan: [-0.16, -0.9, 1, 1.08, 0.9, 2], doji: [-0.09, -0.4, 0, -0.13, 0.2, 1], dragonfly: [0.44, 3.7, 1, 1.63, 1.6, 1],
-  gravestone: [0.08, 1.9, 0, 1.1, 2.4, 1], spinTopAfterDown: [0.24, 1.6, 1, 0.3, -0.9, 1], spinTopAfterUp: [0.01, -0.1, 0, 2.79, 2, 3],
-  bullEngulf: [-0.03, 0.5, 0, 0.91, -0.9, 1], bearEngulf: [0.36, 2.2, 2, 0.71, 2, 0],
-  bullHarami: [-0.01, 0, 0, 0.53, -0.5, 1], bearHarami: [0.07, -0.8, 0, 1.58, -1.1, 1],
-  piercing: [0.29, 1.3, 1, 0.78, -1.7, 0], darkCloud: [0.02, -0.3, 0, 0.87, -1.6, 1],
-  morningStar: [-0.27, -1.9, 1, -0.41, -1.5, 1], eveningStar: [-0.2, -2.4, 1, 2.83, 3.1, 2],
-  threeSoldiers: [0.38, 2.9, 0, -1.04, -0.7, 0], threeCrows: [0.12, -1.9, 1, -1.4, -1.5, 1],
-  tweezerBottom: [-0.11, -0.8, 0, -0.79, -1, 1], tweezerTop: [0.14, 2.1, 1, 0.51, 0.1, 0],
-  bullKicker: [0.17, 0.3, 1, 0.29, 0.8, 1], bearKicker: [-0.26, -2.2, 0, 0.68, 0.3, 0],
+  hammer: [0.16, 0.3, 0, -0.43, -1.3, 0], invHammer: [0.04, 1.5, 1, 0.49, 0.6, 2], shootingStar: [0.12, 0.8, 2, 1.71, 2.8, 0],
+  hangingMan: [-0.16, -0.9, 1, 1.08, 0.9, 1], doji: [-0.09, -0.4, 0, -0.13, 0.2, 1], dragonfly: [0.44, 3.7, 1, 1.63, 1.6, 1],
+  gravestone: [0.08, 1.9, 0, 1.1, 2.4, 1], spinTopAfterDown: [0.24, 1.6, 2, 0.3, -0.9, 1], spinTopAfterUp: [0.01, -0.1, 0, 2.79, 2, 1],
+  bullEngulf: [-0.03, 0.5, 0, 0.91, -0.9, 1], bearEngulf: [0.36, 2.2, 1, 0.71, 2, 0],
+  bullHarami: [-0.01, 0, 0, 0.53, -0.5, 0], bearHarami: [0.07, -0.8, 0, 1.58, -1.1, 1],
+  piercing: [0.29, 1.3, 2, 0.78, -1.7, 1], darkCloud: [0.02, -0.3, 1, 0.87, -1.6, 2],
+  morningStar: [-0.27, -1.9, 0, -0.41, -1.5, 1], eveningStar: [-0.2, -2.4, 0, 2.83, 3.1, 3],
+  threeSoldiers: [0.38, 2.9, 1, -1.04, -0.7, 1], threeCrows: [0.12, -1.9, 0, -1.4, -1.5, 0],
+  tweezerBottom: [-0.11, -0.8, 1, -0.79, -1, 0], tweezerTop: [0.14, 2.1, 0, 0.51, 0.1, 0],
+  bullKicker: [0.17, 0.3, 1, 0.29, 0.8, 1], bearKicker: [-0.26, -2.2, 1, 0.68, 0.3, 0],
   // chart patterns
-  doubleBottom: [-0.29, -0.7, 2, -0.25, 2, 1], doubleTop: [-0.47, -4.1, 1, -0.34, -1.7, 1],
-  baseBreakout: [0.18, 2, 1, 0.62, 4.1, 2], baseBreakdown: [-0.27, -0.2, 2, -2.11, -1.8, 3],
-  bullFlag: [-0.22, -0.8, 0, 3.44, 2.6, 2], bearFlag: [0.36, 2.1, 0, -1.99, -4.4, 2],
-  ascTriangle: [0.12, 2.4, 2, 1.29, 4.1, 3], descTriangle: [-0.21, 0, 2, -1.59, -2.3, 2],
-  cupHandle: [0.26, 3.8, 1, 1.02, 3.5, 1], headShoulders: [-0.37, -1.8, 1, -0.51, 1.9, 0], invHeadShoulders: [-0.43, -1.1, 1, -0.23, -3, 0],
+  doubleBottom: [-0.29, -0.7, 1, -0.25, 2, 1], doubleTop: [-0.47, -4.1, 1, -0.34, -1.7, 0],
+  baseBreakout: [0.18, 2, 1, 0.62, 4.1, 2], baseBreakdown: [-0.27, -0.2, 1, -2.11, -1.8, 3],
+  bullFlag: [-0.22, -0.8, 0, 3.44, 2.6, 1], bearFlag: [0.36, 2.1, 0, -1.99, -4.4, 1],
+  ascTriangle: [0.12, 2.4, 0, 1.29, 4.1, 0], descTriangle: [-0.21, 0, 1, -1.59, -2.3, 2],
+  cupHandle: [0.26, 3.8, 0, 1.02, 3.5, 0], headShoulders: [-0.37, -1.8, 0, -0.51, 1.9, 0], invHeadShoulders: [-0.43, -1.1, 1, -0.23, -3, 0],
   risingWedgeBreak: [-0.07, 0.5, 1, -0.07, -0.1, 1], fallingWedgeBreak: [-0.16, -0.8, 1, 0.02, -0.2, 1],
-  roundedBottom: [1.79, 9.8, 1, 6.91, -0.5, 0], roundedTop: [1.65, 0.6, 0, 21.64, 6.5, 1],
-  abcdBull: [0.22, 0.7, 2, -1.2, -1.7, 3], abcdBear: [-0.06, 0.5, 2, 0.87, 1.3, 1],
+  roundedBottom: [1.79, 9.8, 0, 6.91, -0.5, 0], roundedTop: [1.65, 0.6, 0, 21.64, 6.5, 0],
+  abcdBull: [0.22, 0.7, 1, -1.2, -1.7, 1], abcdBear: [-0.06, 0.5, 0, 0.87, 1.3, 0],
   gartleyBull: [0.22, 1.9, 2, 0.16, 9.3, 1], gartleyBear: [-0.6, -0.7, 1, -0.43, 12.6, 1],
-  rsiBullDiv: [0, 1.8, 1, -1.33, -2.7, 2], rsiBearDiv: [0.2, 1.9, 3, 2.18, 4, 2],
-  macdBullDiv: [-0.07, 0.2, 1, -0.65, -1.3, 2], macdBearDiv: [0.16, 1.5, 2, 1.34, 3.3, 2]
+  rsiBullDiv: [0, 1.8, 0, -1.33, -2.7, 2], rsiBearDiv: [0.2, 1.9, 0, 2.18, 4, 1],
+  macdBullDiv: [-0.07, 0.2, 0, -0.65, -1.3, 2], macdBearDiv: [0.16, 1.5, 0, 1.34, 3.3, 0]
+};
+
+// States that passed false-discovery control (Benjamini–Hochberg, Newey–West t-statistics). Written by
+// research/update_app_constants.mjs.
+export const FDR_PASS = {
+  q: 0.1,
+  short: ['doubleTop'],
+  long: ['eveningStar', 'new20Low', 'descTriangle', 'baseBreakdown', 'bearFlag', 'spinTopAfterUp', 'rsiReclaim30', 'belowSma200', 'new55Low']
 };
 
 // Pattern names, the textbook direction (+1 bullish, −1 bearish) and the idea behind each
@@ -161,8 +169,11 @@ export function verdict(key, h) {
   const e = EVIDENCE[key]; if (!e) return null;
   const [ex, hit, agree] = h === 'short' ? e.slice(0, 3) : e.slice(3, 6);
   const big = h === 'short' ? 2 : 3;
-  const dir = (agree >= 3 && Math.abs(hit) >= big) || (agree >= 2 && Math.abs(hit) >= big + 1) ? Math.sign(hit || ex) : 0;
-  return { ex: ex * SHRINK, hit: hit * SHRINK, agree, dir, strong: agree >= 3 && dir !== 0 };
+  // A direction is shown only when the cells agree (Newey–West |t| >= 1.5) AND the state passed
+  // false-discovery control across all ~100 states tested; otherwise it reads as "no reliable edge"
+  const passed = FDR_PASS[h].includes(key);
+  const dir = passed && ((agree >= 3 && Math.abs(hit) >= big) || (agree >= 2 && Math.abs(hit) >= big + 1)) ? Math.sign(hit || ex) : 0;
+  return { ex: ex * SHRINK, hit: hit * SHRINK, agree, dir, passed, strong: agree >= 3 && dir !== 0 };
 }
 
 // ---------- series (same definitions as the study) ----------

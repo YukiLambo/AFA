@@ -17,7 +17,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { loadSnapshot, RESEARCH_DIR } from './lib/data.mjs';
-import { mean, tstat, spearman, quantiles, round } from './lib/stats.mjs';
+import { mean, tstat, nwTstat, pTwoSided, bhQvalues, spearman, quantiles, round } from './lib/stats.mjs';
 import { indexCloser } from './lib/data.mjs';
 import { EVIDENCE, STUDY3, _research } from '../src/lib/horizonModel.js';
 
@@ -25,6 +25,8 @@ const { series, statesAt, featuresAt, composite, zigzag, FEAT, MU, SD, CALIB } =
 const PERIODS = { train: ['2019-10-01', '2023-06-30'], test: ['2023-07-01', '9999-12-31'] };
 const H = { short: 10, long: 120 };
 const T_AGREE = 1.5;
+const FDR_Q = 0.10; // share of "real" signals allowed to be false discoveries
+const MIN_DATES = 30; // a cell needs the state on at least this many separate days for a Newey–West t
 const METHOD = process.argv.includes('--baseline') ? 'baseline' : 'market';
 
 const snap = loadSnapshot();
@@ -35,7 +37,7 @@ const periodOf = (d) => (d >= PERIODS.train[0] && d <= PERIODS.train[1] ? 'train
 // acc[h][cell][key] = { ex: [], hit: [] }
 const acc = { short: {}, long: {} };
 const obs = []; // composite inputs per observation
-const push = (h, cell, key, ex, hit) => { const c = (acc[h][cell] ||= {}); const k = (c[key] ||= { ex: [], hit: [] }); k.ex.push(ex); k.hit.push(hit); };
+const push = (h, cell, key, ex, hit, date) => { const c = (acc[h][cell] ||= {}); const k = (c[key] ||= { ex: [], hit: [], date: [] }); k.ex.push(ex); k.hit.push(hit); k.date.push(date); };
 
 let done = 0;
 // (filled per observation after the loop, once the cell's beat rate is known)
@@ -61,7 +63,7 @@ for (const [sym, s] of stocks) {
       days.forEach((i, k) => {
         const X = statesAt(S, i, piv);
         const keys = Object.keys(EVIDENCE).filter(key => X[key]);
-        obs.push({ sym, market: s.market, per, h, i, cell, keys, ex: rel[k] * 100, b: beat[k], fwd: METHOD === 'baseline' ? fwd[k] : rel[k], f: featuresAt(S, i) });
+        obs.push({ sym, market: s.market, per, h, i, date: R[i].date, cell, keys, ex: rel[k] * 100, b: beat[k], fwd: METHOD === 'baseline' ? fwd[k] : rel[k], f: featuresAt(S, i) });
       });
     }
   }
@@ -82,24 +84,44 @@ if (METHOD === 'market') for (const h of ['short', 'long']) for (const c of CELL
 for (const o of obs) {
   if (METHOD === 'market') o.ex -= relMean[`${o.h}-${o.cell}`];
   o.hit = (METHOD === 'market' ? o.b - beatRate[`${o.h}-${o.cell}`] : o.b) * 100;
-  for (const key of o.keys) push(o.h, o.cell, key, o.ex, o.hit);
+  for (const key of o.keys) push(o.h, o.cell, key, o.ex, o.hit, o.date);
 }
 
 // ---- Evidence per state, in the same array layout as EVIDENCE ----
-const evidence = {}, detail = {};
+// t-statistics: baseline = plain t over all stock-days (the original). market = Newey–West t on the daily
+// series of the average excess of the stocks in that state, with lags = horizon − 1. Averaging per day handles
+// stocks moving together; Newey–West handles the overlap between consecutive forward windows.
+const tFor = (a, h) => {
+  if (METHOD === 'baseline') return tstat(a.ex);
+  const byDate = new Map();
+  a.date.forEach((d, j) => { const v = byDate.get(d); if (v) { v.s += a.ex[j]; v.n++; } else byDate.set(d, { s: a.ex[j], n: 1 }); });
+  const ser = [...byDate.entries()].sort((x, y) => (x[0] < y[0] ? -1 : 1)).map(([, v]) => v.s / v.n);
+  return ser.length >= MIN_DATES ? nwTstat(ser, H[h] - 1) : NaN; // too few separate days to judge
+};
+const evidence = {}, detail = {}, tests = [];
 for (const key of Object.keys(EVIDENCE)) {
   const row = [];
   detail[key] = {};
   for (const h of ['short', 'long']) {
-    const per = CELLS.map(c => { const a = acc[h][c]?.[key]; return a && a.ex.length >= 5 ? { n: a.ex.length, ex: mean(a.ex), hit: mean(a.hit), t: tstat(a.ex) } : null; });
+    const per = CELLS.map(c => { const a = acc[h][c]?.[key]; return a && a.ex.length >= 5 ? { n: a.ex.length, ex: mean(a.ex), hit: mean(a.hit), t: tFor(a, h), tNaive: tstat(a.ex) } : null; });
     const ok = per.filter(Boolean);
     const ex = ok.length ? mean(ok.map(p => p.ex)) : NaN, hit = ok.length ? mean(ok.map(p => p.hit)) : NaN;
     const agree = ok.filter(p => Math.sign(p.ex) === Math.sign(ex) && Math.abs(p.t) >= T_AGREE).length;
     row.push(round(ex), round(hit, 1), agree);
-    detail[key][h] = Object.fromEntries(CELLS.map((c, j) => [c, per[j] && { n: per[j].n, ex: round(per[j].ex), hit: round(per[j].hit, 1), t: round(per[j].t, 1) }]));
+    // One combined test per state and horizon (Stouffer: the four cells' t-statistics summed / √k)
+    const ts = ok.map(p => p.t).filter(Number.isFinite);
+    const z = ts.length ? ts.reduce((a, b) => a + b, 0) / Math.sqrt(ts.length) : NaN;
+    tests.push({ key, h, z, p: pTwoSided(z) });
+    detail[key][h] = { cells: Object.fromEntries(CELLS.map((c, j) => [c, per[j] && { n: per[j].n, ex: round(per[j].ex), hit: round(per[j].hit, 1), t: round(per[j].t, 1), tNaive: round(per[j].tNaive, 1) }])), z: round(z, 2) };
   }
   evidence[key] = row;
 }
+// Benjamini–Hochberg across all states × horizons
+const qv = bhQvalues(tests.map(t => t.p));
+tests.forEach((t, j) => { t.q = qv[j]; Object.assign(detail[t.key][t.h], { p: round(t.p, 4), q: round(t.q, 4), fdrPass: t.q <= FDR_Q }); });
+const nPass = { short: tests.filter(t => t.h === 'short' && t.q <= FDR_Q).length, long: tests.filter(t => t.h === 'long' && t.q <= FDR_Q).length };
+const passList = (h) => tests.filter(t => t.h === h && t.q <= FDR_Q).sort((a, b) => a.q - b.q).map(t => `${t.key} (${evidence[t.key][h === 'short' ? 0 : 3] >= 0 ? '+' : ''}${evidence[t.key][h === 'short' ? 0 : 3]}%, q ${round(t.q, 3)})`);
+const naiveVsNw = (h) => { const r = []; for (const key of Object.keys(EVIDENCE)) for (const c of CELLS) { const d = detail[key][h].cells[c]; if (d && Number.isFinite(d.t) && Number.isFinite(d.tNaive) && d.t !== 0) r.push(Math.abs(d.tNaive / d.t)); } r.sort((a, b) => a - b); return round(r[Math.floor(r.length / 2)], 1); };
 
 // ---- Feature means / spreads from the tuning period (compare with MU / SD in the app) ----
 const trainF = obs.filter(o => o.per === 'train' && o.h === 'short');
@@ -129,7 +151,7 @@ for (const h of ['short', 'long']) {
 
 // ---- Write results ----
 const outDir = join(RESEARCH_DIR, 'results'); mkdirSync(outDir, { recursive: true });
-const result = { method: METHOD, snapshot: basename(snap.dir), beatRate: Object.fromEntries(Object.entries(beatRate).map(([k, v]) => [k, round(v, 3)])), avgExcessVsIndexPct: Object.fromEntries(Object.entries(relMean).map(([k, v]) => [k, round(v, 2)])), periods: PERIODS, horizons: H, universe: { HK: stocks.filter(([, s]) => s.market === 'HK').length, US: stocks.filter(([, s]) => s.market === 'US').length }, evidence, detail, calib, ic, topBottom, featureScaling: muSd };
+const result = { method: METHOD, fdr: { q: FDR_Q, passed: nPass, list: { short: passList('short'), long: passList('long') } }, snapshot: basename(snap.dir), beatRate: Object.fromEntries(Object.entries(beatRate).map(([k, v]) => [k, round(v, 3)])), avgExcessVsIndexPct: Object.fromEntries(Object.entries(relMean).map(([k, v]) => [k, round(v, 2)])), periods: PERIODS, horizons: H, universe: { HK: stocks.filter(([, s]) => s.market === 'HK').length, US: stocks.filter(([, s]) => s.market === 'US').length }, evidence, detail, calib, ic, topBottom, featureScaling: muSd };
 writeFileSync(join(outDir, `study3-${METHOD}.json`), JSON.stringify(result, null, 1) + '\n');
 
 // Comparison with the numbers hard-coded in the app
@@ -146,6 +168,11 @@ const md = [
   ...[['Excess 10d', 0], ['Hit change 10d', 1], ['Excess 120d', 3], ['Hit change 120d', 4]].map(([n, c]) => { const x = cmp(c); return `| ${n} | ${x.r} | ${x.sameSign} |`; }),
   '', `States whose app verdict (lean up / lean down / no edge) would change with the re-run numbers: ${flips.length} of ${keys.length}.`, '',
   flips.length ? '| State | App 10d | Re-run 10d | App 120d | Re-run 120d |\n| --- | --- | --- | --- | --- |\n' + flips.map(k => `| ${k} | ${EVIDENCE[k].slice(0, 3).join(' / ')} | ${evidence[k].slice(0, 3).join(' / ')} | ${EVIDENCE[k].slice(3).join(' / ')} | ${evidence[k].slice(3).join(' / ')} |`).join('\n') : '',
+  '', '## Statistical strength', '',
+  METHOD === 'baseline' ? 'Plain t-statistics (original method).' : `Newey–West t-statistics on daily averages (lags = horizon − 1). Median plain t ÷ Newey–West t: ${naiveVsNw('short')}× at 10 days, ${naiveVsNw('long')}× at 120 days, which is how much the plain t overstated certainty.`, '',
+  `States that pass Benjamini–Hochberg false-discovery control at q ≤ ${FDR_Q} (combined over the four cells): **${nPass.short} of ${keys.length}** at 10 days, **${nPass.long} of ${keys.length}** at 120 days.`, '',
+  `- 10 days: ${passList('short').join(', ') || 'none'}`,
+  `- 120 days: ${passList('long').join(', ') || 'none'}`,
   '', '## Composite outlook score', '',
   '| | App | Re-run |', '| --- | --- | --- |',
   `| 10d IC, HK train / test | ${STUDY3.short.icTrainHK} / ${STUDY3.short.icTestHK} | ${ic.short['HK-train'].ic} / ${ic.short['HK-test'].ic} |`,
@@ -156,7 +183,7 @@ const md = [
   `| Stocks with positive test IC, 120d HK / US | ${STUDY3.long.posTestHK} / ${STUDY3.long.posTestUS} | ${ic.long['HK-test'].positive} / ${ic.long['US-test'].positive} |`,
   `| 10d quintile excess % (low → high) | ${CALIB.short.ex.join(', ')} | ${calib.short.ex.join(', ')} |`,
   `| 120d quintile excess % (low → high) | ${CALIB.long.ex.join(', ')} | ${calib.long.ex.join(', ')} |`,
-  '', METHOD === 'baseline' ? 'These figures use the original method, including its known weaknesses (overlapping returns, look-ahead "normal" return, no multiple-testing control). See README.' : 'IC here is measured on returns relative to the index. Still open: overlapping returns and multiple testing (step 3), one fixed tuning split (step 4).', ''
+  '', METHOD === 'baseline' ? 'These figures use the original method, including its known weaknesses (overlapping returns, look-ahead "normal" return, no multiple-testing control). See README.' : 'IC here is measured on returns relative to the index. Still open: one fixed tuning split (step 4).', ''
 ].join('\n');
 writeFileSync(join(outDir, `study3-${METHOD}-compare.md`), md);
 console.log(md);

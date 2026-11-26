@@ -83,13 +83,23 @@ This changes the conclusions a lot:
 regenerated after steps 3 and 4. Full tables: `results/study3-market-compare.md` and
 `results/study2-market-compare.md`.
 
+## Robust statistics (step 3)
+
+Newey–West t-statistics on daily averages are smaller than the plain ones. The median plain t is 1.5× the robust one at 10 days and 2× at 120 days. Once false-discovery control is applied (q ≤ 0.10):
+
+- **10 days:** 1 of 98 states passes (double top, −0.5% vs the index).
+- **120 days:** 9 of 98 pass. Most are weakness continuing: new 20- and 55-day lows, below the 200-day average, descending-triangle, flat-base and bear-flag breakdowns, each 1–2% behind the index. Also passing are the evening star, spinning top after a rise and RSI reclaiming 30.
+- Momentum (12-month winners) has positive excess but does **not** pass: combined z is 2.4 and q is 0.22.
+
+The app's verdicts follow this result. After the agreement rule and the FDR gate, only two states show a direction: below the 200-day average (down) and evening star (up, the reverse of its textbook reading). Every other state shows its numbers marked "no reliable edge". Details: `results/study3-market-compare.md`.
+
 ## Known issues (fixed in the next steps)
 
 `--baseline` reproduces them on purpose, so each change can be measured against the original.
 
 1. ~~**Look-ahead "normal" return.**~~ Fixed in step 2: the default method measures returns against the index over the same days. `--baseline` keeps the original method.
-2. **Overlapping returns.** Daily samples of 10- and 120-day returns overlap, so plain t-statistics overstate certainty. For 120 days the overstatement is several times. Step 3 uses Newey–West t-statistics.
-3. **Multiple testing.** About 100 states are tested, so some will pass by chance. Step 3 adds Benjamini–Hochberg false-discovery control.
+2. ~~**Overlapping returns.**~~ Fixed in step 3. Daily samples of 10- and 120-day returns overlap, and stocks move together on the same day. The market method now averages each day first, then uses a Newey–West t-statistic with lags = horizon − 1. A cell needs the state on at least 30 separate days.
+3. ~~**Multiple testing.**~~ Fixed in step 3. The four cells' t-statistics are combined per state and horizon (Stouffer). Benjamini–Hochberg then keeps the expected share of false discoveries at or below 10% across all 196 tests. The app shows a direction only for states that pass (`FDR_PASS` in `horizonModel.js`).
 4. **One fixed split.** The model is tuned once (2019–2023) and tested once. Step 4 refits it every 6 months.
 5. **Survivorship.** The universe is today's large caps. The app shrinks effects by 25% for this; that factor is a guess and is not measured.
 6. **Prices are split-adjusted but not dividend-adjusted.** Tencent's feed now returns unadjusted prices even when `qfq` is requested. High-dividend stocks (banks, utilities, telecoms) show a price drop on each ex-dividend date. This can make some "oversold" readings look more common than they are.

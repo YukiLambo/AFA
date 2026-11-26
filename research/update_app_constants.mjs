@@ -35,5 +35,13 @@ const part = (h, H) => `  ${h}: { horizon: ${H}, icTrainHK: ${ic[h]['HK-train'].
 const study = `export const STUDY3 = {\n  universe: '${R.universe.HK} Hang Seng and ${R.universe.US} US large caps',\n  period: 'tuned Oct 2019 – Jun 2023, tested Jul 2023 – Nov 2026',\n  method: '${R.method}', snapshot: '${R.snapshot}',\n${part('short', R.horizons.short)},\n${part('long', R.horizons.long)}\n};`;
 src = src.replace(/export const STUDY3 = \{[\s\S]*?\n\};/, study);
 
+// FDR_PASS: states whose combined test passed Benjamini–Hochberg control (only verdicts on these count)
+if (R.fdr) {
+  const keysPass = (h) => R.fdr.list[h].map(x => `'${x.split(' ')[0]}'`).join(', ');
+  const fdr = `export const FDR_PASS = {\n  q: ${R.fdr.q},\n  short: [${keysPass('short')}],\n  long: [${keysPass('long')}]\n};`;
+  if (/export const FDR_PASS = \{[\s\S]*?\n\};/.test(src)) src = src.replace(/export const FDR_PASS = \{[\s\S]*?\n\};/, fdr);
+  else src = src.replace('// Pattern names, the textbook direction', `// States that passed false-discovery control (Benjamini–Hochberg, Newey–West t-statistics). Written by\n// research/update_app_constants.mjs.\n${fdr}\n\n// Pattern names, the textbook direction`);
+}
+
 writeFileSync(appFile, src);
 console.log(`Updated ${n} EVIDENCE rows, CALIB and STUDY3 in src/lib/horizonModel.js from ${resFile}`);
