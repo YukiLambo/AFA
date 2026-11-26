@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import cityPhoto from '../assets/afa-city-dusk.jpg';
+import overviewBg from '../assets/afa-overview-bg.jpg';
 // Screenshots of the A.F.A. app itself (a sample account), shown as previews on Home and Features
 import shotOverview from '../assets/app/overview.jpg';
 import shotCashflow from '../assets/app/cashflow.jpg';
@@ -46,6 +47,7 @@ export const TP_CSS = `
 .afl .tp .t-hero.short { min-height: 520px; }
 .afl .tp .t-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.86; }
 .afl .tp .t-hero.short img { object-position: center 40%; opacity: 0.6; }
+.afl .tp .t-hero.short img.art { object-position: 72% center; opacity: 1; }
 .afl .tp .t-hero .ov { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,18,30,0.98) 0%, rgba(5,18,30,0.9) 34%, rgba(5,18,30,0.3) 67%, rgba(5,18,30,0.32) 100%), linear-gradient(0deg, rgba(4,15,24,0.75), transparent 45%); }
 .afl .tp .t-hero .cols { position: absolute; inset: 0; opacity: 0.12; pointer-events: none;
   background-image: linear-gradient(90deg, transparent calc(25% - 1px), #fff 25%, transparent calc(25% + 1px)), linear-gradient(90deg, transparent calc(50% - 1px), #fff 50%, transparent calc(50% + 1px)), linear-gradient(90deg, transparent calc(75% - 1px), #fff 75%, transparent calc(75% + 1px)); }
@@ -477,7 +479,7 @@ export default function TemplatePages({ page, go, enter }) {
       {/* Overview */}
       <main className={view('overview')} aria-label="Overview">
         <section className="t-hero short">
-          <img src={cityPhoto} alt="" />
+          <img className="art" src={overviewBg} alt="" />
           <div className="ov" /><div className="cols" aria-hidden="true" />
           <div className="in">
             <p className="eyebrow2">Overview</p>
