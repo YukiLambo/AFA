@@ -13,8 +13,10 @@ Needs Node 18 or newer. There are no extra packages.
 
 ```bash
 # 1. Re-run the studies on the committed snapshot (about 10 seconds each)
-node research/study3.mjs      # 2-week / 6-month outlook evidence (horizonModel.js)
-node research/study2.mjs      # 60-day timing score (indicators.js, used by the trade plan)
+node research/study3.mjs      # 2-week / 6-month outlook evidence (horizonModel.js), returns vs the index
+node research/study2.mjs      # 60-day timing score (indicators.js, used by the trade plan), returns vs the index
+node research/study3.mjs --baseline   # the original method, for comparison
+node research/study2.mjs --baseline
 
 # 2. Optional: download a fresh snapshot (about 5 minutes; creates data/snapshot-<date>/)
 node research/fetch_snapshot.mjs --end 2026-11-25
@@ -24,8 +26,8 @@ node research/fetch_snapshot.mjs --end 2026-11-25
 AFA_SNAPSHOT=snapshot-2026-11-25 node research/study3.mjs
 ```
 
-Each study writes `results/<study>.json` (the full numbers) and `results/<study>-compare.md` (the re-run
-side by side with what the app has hard-coded).
+Each study writes `results/<study>-<method>.json` (the full numbers) and `results/<study>-<method>-compare.md`
+(the re-run side by side with what the app has hard-coded). `method` is `market` (default) or `baseline`.
 
 ## Files
 
@@ -40,9 +42,10 @@ side by side with what the app has hard-coded).
 | `lib/stats.mjs` | Mean, t-statistic, Spearman rank correlation, quantiles |
 | `study3.mjs` | Re-runs the evidence behind the 2-week and 6-month outlook |
 | `study2.mjs` | Re-runs the evidence behind the timing score |
+| `lib/data.mjs` → `indexCloser` | Index close on a date, for returns relative to the market |
 | `results/` | Output of the last run |
 
-## How close the re-run is to the app's numbers (snapshot 2026-11-25)
+## How close the re-run is to the app's numbers (baseline method, snapshot 2026-11-25)
 
 **Study 3** reproduces the original closely.
 
@@ -56,14 +59,33 @@ side by side with what the app has hard-coded).
 - The timing score's test IC is 0.165 versus 0.19 in HK and 0.125 versus 0.128 in the US.
 - Classic trend readings are negative in both versions. They are a little weaker in the re-run.
 
-The full tables are in `results/study3-compare.md` and `results/study2-compare.md`. The app's constants are
-**not** changed in this step. They will be updated once the method fixes below are in.
+The full tables are in `results/study3-baseline-compare.md` and `results/study2-baseline-compare.md`.
+
+## Returns measured against the index (market method, step 2)
+
+The original method compared each stock with its own average over the whole period. That average uses later
+data, and it leaves market-wide moves in the result. The market method compares each stock with the Hang Seng
+Index or S&P 500 over the same days. It then subtracts the average for all stock-days in that market and period.
+
+This changes the conclusions a lot:
+
+- **Most of the mean-reversion edge was the whole market bouncing back** (2020, 2022) rather than individual stocks. Measured against the index, "far below the 50-day average", "RSI below 30" and "deep drawdown" add little or nothing.
+  - At 10 days, the composite score's IC falls from 0.08 to 0.005 in HK and from 0.06 to 0.02 in the US (test period).
+- **At 6 months, strength tends to continue relative to the index.** 12-month winners, stocks above their 200-day average, near 52-week highs or with low volatility beat the index more often. The app currently says the opposite.
+  - Example: 12-month winners show +3.8% excess and 6 points more often ahead, with 4 of 4 cells agreeing.
+  - Within each stock, the 6-month composite still has a positive test IC (0.11 HK, 0.13 US). Pooled across stocks, though, its top quintile now does worst.
+- **The timing score used by the trade plan** has a test IC of about 0.02 in HK and 0.08 in the US against the index, down from 0.19 and 0.13.
+- **Caveat: survivorship.** The sample is today's large caps, which were by definition yesterday's winners. That flatters momentum, so the strength result needs the walk-forward test (step 4) and the cross-sectional test (step 8) before the app relies on it.
+
+The app's constants are **not** changed yet. They should be updated once, after steps 3 and 4 fix the
+statistics, rather than three times. Full tables: `results/study3-market-compare.md` and
+`results/study2-market-compare.md`.
 
 ## Known issues (fixed in the next steps)
 
-These are reproduced on purpose here, so that each later change can be measured against this baseline.
+`--baseline` reproduces them on purpose, so each change can be measured against the original.
 
-1. **Look-ahead "normal" return.** Excess return is measured against the stock's average over the whole period, including days after the signal. Step 2 measures it against the Hang Seng or S&P 500 over the same days.
+1. ~~**Look-ahead "normal" return.**~~ Fixed in step 2: the default method measures returns against the index over the same days. `--baseline` keeps the original method.
 2. **Overlapping returns.** Daily samples of 10- and 120-day returns overlap, so plain t-statistics overstate certainty. For 120 days the overstatement is several times. Step 3 uses Newey–West t-statistics.
 3. **Multiple testing.** About 100 states are tested, so some will pass by chance. Step 3 adds Benjamini–Hochberg false-discovery control.
 4. **One fixed split.** The model is tuned once (2019–2023) and tested once. Step 4 refits it every 6 months.

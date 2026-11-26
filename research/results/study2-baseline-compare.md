@@ -1,4 +1,6 @@
-# Study 2 re-run vs the numbers in the app
+# Study 2 re-run (baseline method) vs the numbers in the app
+
+Original method: raw 60-day returns.
 
 Snapshot: `snapshot-2026-11-25` · 60-day returns · tuning 2019-10-01 to 2023-12-31, test from 2024-01-01
 

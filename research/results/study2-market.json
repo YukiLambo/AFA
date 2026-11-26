@@ -1,0 +1,85 @@
+{
+ "method": "market",
+ "snapshot": "snapshot-2026-11-25",
+ "periods": {
+  "train": [
+   "2019-10-01",
+   "2023-12-31"
+  ],
+  "test": [
+   "2024-01-01",
+   "9999-12-31"
+  ]
+ },
+ "horizon": 60,
+ "cells": {
+  "HK-train": {
+   "ic": -0.013,
+   "positive": "31 of 60",
+   "top": 1.51,
+   "all": 2.37,
+   "bottom": 3.3,
+   "indicatorIC": {
+    "emaX": 0.03,
+    "golden": 0.05,
+    "macdX": -0.01,
+    "diDir": 0.01,
+    "ichi": 0.03,
+    "tkX": 0.02,
+    "superT": 0,
+    "rev1m": -0.01
+   }
+  },
+  "HK-test": {
+   "ic": 0.018,
+   "positive": "33 of 60",
+   "top": -0.83,
+   "all": -0.26,
+   "bottom": 0.46,
+   "indicatorIC": {
+    "emaX": -0.01,
+    "golden": -0.02,
+    "macdX": 0.02,
+    "diDir": -0.02,
+    "ichi": -0.03,
+    "tkX": 0.01,
+    "superT": 0.02,
+    "rev1m": 0
+   }
+  },
+  "US-train": {
+   "ic": 0.039,
+   "positive": "23 of 40",
+   "top": 1.01,
+   "all": 1.14,
+   "bottom": 1.75,
+   "indicatorIC": {
+    "emaX": -0.03,
+    "golden": -0.03,
+    "macdX": -0.04,
+    "diDir": -0.04,
+    "ichi": -0.02,
+    "tkX": -0.04,
+    "superT": -0.03,
+    "rev1m": 0.05
+   }
+  },
+  "US-test": {
+   "ic": 0.078,
+   "positive": "28 of 40",
+   "top": 0.86,
+   "all": -0.05,
+   "bottom": -0.29,
+   "indicatorIC": {
+    "emaX": -0.08,
+    "golden": -0.08,
+    "macdX": 0.02,
+    "diDir": -0.04,
+    "ichi": -0.1,
+    "tkX": -0.05,
+    "superT": -0.05,
+    "rev1m": 0.06
+   }
+  }
+ }
+}
