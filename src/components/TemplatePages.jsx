@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import cityPhoto from '../assets/afa-city-dusk.jpg';
+import overviewBg from '../assets/afa-overview-bg.jpg';
 // Screenshots of the A.F.A. app itself (a sample account), shown as previews on Home and Features
 import shotOverview from '../assets/app/overview.jpg';
 import shotCashflow from '../assets/app/cashflow.jpg';
@@ -46,6 +48,7 @@ export const TP_CSS = `
 .afl .tp .t-hero.short { min-height: 520px; }
 .afl .tp .t-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.86; }
 .afl .tp .t-hero.short img { object-position: center 40%; opacity: 0.6; }
+.afl .tp .t-hero.short img.art { object-position: 72% center; opacity: 1; }
 .afl .tp .t-hero .ov { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,18,30,0.98) 0%, rgba(5,18,30,0.9) 34%, rgba(5,18,30,0.3) 67%, rgba(5,18,30,0.32) 100%), linear-gradient(0deg, rgba(4,15,24,0.75), transparent 45%); }
 .afl .tp .t-hero .cols { position: absolute; inset: 0; opacity: 0.12; pointer-events: none;
   background-image: linear-gradient(90deg, transparent calc(25% - 1px), #fff 25%, transparent calc(25% + 1px)), linear-gradient(90deg, transparent calc(50% - 1px), #fff 50%, transparent calc(50% + 1px)), linear-gradient(90deg, transparent calc(75% - 1px), #fff 75%, transparent calc(75% + 1px)); }
@@ -103,6 +106,45 @@ export const TP_CSS = `
 .afl .tp .sc:nth-child(3n+1) { border-left: 1px solid rgba(255,255,255,0.16); }
 .afl .tp .sc:nth-child(n+4) { border-top: 1px solid rgba(255,255,255,0.16); }
 .afl .tp .t-light .sc:nth-child(n+4) { border-top-color: var(--tline); }
+.afl .tp .sc.tap { cursor: pointer; }
+.afl .t-detail { position: fixed; inset: 0; z-index: 30; display: flex; justify-content: flex-end; background: rgba(4, 14, 24, 0.55); backdrop-filter: blur(3px); animation: afl-fade-bg .25s both; }
+@keyframes afl-fade-bg { from { opacity: 0; } to { opacity: 1; } }
+@keyframes afl-panel-in { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.afl .t-detail .panel { width: min(520px, 100%); height: 100%; overflow-y: auto; background: #f3f1eb; color: #081b2c; padding: 34px 40px 40px; display: flex; flex-direction: column; gap: 22px; animation: afl-panel-in .4s cubic-bezier(.16,1,.3,1) both; font-family: "DM Sans", var(--ui); }
+.afl .t-detail .hd { display: flex; justify-content: space-between; align-items: center; font: 500 10.5px/1 "DM Sans", var(--ui); letter-spacing: 0.16em; text-transform: uppercase; color: #248b7e; }
+.afl .t-detail .x { display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid #ccd2d3; border-radius: 50%; background: transparent; color: #081b2c; cursor: pointer; }
+.afl .t-detail .x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.afl .t-detail h3 { margin: 6px 0 0; font: 500 clamp(30px, 4vw, 40px)/1.08 "Manrope", var(--ui); letter-spacing: -0.04em; }
+.afl .t-detail .lead { margin: 0; font-size: 15px; line-height: 1.7; color: #4a5a63; }
+.afl .t-detail .where { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-left: 2px solid #47c4b2; background: #fff; }
+.afl .t-detail .where small { font: 500 9.5px/1 "DM Sans", var(--ui); letter-spacing: 0.14em; text-transform: uppercase; color: #6d7c84; }
+.afl .t-detail .where b { font: 600 14px/1.3 "Manrope", var(--ui); }
+.afl .t-detail .steps-k { font: 500 10.5px/1 "DM Sans", var(--ui); letter-spacing: 0.16em; text-transform: uppercase; color: #6d7c84; }
+.afl .t-detail ol { list-style: none; margin: -8px 0 0; padding: 0; border-top: 1px solid #dcdfe0; }
+.afl .t-detail li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 16px 0; border-bottom: 1px solid #dcdfe0; }
+.afl .t-detail li span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #081b2c; color: #6bd6c6; font: 600 12px/1 "Manrope", var(--ui); }
+.afl .t-detail li p { margin: 3px 0 0; font-size: 14.5px; line-height: 1.65; color: #243644; }
+.afl .t-detail .fig { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.afl .t-detail .fig strong { font: 500 34px/1 "Manrope", var(--ui); letter-spacing: -0.04em; }
+.afl .t-detail .fig span { white-space: pre-line; text-align: right; font: 500 9.5px/1.4 "DM Sans", var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: #6d7c84; }
+.afl .t-detail .acts { margin-top: auto; display: flex; align-items: center; gap: 24px; padding-top: 8px; }
+.afl .t-detail .t-btn { display: inline-flex; align-items: center; gap: 18px; height: 50px; padding: 0 22px; border: 0; background: #47c4b2; color: #081b2c; font: 600 12.5px/1 "DM Sans", var(--ui); letter-spacing: 0.03em; cursor: pointer; }
+.afl .t-detail .t-btn:hover { background: #6bd6c6; }
+.afl .t-detail .t-dark { border: 0; border-bottom: 1px solid #081b2c; background: transparent; padding: 0 0 6px; color: #081b2c; font: 500 12.5px/1 "DM Sans", var(--ui); cursor: pointer; }
+.afl .t-detail svg.ar { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+@media (max-width: 767px) {
+  .afl .t-detail { align-items: flex-end; }
+  .afl .t-detail .panel { height: auto; max-height: 88dvh; padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px)); gap: 18px; animation-name: afl-sheet-in; }
+  .afl .t-detail h3 { font-size: 28px; }
+  .afl .t-detail .lead, .afl .t-detail li p { font-size: 13.5px; }
+}
+@keyframes afl-sheet-in { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.afl .tp section[id^="feat-"] { scroll-margin-top: var(--nav-h); }
+.afl .tp .grid3.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.afl .tp .grid3.two .sc:nth-child(3n+1) { border-left-width: 0; }
+.afl .tp .grid3.two .sc:nth-child(2n+1) { border-left-width: 1px; border-left-style: solid; }
+.afl .tp .grid3.two .sc:nth-child(3) { border-top: 1px solid rgba(255,255,255,0.16); }
+.afl .tp .t-light .grid3.two .sc:nth-child(3) { border-top-color: var(--tline); }
 .afl .tp .sc.on { background: var(--teal); color: var(--navy); transform: translateY(-10px); }
 .afl .tp .sc .top { display: flex; justify-content: space-between; align-items: center; font: 400 10.5px/1 var(--tsans); letter-spacing: 0.12em; color: #8ca1ad; }
 .afl .tp .sc.on .top { color: var(--navy); }
@@ -209,10 +251,12 @@ export const TP_CSS = `
 .afl .tp .t-bar .ls { min-width: 760px; }
 .afl .tp .t-intro { grid-template-columns: minmax(0, 1fr); }
 .afl .tp .t-rows { grid-template-columns: minmax(0, 1fr); gap: 36px; }
-.afl .tp .grid3 { grid-template-columns: minmax(0, 1fr); }
+.afl .tp .grid3, .afl .tp .grid3.two { grid-template-columns: minmax(0, 1fr); }
 .afl .tp .sc, .afl .tp .t-light .sc { min-height: 0; border: 1px solid rgba(255,255,255,0.16); border-top: 0; }
 .afl .tp .t-light .sc { border-color: var(--tline); }
 .afl .tp .sc.on { transform: none; }
+.afl .tp .grid3.two .sc:nth-child(n) { border-left-width: 1px; border-left-style: solid; }
+.afl .tp .grid3.two .sc:nth-child(3) { border-top: 0; }
 .afl .tp .t-head { display: block; }
 .afl .tp .t-head > p { margin-top: 22px; }
 }
@@ -253,18 +297,51 @@ const Arrow = ({ diagonal = false }) => (
 );
 
 // Cards that turn teal on hover or focus; one is always highlighted
-function CardGrid({ items, light = false }) {
+function CardGrid({ items, onPick, pickLabel, enter, kicker }) {
   const [on, setOn] = useState(0);
+  const [open, setOpen] = useState(-1);
+  const pick = (i) => { setOn(i); if (onPick) onPick(i); else if (items[i].how) setOpen(i); };
   return (
-    <div className="grid3">
-      {items.map((c, i) => (
-        <article key={c.title} className={'sc' + (on === i ? ' on' : '')} onMouseEnter={() => setOn(i)} onFocus={() => setOn(i)}>
-          <div className="top"><span>{String(i + 1).padStart(2, '0')}</span><button type="button" aria-label={c.title} onClick={() => setOn(i)}><Arrow diagonal /></button></div>
-          <div><h3>{c.title}</h3><p>{c.text}</p></div>
-          <div className="fig"><strong>{c.stat}</strong><span>{c.label}</span></div>
-        </article>
-      ))}
-    </div>
+    <>
+      <div className={'grid3' + (items.length === 4 ? ' two' : '')}>
+        {items.map((c, i) => (
+          <article key={c.title} className={'sc' + (on === i ? ' on' : '') + (c.how || onPick ? ' tap' : '')} onMouseEnter={() => setOn(i)} onFocus={() => setOn(i)} onClick={(e) => { if (!e.target.closest('button')) pick(i); }}>
+            <div className="top"><span>{String(i + 1).padStart(2, '0')}</span><button type="button" aria-label={`${pickLabel || 'How it works'}: ${c.title}`} title={pickLabel || 'How it works'} aria-haspopup={onPick ? undefined : 'dialog'} onClick={() => pick(i)}><Arrow diagonal /></button></div>
+            <div><h3>{c.title}</h3><p>{c.text}</p></div>
+            <div className="fig"><strong>{c.stat}</strong><span>{c.label}</span></div>
+          </article>
+        ))}
+      </div>
+      {open >= 0 && <Detail item={items[open]} n={open + 1} kicker={kicker} enter={enter} onClose={() => setOpen(-1)} />}
+    </>
+  );
+}
+
+// "How it works" panel for a card: where to find the feature and the steps to use it
+function Detail({ item, n, kicker, enter, onClose }) {
+  const closeRef = useRef(null);
+  useEffect(() => {
+    const prev = document.activeElement;
+    closeRef.current?.focus();
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); prev?.focus?.(); };
+  }, [onClose]);
+  // rendered at the top of the landing so it sits above the fixed top bar
+  return createPortal(
+    <div className="t-detail" role="dialog" aria-modal="true" aria-labelledby="t-detail-h" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="panel">
+        <div className="hd"><span>{kicker} · {String(n).padStart(2, '0')}</span><button ref={closeRef} type="button" className="x" aria-label="Close" onClick={onClose}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg></button></div>
+        <h3 id="t-detail-h">{item.title}</h3>
+        <p className="lead">{item.text}</p>
+        {item.where && <div className="where"><small>Where to find it</small><b>{item.where}</b></div>}
+        <div className="steps-k">How it works</div>
+        <ol>{item.how.map((h, i) => <li key={i}><span>{i + 1}</span><p>{h}</p></li>)}</ol>
+        <div className="fig"><strong>{item.stat}</strong><span>{item.label}</span></div>
+        <div className="acts"><button className="t-btn" type="button" onClick={() => { onClose(); enter && enter(); }}>Try it in A.F.A. <Arrow /></button><button className="t-dark" type="button" onClick={onClose}>Back</button></div>
+      </div>
+    </div>,
+    document.querySelector('.afl') || document.body
   );
 }
 
@@ -290,9 +367,9 @@ function Footer({ go }) {
 }
 
 const STEPS = [
-  { title: 'Record', text: 'Log income and spending across 38 categories, from transport top-ups to rent. Salary, rent and subscriptions can repeat automatically.', stat: '38', label: 'Categories' },
-  { title: 'Review', text: 'See your financial health score, savings rate, emergency-fund cover and net worth across cash, stocks, crypto and other assets.', stat: '0–100', label: 'Financial health\nscore' },
-  { title: 'Act', text: "Follow a personal action plan that sets out this month's priorities, from reducing card debt to claiming tax relief.", stat: 'Top 3', label: 'Priorities\nthis month' },
+  { title: 'Record', text: 'Log income and spending across 38 categories, from transport top-ups to rent. Salary, rent and subscriptions can repeat automatically.', stat: '38', label: 'Categories', where: "Transactions", how: ["Open Transactions and tap Add. Enter the amount, pick one of 38 categories and add a note if you like.", "Mark salary, rent or subscriptions as repeating, and A.F.A. adds them for you each month.", "Every entry flows straight into your dashboard, budget and financial health score."] },
+  { title: 'Review', text: 'See your financial health score, savings rate, emergency-fund cover and net worth across cash, stocks, crypto and other assets.', stat: '0–100', label: 'Financial health\nscore', where: "Dashboard and Analytics", how: ["Your dashboard shows this month's income, spending, savings and budget score at a glance.", "Analytics breaks spending down by category and flags budget warnings and unusual spending.", "Your financial health score sums it up from 0 to 100, with the reasons behind it."] },
+  { title: 'Act', text: "Follow a personal action plan that sets out this month's priorities, from reducing card debt to claiming tax relief.", stat: 'Top 3', label: 'Priorities\nthis month', where: "Analytics \u00b7 action plan", how: ["A.F.A. ranks what will help you most this month, such as paying down card debt or building an emergency fund.", "Each step shows why it matters and how much it could save or earn you.", "Ask A.F.A. AI about any step, and your plan updates as your numbers change."] },
 ];
 
 const PRINCIPLES = [
@@ -312,33 +389,39 @@ const COMPARE = [
 
 const GROUPS = [
   { kicker: 'Everyday', title: <>Manage your <em>money.</em></>, text: 'Record, review and act on your monthly finances.', cls: 't-light paper', items: [
-    { title: 'Dashboard', text: "This month's income, spending and savings at a glance, with the next step to take at the top.", stat: '1', label: 'Screen for\nyour whole position' },
-    { title: 'Transaction recorder', text: 'Log income and spending in a few taps, with a keypad on phones. Salary, rent and subscriptions can repeat automatically.', stat: '38', label: 'Categories,\nrepeating entries' },
-    { title: 'Apple Pay sync', text: 'Set up an iPhone Shortcut once, and each Apple Pay tap is added to your transactions the next time A.F.A. is open.', stat: 'Auto', label: 'Apple Pay taps\nrecorded for you' },
-    { title: 'Analytics and audit', text: 'Budget warnings, unusual spending and a category breakdown, with a printable monthly report.', stat: 'PDF', label: 'Monthly report' },
-    { title: 'Financial health', text: 'One score for savings rate, rent burden, emergency fund and investing, with alerts when something slips.', stat: '0–100', label: 'Financial health\nscore' },
-    { title: 'Your currency', text: 'Choose a preferred currency and every figure, including foreign stocks and crypto, is converted at live rates.', stat: 'FX', label: 'Live exchange\nrates' },
+    { title: 'Dashboard', text: "This month's income, spending and savings at a glance, with the next step to take at the top.", stat: '1', label: 'Screen for\nyour whole position', where: "Dashboard", how: ["Sign in and the dashboard opens first.", "The next step to take sits at the top, followed by this month's balances, cash flow and budget score.", "Scroll down for your transactions and charts, or use the menu to open any area."] },
+    { title: 'Transaction recorder', text: 'Log income and spending in a few taps, with a keypad on phones. Salary, rent and subscriptions can repeat automatically.', stat: '38', label: 'Categories,\nrepeating entries', where: "Transactions", how: ["Tap Add in Transactions, or use the keypad on your phone.", "Enter the amount, choose a category and save. It takes a few seconds.", "Set an entry to repeat for salary, rent or subscriptions, and it is added automatically."] },
+    { title: 'Apple Pay sync', text: 'Set up an iPhone Shortcut once, and each Apple Pay tap is added to your transactions the next time A.F.A. is open.', stat: 'Auto', label: 'Apple Pay taps\nrecorded for you', where: "Transactions \u00b7 Apple Pay sync", how: ["Open the Apple Pay sync card in Transactions and follow the guide to add the iPhone Shortcut.", "In Shortcuts, add a Transaction automation set to Run Immediately, so it runs after every Apple Pay tap.", "The next time you open A.F.A., new taps appear in your transactions, ready to categorise."] },
+    { title: 'Analytics and audit', text: 'Budget warnings, unusual spending and a category breakdown, with a printable monthly report.', stat: 'PDF', label: 'Monthly report', where: "Analytics & Audit", how: ["Open Analytics to see spending by category against your budget.", "Warnings flag categories running over budget and spending that looks unusual for you.", "Download a printable monthly report as a PDF."] },
+    { title: 'Financial health', text: 'One score for savings rate, rent burden, emergency fund and investing, with alerts when something slips.', stat: '0–100', label: 'Financial health\nscore', where: "Dashboard and Analytics", how: ["A.F.A. scores your finances from 0 to 100 from what you record.", "The score weighs your savings rate, rent burden, emergency fund and investing.", "When something slips you get an alert, along with the step that would lift your score."] },
+    { title: 'Your currency', text: 'Choose a preferred currency and every figure, including foreign stocks and crypto, is converted at live rates.', stat: 'FX', label: 'Live exchange\nrates', where: "Sign-up and Settings", how: ["Choose your preferred currency when you sign up, or change it any time in Settings.", "Every figure, including foreign stocks and crypto, is shown in that currency.", "Conversions use live exchange rates, so totals stay current."] },
   ] },
   { kicker: 'Investing', title: <>Research, track and <em>practise.</em></>, text: 'Stocks, crypto and every other asset you own, with analysis you can check.', cls: 't-navy', items: [
-    { title: 'Investment portfolio', text: 'Track holdings on major exchanges with live quotes, gains and allocation, shown in your currency.', stat: 'Live', label: 'Quotes' },
-    { title: 'Stock analysis', text: 'Indicators, valuation and a buy, hold or sell plan with entry, target and stop prices.', stat: '12', label: 'Indicators,\nDCF and P/E' },
-    { title: 'Simulated trading', text: 'Practise on stocks and leveraged products, with fees, currency conversion and call-level alerts.', stat: '$0', label: 'Real capital\nat risk' },
-    { title: 'Crypto and other assets', text: 'Bitcoin and other coins at live prices, plus bonds, funds, gold, deposits, property and insurance savings.', stat: '10', label: 'Asset types' },
-    { title: 'Watchlist', text: 'Save the stocks you follow and open their analysis or a practice trade in one tap.', stat: '1 tap', label: 'To analysis\nor a trade' },
-    { title: 'Market news', text: "Live headlines, plus company news scored for sentiment in each stock's analysis.", stat: 'Live', label: 'Auto-refresh' },
+    { title: 'Investment portfolio', text: 'Track holdings on major exchanges with live quotes, gains and allocation, shown in your currency.', stat: 'Live', label: 'Quotes', where: "Investments \u00b7 My Assets", how: ["Open Investments and add a stock with its ticker, number of shares and cost.", "Live quotes update your market value, gains and allocation automatically.", "Everything is converted into your preferred currency."] },
+    { title: 'Stock analysis', text: 'Indicators, valuation and a buy, hold or sell plan with entry, target and stop prices.', stat: '12', label: 'Indicators,\nDCF and P/E', where: "Investments \u00b7 Stock Analysis", how: ["Search for a ticker in Stock Analysis.", "See the price chart, 12 indicators and a valuation from DCF and P/E.", "Get a buy, hold or sell plan with entry, target and stop prices, plus the method behind it."] },
+    { title: 'Simulated trading', text: 'Practise on stocks and leveraged products, with fees, currency conversion and call-level alerts.', stat: '$0', label: 'Real capital\nat risk', where: "Investments \u00b7 Simulated Trading", how: ["Open Simulated Trading to get a practice account with virtual cash.", "Buy and sell stocks or leveraged products, with real fees and currency conversion.", "Watch for call-level alerts and learn how leverage behaves, without risking real money."] },
+    { title: 'Crypto and other assets', text: 'Bitcoin and other coins at live prices, plus bonds, funds, gold, deposits, property and insurance savings.', stat: '10', label: 'Asset types', where: "Investments \u00b7 My Assets", how: ["Add Bitcoin or other coins and their prices update live.", "Add bonds, funds, gold, deposits, property or insurance savings as well.", "Your net worth combines everything, minus any debts."] },
+    { title: 'Watchlist', text: 'Save the stocks you follow and open their analysis or a practice trade in one tap.', stat: '1 tap', label: 'To analysis\nor a trade', where: "Investments \u00b7 Stock Analysis", how: ["Tap the star next to any stock in Stock Analysis to save it.", "Your watchlist keeps the stocks you follow in one place.", "Open a stock's analysis or start a practice trade in one tap."] },
+    { title: 'Market news', text: "Live headlines, plus company news scored for sentiment in each stock's analysis.", stat: 'Live', label: 'Auto-refresh', where: "Investments \u00b7 Market News", how: ["Open Market News for live headlines, refreshed automatically.", "In Stock Analysis, each company's recent news is scored for sentiment.", "Use it alongside the indicators before you decide."] },
   ] },
   { kicker: 'Planning', title: <>Plan <em>ahead.</em></>, text: 'Long-term wealth, debt, retirement savings and tax.', cls: 't-light', items: [
-    { title: 'Wealth planner', text: 'Model saving and investing scenarios and see how compounding grows your money over the years.', stat: '30y', label: 'Scenarios\nyou can adjust' },
-    { title: 'Debt health', text: 'See your debt-free date with the avalanche or snowball method, month by month, and the interest you save.', stat: '2', label: 'Payoff methods' },
-    { title: 'Retirement and tax', text: 'Pension contributions, voluntary top-ups and the tax they can save, worked out from your income.', stat: 'Tax', label: 'Relief from\nyour income' },
+    { title: 'Wealth planner', text: 'Model saving and investing scenarios and see how compounding grows your money over the years.', stat: '30y', label: 'Scenarios\nyou can adjust', where: "Wealth Planner", how: ["Set what you start with, how much you add each month and the return you expect.", "Move the sliders to compare scenarios over up to 30 years.", "See how compounding grows your money and when you could reach your goal."] },
+    { title: 'Debt health', text: 'See your debt-free date with the avalanche or snowball method, month by month, and the interest you save.', stat: '2', label: 'Payoff methods', where: "Debt Health", how: ["Add each card or loan with its balance, interest rate and monthly payment.", "Choose the avalanche (highest interest first) or snowball (smallest balance first) method.", "See your debt-free date month by month and the interest you save."] },
+    { title: 'Retirement and tax', text: 'Pension contributions, voluntary top-ups and the tax they can save, worked out from your income.', stat: 'Tax', label: 'Relief from\nyour income', where: "Retirement & Tax", how: ["Enter your income and current pension contributions.", "See how voluntary top-ups grow your retirement savings.", "Find out how much tax those contributions could save you."] },
   ] },
   { kicker: 'Assistant', title: <>Guidance from <em>A.F.A. AI.</em></>, text: 'Ask questions and get a plan, with the reasons shown.', cls: 't-light paper', items: [
-    { title: 'A.F.A. AI chat', text: 'Ask about your spending, your portfolio or a stock, and get answers based on your own numbers.', stat: '24/7', label: 'Answers' },
-    { title: 'Personal action plan', text: "This month's priorities, ranked and explained, from reducing card debt to claiming tax relief.", stat: 'Top 3', label: 'Priorities\nthis month' },
-    { title: 'Market pulse', text: 'Major indices, exchange rates and Bitcoin in a live strip at the top of the app.', stat: '1 min', label: 'Refresh' },
+    { title: 'A.F.A. AI chat', text: 'Ask about your spending, your portfolio or a stock, and get answers based on your own numbers.', stat: '24/7', label: 'Answers', where: "A.F.A. AI Chat", how: ["Open A.F.A. AI Chat and ask a question in your own words.", "Answers use your own numbers: spending, savings, portfolio and goals.", "Ask it to explain any figure or recommendation in the app."] },
+    { title: 'Personal action plan', text: "This month's priorities, ranked and explained, from reducing card debt to claiming tax relief.", stat: 'Top 3', label: 'Priorities\nthis month', where: "Analytics \u00b7 action plan", how: ["A.F.A. picks this month's top three priorities from your records.", "Each one explains why it matters and what to do.", "Your plan refreshes as you record more and your numbers change."] },
+    { title: 'Market pulse', text: 'Major indices, exchange rates and Bitcoin in a live strip at the top of the app.', stat: '1 min', label: 'Refresh', where: "Top of the app", how: ["A live strip at the top of the app shows major indices, exchange rates and Bitcoin.", "Prices refresh every minute.", "Use it as a quick check before you open Investments."] },
   ] },
 ];
 
+// The four areas of the app, summarised on the Overview page (counts come from GROUPS)
+const AREAS = GROUPS.map((g) => ({
+  title: { Everyday: 'Everyday money', Investing: 'Investing', Planning: 'Planning ahead', Assistant: 'A.F.A. AI' }[g.kicker],
+  text: g.text + ' ' + g.items.map((i) => i.title).join(', ') + '.',
+  stat: String(g.items.length), label: 'Tools',
+}));
 
 // Live market bar (the template's market pulse): US indices from Tencent quotes with the latest session's minute line,
 // Bitcoin and Ether from CoinGecko with their 7-day line. Refreshes every minute; a failed source keeps its last values.
@@ -447,7 +530,7 @@ export function HomeSections({ go, enter }) {
             <div><div className="kick light">How it works</div><h2>From your first record<br /><em>to a plan you can act on.</em></h2></div>
             <p>Three steps, repeated every month. Your position and priorities update as your finances change.</p>
           </div>
-          <CardGrid items={STEPS} />
+          <CardGrid items={STEPS} enter={enter} kicker="How it works" />
           <p className="t-note">Figures describe the platform's scope. A.F.A. provides educational information, not licensed financial advice.</p>
         </section>
 
@@ -459,8 +542,57 @@ export function HomeSections({ go, enter }) {
 
 export default function TemplatePages({ page, go, enter }) {
   const view = (p) => 'tp' + (page === p ? ' on' : '');
+  // Overview area cards open Features at that group
+  const toGroup = (kicker) => {
+    go('features')({ preventDefault() {} });
+    setTimeout(() => { const el = document.getElementById('feat-' + kicker.toLowerCase()); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 80);
+  };
   return (
     <>
+      {/* Overview */}
+      <main className={view('overview')} aria-label="Overview">
+        <section className="t-hero short">
+          <img className="art" src={overviewBg} alt="" />
+          <div className="ov" /><div className="cols" aria-hidden="true" />
+          <div className="in">
+            <p className="eyebrow2">Overview</p>
+            <h1>Your whole money life, <em>on one screen.</em></h1>
+            <p className="copy">See where every dollar goes, how healthy your finances are and exactly what to do next. One app for spending, saving, investing and planning ahead.</p>
+          </div>
+        </section>
+
+        <section className="t-intro pad">
+          <div className="kick">The dashboard</div>
+          <div className="body">
+            <h2>Know where you stand<br /><em>in five seconds.</em></h2>
+            <p>Open A.F.A. and the most useful next step sits at the top, followed by this month's income, spending, savings and your budget score. Every number links to the detail behind it.</p>
+            <a className="t-dark" href="#features" onClick={go('features')}>See every feature <Arrow /></a>
+          </div>
+          <Shot src={shotOverview} label="A.F.A. · Dashboard" alt="The A.F.A. dashboard: next step, balances, cash flow and budget score" w={1400} h={759} />
+        </section>
+
+        <section className="t-navy pad">
+          <div className="t-head">
+            <div><div className="kick light">How it works</div><h2>From your first record<br /><em>to a plan you can act on.</em></h2></div>
+            <p>Three steps, repeated every month. Your position and priorities update as your finances change.</p>
+          </div>
+          <CardGrid items={STEPS} enter={enter} kicker="How it works" />
+        </section>
+
+        <section className="t-light paper pad">
+          <div className="t-head">
+            <div><div className="kick">Inside the app</div><h2>Four areas,<br /><em>one assistant.</em></h2></div>
+            <p>Everything A.F.A. does, grouped the way you think about money.</p>
+          </div>
+          {SHOWS.Investing()}
+          <CardGrid items={AREAS} onPick={(i) => toGroup(GROUPS[i].kicker)} pickLabel="See these features" />
+          <p className="t-note">Screens show a sample account. A.F.A. provides educational information, not licensed financial advice.</p>
+        </section>
+
+        <Closing kicker="Get started" title={<>Your future self<br />will <em>thank you.</em></>} enter={enter} />
+        <Footer go={go} />
+      </main>
+
       {/* Why A.F.A. */}
       <main className={view('why-afa')} aria-label="Why A.F.A.">
         <section className="t-hero short">
@@ -521,13 +653,13 @@ export default function TemplatePages({ page, go, enter }) {
         </section>
 
         {GROUPS.map((g) => (
-          <section className={g.cls + ' pad'} key={g.kicker}>
+          <section className={g.cls + ' pad'} key={g.kicker} id={'feat-' + g.kicker.toLowerCase()}>
             <div className="t-head">
               <div><div className={'kick' + (g.cls === 't-navy' ? ' light' : '')}>{g.kicker}</div><h2>{g.title}</h2></div>
               <p>{g.text}</p>
             </div>
             {SHOWS[g.kicker] && React.createElement(SHOWS[g.kicker])}
-            <CardGrid items={g.items} />
+            <CardGrid items={g.items} enter={enter} kicker={g.kicker} />
           </section>
         ))}
 
